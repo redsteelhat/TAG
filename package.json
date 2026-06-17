@@ -15,6 +15,7 @@
     "db:validate": "pnpm --filter @tag/api db:validate",
     "dev": "pnpm -r --parallel --if-present dev",
     "dev:api": "pnpm --filter @tag/api dev",
+    "dev:mobile": "pnpm --filter @tag/mobile dev",
     "dev:web": "pnpm --filter @tag/web dev",
     "lint": "pnpm -r --if-present lint",
     "postinstall": "pnpm db:generate",
