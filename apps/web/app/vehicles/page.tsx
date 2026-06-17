@@ -1,12 +1,10 @@
-import { ModulePlaceholder } from '../../components/module-placeholder';
+import { AppShell } from '../../components/app-shell';
+import { VehicleCreateForm } from '../../components/vehicle-create-form';
 
 export default function VehiclesPage() {
   return (
-    <ModulePlaceholder
-      description="Arac profili, yakit tipi, ortalama tuketim ve amortisman ayarlari bu modulle yonetilecek."
-      eyebrow="Arac yonetimi"
-      primaryActionLabel="Arac Ekle"
-      title="Araclar"
-    />
+    <AppShell eyebrow="Arac yonetimi" title="Arac olusturma">
+      <VehicleCreateForm />
+    </AppShell>
   );
 }

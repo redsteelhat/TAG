@@ -20,12 +20,18 @@ export interface AuthResponse {
 
 export async function postJson<TResponse>(
   path: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  options?: {
+    accessToken?: string;
+  }
 ) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      ...(options?.accessToken
+        ? { Authorization: `Bearer ${options.accessToken}` }
+        : {})
     },
     body: JSON.stringify(body)
   });
