@@ -55,6 +55,40 @@ Backend hedefi:
 - Swagger
 - Sentry + OpenTelemetry
 
+## Local API ve DB Kurulumu
+
+Gereksinimler:
+
+- Node.js `22.12.0` veya `24.x`
+- pnpm `9.14.2`
+- Docker Desktop
+
+Kurulum:
+
+```bash
+pnpm install
+docker compose up -d postgres
+cp .env.example .env
+pnpm db:generate
+pnpm db:migrate
+pnpm dev
+```
+
+Health check:
+
+```bash
+curl http://localhost:3001/api/v1/health
+```
+
+Prisma komutlari:
+
+```bash
+pnpm db:validate
+pnpm db:generate
+pnpm db:migrate
+pnpm db:studio
+```
+
 ## Marka ve Hukuki Not
 
 Bu uygulama bagimsiz bir finans takip aracidir. Marti veya TAG markalarinin resmi urunu, is ortagi ya da entegrasyonu degildir.
@@ -66,4 +100,3 @@ Resmi izin olmadan Marti/TAG hesabina otomatik baglanma, scraping veya resmi olm
 - Production MVP hedefi: 13 Eylul 2026
 - Beta yayin hedefi: 14-20 Eylul 2026
 - Gercek kullanici validasyonu: Eylul 2026 sonu
-

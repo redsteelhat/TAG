@@ -5,6 +5,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "nest start --watch",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:validate": "prisma validate",
+    "db:studio": "prisma studio",
+    "prisma": "prisma",
     "start": "node dist/main.js",
     "start:prod": "node dist/main.js",
     "test": "jest --passWithNoTests",
@@ -15,6 +20,7 @@
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-express": "^11.1.6",
+    "@prisma/client": "^6.19.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "reflect-metadata": "^0.2.2",
@@ -28,6 +34,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.3",
     "jest": "^30.0.0",
+    "prisma": "^6.19.3",
     "ts-jest": "^29.4.0",
     "ts-node": "^10.9.2"
   },
