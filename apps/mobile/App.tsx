@@ -5,13 +5,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View
 } from 'react-native';
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   clearStoredValues,
   getStoredJson,
@@ -28,8 +28,6 @@ const metrics = [
   ['Saatlik net', '243 TL'],
   ['Toplam km', '103 km']
 ];
-
-const quickActions = ['Sefer Ekle', 'Gider Ekle', 'Yakit Ekle', 'Vardiya'];
 
 const expenses = [
   ['Yakit', '820 TL'],
@@ -54,6 +52,7 @@ const mainTabs: Array<{ key: MainTab; label: string; icon: string }> = [
 type AuthMode = 'login' | 'register';
 type MainTab = 'today' | 'record' | 'reports' | 'vehicles';
 type FuelType = 'DIESEL' | 'GASOLINE' | 'LPG' | 'HYBRID' | 'ELECTRIC' | 'OTHER';
+type PaymentMethod = 'CASH' | 'CARD' | 'DIGITAL' | 'MIXED' | 'OTHER';
 
 interface AuthUser {
   id: string;
@@ -102,6 +101,23 @@ interface VehicleFormState {
   odometerKm: string;
 }
 
+interface QuickTripFormState {
+  grossIncome: string;
+  tripKm: string;
+  deadheadKm: string;
+  durationMinutes: string;
+  paymentMethod: PaymentMethod;
+  note: string;
+}
+
+interface Trip {
+  id: string;
+  totalIncome: string;
+  totalKm: string;
+  estimatedFuelCost: string;
+  trueNetProfit: string;
+}
+
 const initialFormState: AuthFormState = {
   fullName: '',
   email: '',
@@ -119,6 +135,15 @@ const initialVehicleFormState: VehicleFormState = {
   odometerKm: ''
 };
 
+const initialQuickTripFormState: QuickTripFormState = {
+  deadheadKm: '',
+  durationMinutes: '',
+  grossIncome: '',
+  note: '',
+  paymentMethod: 'DIGITAL',
+  tripKm: ''
+};
+
 const fuelOptions: Array<{ label: string; value: FuelType }> = [
   { label: 'Benzin', value: 'GASOLINE' },
   { label: 'Dizel', value: 'DIESEL' },
@@ -128,7 +153,23 @@ const fuelOptions: Array<{ label: string; value: FuelType }> = [
   { label: 'Diger', value: 'OTHER' }
 ];
 
+const paymentMethodOptions: Array<{ label: string; value: PaymentMethod }> = [
+  { label: 'Dijital', value: 'DIGITAL' },
+  { label: 'Nakit', value: 'CASH' },
+  { label: 'Kart', value: 'CARD' },
+  { label: 'Karma', value: 'MIXED' },
+  { label: 'Diger', value: 'OTHER' }
+];
+
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
@@ -224,6 +265,7 @@ export default function App() {
 
   return (
     <DashboardScreen
+      accessToken={accessToken}
       onChangeVehicle={handleChangeVehicle}
       onLogout={handleLogout}
       selectedVehicle={selectedVehicle}
@@ -727,11 +769,13 @@ function VehicleSelectionScreen({
 }
 
 function DashboardScreen({
+  accessToken,
   onChangeVehicle,
   onLogout,
   selectedVehicle,
   user
 }: {
+  accessToken: string;
   onChangeVehicle: () => Promise<void>;
   onLogout: () => Promise<void>;
   selectedVehicle: Vehicle;
@@ -767,7 +811,13 @@ function DashboardScreen({
           </View>
 
           {activeTab === 'today' ? <TodayTabContent /> : null}
-          {activeTab === 'record' ? <RecordTabContent /> : null}
+          {activeTab === 'record' ? (
+            <RecordTabContent
+              accessToken={accessToken}
+              apiBaseUrl={getApiBaseUrl()}
+              selectedVehicle={selectedVehicle}
+            />
+          ) : null}
           {activeTab === 'reports' ? <ReportsTabContent /> : null}
           {activeTab === 'vehicles' ? (
             <VehiclesTabContent
@@ -855,17 +905,263 @@ function TodayTabContent() {
   );
 }
 
-function RecordTabContent() {
+function RecordTabContent({
+  accessToken,
+  apiBaseUrl,
+  selectedVehicle
+}: {
+  accessToken: string;
+  apiBaseUrl: string;
+  selectedVehicle: Vehicle;
+}) {
+  const [form, setForm] = useState<QuickTripFormState>(
+    initialQuickTripFormState
+  );
+  const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastTrip, setLastTrip] = useState<Trip | null>(null);
+
+  function updateField(field: keyof QuickTripFormState, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function submitQuickTrip() {
+    const grossIncome = normalizeDecimalInput(form.grossIncome);
+    const tripKm = normalizeDecimalInput(form.tripKm);
+    const deadheadKm = normalizeDecimalInput(form.deadheadKm);
+    const durationMinutes = form.durationMinutes.trim()
+      ? Number(form.durationMinutes)
+      : undefined;
+
+    if (!grossIncome || Number(grossIncome) <= 0) {
+      setMessage('Gelir 0 TL uzerinde olmali.');
+      return;
+    }
+
+    if (!tripKm || Number(tripKm) < 0) {
+      setMessage('Sefer km zorunlu.');
+      return;
+    }
+
+    if (
+      durationMinutes !== undefined &&
+      (!Number.isInteger(durationMinutes) || durationMinutes < 0)
+    ) {
+      setMessage('Sure dakika olarak pozitif tam sayi olmali.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage(null);
+
+    try {
+      const response = await postJson<{ data: Trip }>(
+        `${apiBaseUrl}/trips`,
+        {
+          deadheadKm: deadheadKm || undefined,
+          durationMinutes,
+          grossIncome,
+          note: form.note.trim() || undefined,
+          paymentMethod: form.paymentMethod,
+          tripDate: getLocalDateInputValue(),
+          tripKm,
+          vehicleId: selectedVehicle.id
+        },
+        accessToken
+      );
+
+      setLastTrip(response.data);
+      setForm(initialQuickTripFormState);
+      setMessage('Sefer kaydi eklendi.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Sefer eklenemedi.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const totalKmPreview =
+    toNumber(normalizeDecimalInput(form.tripKm)) +
+    toNumber(normalizeDecimalInput(form.deadheadKm));
+
   return (
     <>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Hizli kayit</Text>
+        <View style={styles.sectionHeaderRow}>
+          <View>
+            <Text style={styles.sectionTitle}>Hizli sefer ekle</Text>
+            <Text style={styles.sectionSubtitle}>
+              {selectedVehicle.plateNumber} icin 10 saniyelik gelir kaydi.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.formRow}>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Gelir"
+              onChangeText={(value) => updateField('grossIncome', value)}
+              placeholder="450"
+              value={form.grossIncome}
+            />
+          </View>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Sefer km"
+              onChangeText={(value) => updateField('tripKm', value)}
+              placeholder="18"
+              value={form.tripKm}
+            />
+          </View>
+        </View>
+
+        <View style={styles.formRow}>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Bos km"
+              onChangeText={(value) => updateField('deadheadKm', value)}
+              placeholder="4"
+              value={form.deadheadKm}
+            />
+          </View>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="numeric"
+              keyboardType="number-pad"
+              label="Sure dk"
+              onChangeText={(value) => updateField('durationMinutes', value)}
+              placeholder="32"
+              value={form.durationMinutes}
+            />
+          </View>
+        </View>
+
+        <Text style={styles.inputLabel}>Odeme tipi</Text>
+        <View style={styles.optionGrid}>
+          {paymentMethodOptions.map((option) => {
+            const isActive = form.paymentMethod === option.value;
+
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => updateField('paymentMethod', option.value)}
+                style={[
+                  styles.optionButton,
+                  isActive ? styles.optionButtonActive : null
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    isActive ? styles.optionButtonTextActive : null
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <TextField
+          label="Not"
+          multiline
+          onChangeText={(value) => updateField('note', value)}
+          placeholder="Yogun trafik, ekstra bekleme..."
+          style={[styles.input, styles.textArea]}
+          value={form.note}
+        />
+
+        <View style={styles.quickTripPreview}>
+          <View>
+            <Text style={styles.shiftLabel}>Toplam km</Text>
+            <Text style={styles.shiftValue}>{formatNumber(totalKmPreview)} km</Text>
+          </View>
+          <View style={styles.autoCalcBadge}>
+            <Text style={styles.autoCalcBadgeText}>Yakit otomatik hesaplanir</Text>
+          </View>
+        </View>
+
+        {message ? (
+          <Text
+            style={[
+              styles.formAlert,
+              message.includes('eklendi') ? styles.formSuccess : null
+            ]}
+          >
+            {message}
+          </Text>
+        ) : null}
+
+        <Pressable
+          disabled={isSubmitting}
+          onPress={submitQuickTrip}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            (pressed || isSubmitting) && styles.primaryButtonPressed
+          ]}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Seferi Kaydet</Text>
+          )}
+        </Pressable>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Son sefer ozeti</Text>
+        {lastTrip ? (
+          <>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Toplam gelir</Text>
+              <Text style={styles.expenseAmount}>
+                {formatMoney(toNumber(lastTrip.totalIncome))}
+              </Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Toplam km</Text>
+              <Text style={styles.expenseAmount}>
+                {formatNumber(toNumber(lastTrip.totalKm))} km
+              </Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Tahmini yakit</Text>
+              <Text style={styles.expenseAmount}>
+                {formatMoney(toNumber(lastTrip.estimatedFuelCost))}
+              </Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Gercek net kar</Text>
+              <Text style={styles.expenseAmount}>
+                {formatMoney(toNumber(lastTrip.trueNetProfit))}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <Text style={styles.emptyText}>
+            Kayit sonrasi API hesapladigi gelir, km, yakit ve net kar burada
+            gorunur.
+          </Text>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Diger hizli kayitlar</Text>
         <View style={styles.actionGrid}>
-          {quickActions.map((action) => (
-            <Pressable key={action} style={styles.actionButton}>
-              <Text style={styles.actionText}>{action}</Text>
-            </Pressable>
-          ))}
+          {['Gider Ekle', 'Yakit Ekle', 'Paket Ekle', 'Bakim Ekle'].map(
+            (action) => (
+              <Pressable key={action} style={styles.actionButton}>
+                <Text style={styles.actionText}>{action}</Text>
+              </Pressable>
+            )
+          )}
         </View>
       </View>
 
@@ -879,18 +1175,6 @@ function RecordTabContent() {
           <Pressable style={styles.shiftButton}>
             <Text style={styles.shiftButtonText}>Baslat</Text>
           </Pressable>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Son kayit ozeti</Text>
-        <View style={styles.expenseRow}>
-          <Text style={styles.expenseName}>Sefer sayisi</Text>
-          <Text style={styles.expenseAmount}>6</Text>
-        </View>
-        <View style={styles.expenseRow}>
-          <Text style={styles.expenseName}>Toplam gelir</Text>
-          <Text style={styles.expenseAmount}>3.400 TL</Text>
         </View>
       </View>
     </>
@@ -1059,6 +1343,38 @@ function formatApiError(payload: unknown) {
   return error?.message ?? 'Islem tamamlanamadi.';
 }
 
+function getLocalDateInputValue() {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60 * 1000;
+
+  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+}
+
+function normalizeDecimalInput(value: string) {
+  return value.trim().replace(',', '.');
+}
+
+function toNumber(value: string | number | null | undefined) {
+  const parsedValue = Number(value);
+
+  return Number.isFinite(parsedValue) ? parsedValue : 0;
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('tr-TR', {
+    currency: 'TRY',
+    maximumFractionDigits: 0,
+    style: 'currency'
+  }).format(value);
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('tr-TR', {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 0
+  }).format(value);
+}
+
 function getApiBaseUrl() {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
@@ -1195,6 +1511,11 @@ const styles = StyleSheet.create({
     minHeight: 50,
     paddingHorizontal: 13
   },
+  textArea: {
+    minHeight: 82,
+    paddingTop: 12,
+    textAlignVertical: 'top'
+  },
   formAlert: {
     backgroundColor: '#fff1f1',
     borderColor: '#fecaca',
@@ -1206,6 +1527,11 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginBottom: 14,
     padding: 10
+  },
+  formSuccess: {
+    backgroundColor: '#e7f6f3',
+    borderColor: '#99d8cc',
+    color: '#115e59'
   },
   primaryButton: {
     alignItems: 'center',
@@ -1426,6 +1752,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginBottom: 12
   },
+  sectionSubtitle: {
+    color: '#62717c',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
+    marginTop: -6
+  },
   sectionHeaderRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -1553,6 +1886,29 @@ const styles = StyleSheet.create({
   },
   optionButtonTextActive: {
     color: '#ffffff'
+  },
+  quickTripPreview: {
+    alignItems: 'center',
+    backgroundColor: '#edf2f4',
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    minHeight: 66,
+    padding: 12
+  },
+  autoCalcBadge: {
+    backgroundColor: '#e7f6f3',
+    borderRadius: 8,
+    maxWidth: 150,
+    paddingHorizontal: 10,
+    paddingVertical: 8
+  },
+  autoCalcBadgeText: {
+    color: '#115e59',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center'
   },
   shiftPanel: {
     alignItems: 'center',
