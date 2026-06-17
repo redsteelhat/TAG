@@ -8,6 +8,7 @@ out/
 dist/
 build/
 coverage/
+*.tsbuildinfo
 .turbo/
 .expo/
 .expo-shared/
@@ -47,4 +48,3 @@ prisma/dev.db
 # Mobile
 android/
 ios/
-
