@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 const metrics = [
   {
     label: 'Bugunku brut gelir',
@@ -40,13 +42,13 @@ export default function HomePage() {
   return (
     <main className="app-shell">
       <aside className="sidebar" aria-label="Ana navigasyon">
-        <div className="brand">
+        <Link className="brand" href="/">
           <span className="brand-mark">TF</span>
           <div>
             <p className="brand-name">TAG Finans</p>
             <p className="brand-subtitle">Surucu operasyon paneli</p>
           </div>
-        </div>
+        </Link>
 
         <nav className="nav-list">
           <a className="nav-item active" href="/">
@@ -77,6 +79,12 @@ export default function HomePage() {
             <h1>Gercek net kar ozeti</h1>
           </div>
           <div className="actions">
+            <Link className="secondary-button button-link" href="/login">
+              Giris
+            </Link>
+            <Link className="secondary-button button-link" href="/register">
+              Kayit
+            </Link>
             <button className="secondary-button" type="button">
               Vardiya Baslat
             </button>
