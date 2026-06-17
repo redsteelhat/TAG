@@ -46,16 +46,18 @@ jobs:
             echo "has_mobile=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Setup pnpm
+        if: steps.detect.outputs.has_mobile == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.2
+
       - name: Setup Node
         if: steps.detect.outputs.has_mobile == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-
-      - name: Enable pnpm
-        if: steps.detect.outputs.has_mobile == 'true'
-        run: corepack enable
 
       - name: Install dependencies
         if: steps.detect.outputs.has_mobile == 'true'
@@ -73,4 +75,3 @@ jobs:
       - name: Build skipped
         if: steps.detect.outputs.has_mobile == 'false' || env.EXPO_TOKEN == ''
         run: echo "Mobile build skipped. Add apps/mobile and EXPO_TOKEN to enable EAS builds."
-

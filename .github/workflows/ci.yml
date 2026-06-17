@@ -34,16 +34,18 @@ jobs:
             echo "has_prisma=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Setup pnpm
+        if: steps.detect.outputs.has_node_project == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.2
+
       - name: Setup Node
         if: steps.detect.outputs.has_node_project == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-
-      - name: Enable pnpm
-        if: steps.detect.outputs.has_node_project == 'true'
-        run: corepack enable
 
       - name: Install dependencies
         if: steps.detect.outputs.has_node_project == 'true'

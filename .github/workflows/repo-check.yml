@@ -23,15 +23,17 @@ jobs:
           test -f API_CONTRACT_DRAFT.md
           test -f DESIGN_SYSTEM_STARTER.md
 
+      - name: Setup pnpm if project exists
+        if: hashFiles('package.json') != ''
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.2
+
       - name: Setup Node if project exists
         if: hashFiles('package.json') != ''
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Enable pnpm if project exists
-        if: hashFiles('package.json') != ''
-        run: corepack enable
 
       - name: Install dependencies if project exists
         if: hashFiles('package.json') != ''
@@ -43,4 +45,3 @@ jobs:
           pnpm run lint --if-present
           pnpm run test --if-present
           pnpm run build --if-present
-
