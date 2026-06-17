@@ -4,44 +4,19 @@ import {
   NotFoundException,
   Optional
 } from '@nestjs/common';
-import { PaymentMethodType, Prisma, Trip, Vehicle } from '@prisma/client';
+import { PaymentMethodType, Prisma, Trip } from '@prisma/client';
+import { IncomeCalculationService } from '../income-calculation/income-calculation.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShiftsService } from '../shifts/shifts.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { ListTripsQueryDto } from './dto/list-trips-query.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 
-interface TripCalculationInput {
-  cancellationIncome?: string | null;
-  deadheadKm?: string | null;
-  durationMinutes?: number | null;
-  endedAt?: Date | null;
-  grossIncome: string;
-  startedAt?: Date | null;
-  tipAmount?: string | null;
-  tripKm?: string | null;
-}
-
-interface TripCalculationResult {
-  allocatedDepreciationCost: Prisma.Decimal;
-  allocatedFixedCost: Prisma.Decimal;
-  allocatedMaintenanceCost: Prisma.Decimal;
-  allocatedOtherVariableCost: Prisma.Decimal;
-  allocatedPackageCost: Prisma.Decimal;
-  cashNetProfit: Prisma.Decimal;
-  durationMinutes: number | null;
-  estimatedFuelCost: Prisma.Decimal;
-  totalIncome: Prisma.Decimal;
-  totalKm: Prisma.Decimal;
-  trueNetProfit: Prisma.Decimal;
-}
-
 @Injectable()
 export class TripsService {
-  private readonly calculationVersion = 'trip-crud-v1';
-
   constructor(
     private readonly prisma: PrismaService,
+    private readonly incomeCalculationService: IncomeCalculationService,
     @Optional() private readonly shiftsService?: ShiftsService
   ) {}
 
@@ -54,11 +29,15 @@ export class TripsService {
 
     const startedAt = this.toOptionalDate(dto.startedAt);
     const endedAt = this.toOptionalDate(dto.endedAt);
-    const calculation = await this.calculateTrip(userId, vehicle, {
-      ...dto,
-      startedAt,
-      endedAt
-    });
+    const calculation = await this.incomeCalculationService.calculateTripIncome(
+      userId,
+      vehicle,
+      {
+        ...dto,
+        startedAt,
+        endedAt
+      }
+    );
 
     const trip = await this.prisma.trip.create({
       data: {
@@ -87,7 +66,8 @@ export class TripsService {
         allocated_other_variable_cost: calculation.allocatedOtherVariableCost,
         cash_net_profit: calculation.cashNetProfit,
         true_net_profit: calculation.trueNetProfit,
-        profit_calculation_version: this.calculationVersion,
+        profit_calculation_version:
+          this.incomeCalculationService.calculationVersion,
         note: dto.note
       }
     });
@@ -149,20 +129,24 @@ export class TripsService {
       dto.endedAt !== undefined
         ? this.toOptionalDate(dto.endedAt)
         : currentTrip.ended_at;
-    const calculation = await this.calculateTrip(userId, vehicle, {
-      cancellationIncome:
-        dto.cancellationIncome ?? currentTrip.cancellation_income.toFixed(2),
-      deadheadKm: dto.deadheadKm ?? currentTrip.deadhead_km.toFixed(2),
-      durationMinutes:
-        dto.durationMinutes !== undefined
-          ? dto.durationMinutes
-          : currentTrip.duration_minutes,
-      endedAt,
-      grossIncome: dto.grossIncome ?? currentTrip.gross_income.toFixed(2),
-      startedAt,
-      tipAmount: dto.tipAmount ?? currentTrip.tip_amount.toFixed(2),
-      tripKm: dto.tripKm ?? currentTrip.trip_km.toFixed(2)
-    });
+    const calculation = await this.incomeCalculationService.calculateTripIncome(
+      userId,
+      vehicle,
+      {
+        cancellationIncome:
+          dto.cancellationIncome ?? currentTrip.cancellation_income,
+        deadheadKm: dto.deadheadKm ?? currentTrip.deadhead_km,
+        durationMinutes:
+          dto.durationMinutes !== undefined
+            ? dto.durationMinutes
+            : currentTrip.duration_minutes,
+        endedAt,
+        grossIncome: dto.grossIncome ?? currentTrip.gross_income,
+        startedAt,
+        tipAmount: dto.tipAmount ?? currentTrip.tip_amount,
+        tripKm: dto.tripKm ?? currentTrip.trip_km
+      }
+    );
 
     const trip = await this.prisma.trip.update({
       where: {
@@ -197,7 +181,8 @@ export class TripsService {
         allocated_other_variable_cost: calculation.allocatedOtherVariableCost,
         cash_net_profit: calculation.cashNetProfit,
         true_net_profit: calculation.trueNetProfit,
-        profit_calculation_version: this.calculationVersion,
+        profit_calculation_version:
+          this.incomeCalculationService.calculationVersion,
         note: dto.note ?? currentTrip.note
       }
     });
@@ -237,88 +222,6 @@ export class TripsService {
     }
 
     await this.shiftsService?.recalculateShiftTotals(userId, shiftId);
-  }
-
-  private async calculateTrip(
-    userId: string,
-    vehicle: Vehicle,
-    input: TripCalculationInput
-  ): Promise<TripCalculationResult> {
-    const zero = new Prisma.Decimal(0);
-    const grossIncome = this.toDecimal(input.grossIncome);
-    const tipAmount = this.toDecimal(input.tipAmount ?? '0');
-    const cancellationIncome = this.toDecimal(input.cancellationIncome ?? '0');
-    const tripKm = this.toDecimal(input.tripKm ?? '0');
-    const deadheadKm = this.toDecimal(input.deadheadKm ?? '0');
-    const totalIncome = grossIncome.plus(tipAmount).plus(cancellationIncome);
-    const totalKm = tripKm.plus(deadheadKm);
-    const durationMinutes = this.resolveDurationMinutes(
-      input.startedAt,
-      input.endedAt,
-      input.durationMinutes ?? null
-    );
-    const estimatedFuelCost = await this.calculateEstimatedFuelCost(
-      userId,
-      vehicle,
-      totalKm
-    );
-    const allocatedPackageCost = zero;
-    const allocatedFixedCost = zero;
-    const allocatedMaintenanceCost = zero;
-    const allocatedDepreciationCost = zero;
-    const allocatedOtherVariableCost = zero;
-    const cashNetProfit = totalIncome.minus(estimatedFuelCost);
-    const trueNetProfit = cashNetProfit
-      .minus(allocatedPackageCost)
-      .minus(allocatedFixedCost)
-      .minus(allocatedMaintenanceCost)
-      .minus(allocatedDepreciationCost)
-      .minus(allocatedOtherVariableCost);
-
-    return {
-      allocatedDepreciationCost,
-      allocatedFixedCost,
-      allocatedMaintenanceCost,
-      allocatedOtherVariableCost,
-      allocatedPackageCost,
-      cashNetProfit,
-      durationMinutes,
-      estimatedFuelCost,
-      totalIncome,
-      totalKm,
-      trueNetProfit
-    };
-  }
-
-  private async calculateEstimatedFuelCost(
-    userId: string,
-    vehicle: Vehicle,
-    totalKm: Prisma.Decimal
-  ) {
-    if (totalKm.isZero()) {
-      return new Prisma.Decimal(0);
-    }
-
-    const latestFuelEntry = await this.prisma.fuelEntry.findFirst({
-      where: {
-        user_id: userId,
-        vehicle_id: vehicle.id,
-        deleted_at: null
-      },
-      orderBy: {
-        created_at: 'desc'
-      }
-    });
-
-    if (!latestFuelEntry) {
-      return new Prisma.Decimal(0);
-    }
-
-    return totalKm
-      .mul(vehicle.average_consumption_l_per_100km)
-      .div(100)
-      .mul(latestFuelEntry.price_per_liter)
-      .toDecimalPlaces(2);
   }
 
   private async findOwnedVehicle(userId: string, id: string) {
@@ -402,26 +305,6 @@ export class TripsService {
     return where;
   }
 
-  private resolveDurationMinutes(
-    startedAt?: Date | null,
-    endedAt?: Date | null,
-    fallback?: number | null
-  ) {
-    if (!startedAt || !endedAt) {
-      return fallback ?? null;
-    }
-
-    const durationMinutes = Math.round(
-      (endedAt.getTime() - startedAt.getTime()) / 60000
-    );
-
-    if (durationMinutes < 0) {
-      throw new BadRequestException('Trip end time must be after start time.');
-    }
-
-    return durationMinutes;
-  }
-
   private toDate(value: string) {
     const date = new Date(value);
 
@@ -438,10 +321,6 @@ export class TripsService {
     }
 
     return this.toDate(value);
-  }
-
-  private toDecimal(value: string | Prisma.Decimal) {
-    return value instanceof Prisma.Decimal ? value : new Prisma.Decimal(value);
   }
 
   private toTripResponse(trip: Trip) {

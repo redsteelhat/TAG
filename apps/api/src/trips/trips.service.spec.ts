@@ -1,49 +1,9 @@
-import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TripsService } from './trips.service';
 
 describe('TripsService', () => {
-  it('calculates duration from start and end dates', () => {
-    const service = new TripsService({} as never);
-    const duration = (
-      service as unknown as {
-        resolveDurationMinutes(
-          startedAt: Date,
-          endedAt: Date,
-          fallback: number | null
-        ): number | null;
-      }
-    ).resolveDurationMinutes(
-      new Date('2026-06-17T10:15:00+03:00'),
-      new Date('2026-06-17T10:47:00+03:00'),
-      null
-    );
-
-    expect(duration).toBe(32);
-  });
-
-  it('rejects negative trip duration', () => {
-    const service = new TripsService({} as never);
-
-    expect(() =>
-      (
-        service as unknown as {
-          resolveDurationMinutes(
-            startedAt: Date,
-            endedAt: Date,
-            fallback: number | null
-          ): number | null;
-        }
-      ).resolveDurationMinutes(
-        new Date('2026-06-17T10:47:00+03:00'),
-        new Date('2026-06-17T10:15:00+03:00'),
-        null
-      )
-    ).toThrow(BadRequestException);
-  });
-
   it('maps trip responses with fixed decimal strings', () => {
-    const service = new TripsService({} as never);
+    const service = new TripsService({} as never, {} as never);
     const response = (
       service as unknown as {
         toTripResponse(trip: Record<string, unknown>): {
