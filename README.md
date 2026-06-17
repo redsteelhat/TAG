@@ -68,7 +68,7 @@ Kurulum:
 ```bash
 pnpm install
 docker compose up -d postgres
-cp .env.example .env
+cp apps/api/.env.example apps/api/.env
 pnpm db:generate
 pnpm db:migrate
 pnpm dev

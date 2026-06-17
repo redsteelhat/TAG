@@ -65,6 +65,21 @@ export class TokenService {
     return payload;
   }
 
+  async verifyAccessToken(token: string) {
+    const payload = await this.jwtService.verifyAsync<AccessTokenPayload>(
+      token,
+      {
+        secret: this.getAccessSecret()
+      }
+    );
+
+    if (payload.type !== 'access') {
+      throw new Error('Invalid token type.');
+    }
+
+    return payload;
+  }
+
   parseDurationToMs(duration: string) {
     const match = /^(\d+)([smhd])$/.exec(duration);
 
@@ -111,4 +126,3 @@ export class TokenService {
     return this.configService.get<JwtExpiresIn>('JWT_REFRESH_TTL', '30d');
   }
 }
-
