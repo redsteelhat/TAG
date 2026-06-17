@@ -10,6 +10,7 @@
     "build": "pnpm -r --if-present build",
     "db:generate": "pnpm --filter @tag/api db:generate",
     "db:migrate": "pnpm --filter @tag/api db:migrate",
+    "db:seed": "pnpm --filter @tag/api db:seed",
     "db:studio": "pnpm --filter @tag/api db:studio",
     "db:validate": "pnpm --filter @tag/api db:validate",
     "dev": "pnpm --filter @tag/api dev",
