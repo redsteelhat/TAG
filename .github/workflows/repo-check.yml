@@ -39,6 +39,10 @@ jobs:
         if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client if project exists
+        if: hashFiles('apps/api/prisma/schema.prisma') != ''
+        run: pnpm db:generate
+
       - name: Run checks if configured
         if: hashFiles('package.json') != ''
         run: |

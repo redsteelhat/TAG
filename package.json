@@ -14,6 +14,7 @@
     "db:validate": "pnpm --filter @tag/api db:validate",
     "dev": "pnpm --filter @tag/api dev",
     "lint": "pnpm -r --if-present lint",
+    "postinstall": "pnpm db:generate",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck"
   },
