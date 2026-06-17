@@ -1,0 +1,46 @@
+name: Repo Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  docs-and-project-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required docs
+        run: |
+          test -f PRD.md
+          test -f MVP_SCOPE.md
+          test -f USER_FLOWS.md
+          test -f WIREFRAMES.md
+          test -f DB_SCHEMA_DRAFT.md
+          test -f API_CONTRACT_DRAFT.md
+          test -f DESIGN_SYSTEM_STARTER.md
+
+      - name: Setup Node if project exists
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm if project exists
+        if: hashFiles('package.json') != ''
+        run: corepack enable
+
+      - name: Install dependencies if project exists
+        if: hashFiles('package.json') != ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Run checks if configured
+        if: hashFiles('package.json') != ''
+        run: |
+          pnpm run lint --if-present
+          pnpm run test --if-present
+          pnpm run build --if-present
+
