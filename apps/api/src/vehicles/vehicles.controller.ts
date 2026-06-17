@@ -8,6 +8,7 @@ import {
   Post,
   UseGuards
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
@@ -16,10 +17,13 @@ import { VehiclesService } from './vehicles.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('vehicles')
+@ApiTags('Vehicles')
+@ApiBearerAuth('access-token')
 export class VehiclesController {
   constructor(private readonly vehiclesService: VehiclesService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a vehicle for the current user' })
   async create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateVehicleDto
@@ -30,6 +34,7 @@ export class VehiclesController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'List current user vehicles' })
   async findAll(@CurrentUser() user: AuthenticatedUser) {
     return {
       data: await this.vehiclesService.findAll(user.id)
@@ -37,6 +42,7 @@ export class VehiclesController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get a vehicle by id' })
   async findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return {
       data: await this.vehiclesService.findOne(user.id, id)
@@ -44,6 +50,7 @@ export class VehiclesController {
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Update a vehicle by id' })
   async update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
@@ -55,6 +62,7 @@ export class VehiclesController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Soft-delete a vehicle by id' })
   async remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return {
       data: await this.vehiclesService.remove(user.id, id)
@@ -62,6 +70,7 @@ export class VehiclesController {
   }
 
   @Post(':id/set-active')
+  @ApiOperation({ summary: 'Set a vehicle as active for the current user' })
   async setActive(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string
@@ -71,4 +80,3 @@ export class VehiclesController {
     };
   }
 }
-

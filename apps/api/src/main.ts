@@ -2,6 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { setupSwagger } from './swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -21,9 +22,9 @@ async function bootstrap() {
       transform: true
     })
   );
+  setupSwagger(app);
 
   await app.listen(port);
 }
 
 void bootstrap();
-
