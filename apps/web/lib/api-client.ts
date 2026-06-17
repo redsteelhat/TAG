@@ -45,6 +45,40 @@ export async function postJson<TResponse>(
   return payload as TResponse;
 }
 
+export async function getJson<TResponse>(
+  path: string,
+  options?: {
+    accessToken?: string;
+    query?: Record<string, string | number | undefined>;
+  }
+) {
+  const url = new URL(`${API_BASE_URL}${path}`);
+
+  if (options?.query) {
+    for (const [key, value] of Object.entries(options.query)) {
+      if (value !== undefined && value !== '') {
+        url.searchParams.set(key, String(value));
+      }
+    }
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      ...(options?.accessToken
+        ? { Authorization: `Bearer ${options.accessToken}` }
+        : {})
+    }
+  });
+
+  const payload = await response.json().catch(() => undefined);
+
+  if (!response.ok) {
+    throw new Error(formatApiError(payload));
+  }
+
+  return payload as TResponse;
+}
+
 function formatApiError(payload: unknown) {
   const error = payload as ApiErrorResponse | undefined;
 

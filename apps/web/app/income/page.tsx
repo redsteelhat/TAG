@@ -1,12 +1,10 @@
-import { ModulePlaceholder } from '../../components/module-placeholder';
+import { AppShell } from '../../components/app-shell';
+import { IncomeTripList } from '../../components/income-trip-list';
 
 export default function IncomePage() {
   return (
-    <ModulePlaceholder
-      description="Sefer bazli gelir listesi, hizli sefer ekleme ve gunluk brut gelir kartlari bu ekranda toplanacak."
-      eyebrow="Gelir operasyonu"
-      primaryActionLabel="Sefer Ekle"
-      title="Gelirler"
-    />
+    <AppShell eyebrow="Gelir operasyonu" title="Gelirler">
+      <IncomeTripList />
+    </AppShell>
   );
 }
