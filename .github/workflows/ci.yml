@@ -53,19 +53,19 @@ jobs:
 
       - name: Lint
         if: steps.detect.outputs.has_node_project == 'true'
-        run: pnpm run lint --if-present
+        run: pnpm lint
 
       - name: Typecheck
         if: steps.detect.outputs.has_node_project == 'true'
-        run: pnpm run typecheck --if-present
+        run: pnpm typecheck
 
       - name: Test
         if: steps.detect.outputs.has_node_project == 'true'
-        run: pnpm run test --if-present
+        run: pnpm test
 
       - name: Build
         if: steps.detect.outputs.has_node_project == 'true'
-        run: pnpm run build --if-present
+        run: pnpm build
 
       - name: Prisma validate
         if: steps.detect.outputs.has_node_project == 'true' && steps.detect.outputs.has_prisma == 'true'
