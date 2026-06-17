@@ -3,6 +3,20 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import {
+  Car,
+  Download,
+  Fuel,
+  LayoutDashboard,
+  Package,
+  Receipt,
+  ReceiptText,
+  Settings,
+  Target,
+  Wallet,
+  Wrench,
+  type LucideIcon
+} from 'lucide-react';
 
 interface AppShellProps {
   eyebrow: string;
@@ -11,13 +25,45 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-const navItems = [
-  { label: 'Dashboard', href: '/' },
-  { label: 'Gelirler', href: '/income' },
-  { label: 'Giderler', href: '/expenses' },
-  { label: 'Yakit', href: '/fuel' },
-  { label: 'Paketler', href: '/packages' },
-  { label: 'Raporlar', href: '/reports' }
+interface NavItem {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
+const navSections: NavSection[] = [
+  {
+    title: 'Genel',
+    items: [{ label: 'Dashboard', href: '/', icon: LayoutDashboard }]
+  },
+  {
+    title: 'Operasyon',
+    items: [
+      { label: 'Gelirler', href: '/income', icon: Wallet },
+      { label: 'Giderler', href: '/expenses', icon: Receipt },
+      { label: 'Yakit', href: '/fuel', icon: Fuel },
+      { label: 'Araclar', href: '/vehicles', icon: Car },
+      { label: 'Paketler', href: '/packages', icon: Package },
+      { label: 'Bakim', href: '/maintenance', icon: Wrench }
+    ]
+  },
+  {
+    title: 'Analiz',
+    items: [
+      { label: 'Raporlar', href: '/reports', icon: ReceiptText },
+      { label: 'Hedefler', href: '/goals', icon: Target },
+      { label: 'Disa Aktar', href: '/exports', icon: Download }
+    ]
+  },
+  {
+    title: 'Sistem',
+    items: [{ label: 'Ayarlar', href: '/settings', icon: Settings }]
+  }
 ];
 
 export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
@@ -35,20 +81,29 @@ export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
         </Link>
 
         <nav className="nav-list">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
+          {navSections.map((section) => (
+            <div className="nav-section" key={section.title}>
+              <p className="nav-section-title">{section.title}</p>
+              <div className="nav-section-items">
+                {section.items.map((item) => {
+                  const isActive = isActivePath(pathname, item.href);
+                  const Icon = item.icon;
 
-            return (
-              <Link
-                aria-current={isActive ? 'page' : undefined}
-                className={isActive ? 'nav-item active' : 'nav-item'}
-                href={item.href}
-                key={item.href}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
+                  return (
+                    <Link
+                      aria-current={isActive ? 'page' : undefined}
+                      className={isActive ? 'nav-item active' : 'nav-item'}
+                      href={item.href}
+                      key={item.href}
+                    >
+                      <Icon aria-hidden="true" className="nav-item-icon" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className="sidebar-footer">
@@ -70,4 +125,12 @@ export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
       </section>
     </main>
   );
+}
+
+function isActivePath(pathname: string, href: string) {
+  if (href === '/') {
+    return pathname === href;
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
