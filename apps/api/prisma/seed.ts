@@ -1,4 +1,4 @@
-import { ExpenseType, PrismaClient } from '@prisma/client';
+import { ExpenseType, PaymentMethodType, PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -120,6 +120,39 @@ const systemCategories = [
   }
 ];
 
+const systemPaymentMethods = [
+  {
+    id: 'pay_cash',
+    name: 'Nakit',
+    type: PaymentMethodType.CASH,
+    is_default: true
+  },
+  {
+    id: 'pay_card',
+    name: 'Kart',
+    type: PaymentMethodType.CARD,
+    is_default: false
+  },
+  {
+    id: 'pay_digital',
+    name: 'Dijital',
+    type: PaymentMethodType.DIGITAL,
+    is_default: false
+  },
+  {
+    id: 'pay_mixed',
+    name: 'Karma',
+    type: PaymentMethodType.MIXED,
+    is_default: false
+  },
+  {
+    id: 'pay_other',
+    name: 'Diger',
+    type: PaymentMethodType.OTHER,
+    is_default: false
+  }
+];
+
 async function main() {
   for (const category of systemCategories) {
     await prisma.category.upsert({
@@ -141,6 +174,26 @@ async function main() {
   }
 
   console.log(`Seeded ${systemCategories.length} system categories.`);
+
+  for (const paymentMethod of systemPaymentMethods) {
+    await prisma.paymentMethod.upsert({
+      where: {
+        id: paymentMethod.id
+      },
+      create: {
+        ...paymentMethod,
+        is_active: true
+      },
+      update: {
+        name: paymentMethod.name,
+        type: paymentMethod.type,
+        is_default: paymentMethod.is_default,
+        is_active: true
+      }
+    });
+  }
+
+  console.log(`Seeded ${systemPaymentMethods.length} system payment methods.`);
 }
 
 main()
@@ -151,4 +204,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
