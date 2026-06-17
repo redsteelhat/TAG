@@ -1,50 +1,15 @@
 import Link from 'next/link';
 import {
   CalendarClock,
-  Clock,
   Fuel,
   Gauge,
-  PackageCheck,
   Play,
   Plus,
   ReceiptText,
-  Route,
-  TrendingUp,
-  WalletCards,
   Wrench
 } from 'lucide-react';
 import { AppShell } from '../components/app-shell';
-
-const metrics = [
-  {
-    label: 'Bugunku brut gelir',
-    value: '3.850 TL',
-    detail: '7 sefer',
-    trend: '+18%',
-    icon: WalletCards
-  },
-  {
-    label: 'Bugunku net kar',
-    value: '1.460 TL',
-    detail: 'Yakit, paket ve sabit gider dusuldu',
-    trend: '+9%',
-    icon: TrendingUp
-  },
-  {
-    label: 'Km basi net kar',
-    value: '14,20 TL',
-    detail: '103 km toplam kullanim',
-    trend: 'Hedef ustu',
-    icon: Route
-  },
-  {
-    label: 'Saatlik net kar',
-    value: '243 TL',
-    detail: '6 saat aktif sure',
-    trend: 'Stabil',
-    icon: Clock
-  }
-];
+import { DailyIncomeDashboard } from '../components/daily-income-dashboard';
 
 const breakEvenItems = [
   ['Paket payi', '700 TL'],
@@ -104,23 +69,7 @@ export default function HomePage() {
       eyebrow="Bugun"
       title="Gercek net kar ozeti"
     >
-      <section className="metric-grid" aria-label="Gunluk metrikler">
-        {metrics.map((metric) => {
-          const Icon = metric.icon;
-
-          return (
-            <article className="metric-card" key={metric.label}>
-              <div className="metric-card-header">
-                <p>{metric.label}</p>
-                <Icon aria-hidden="true" className="metric-icon" />
-              </div>
-              <strong>{metric.value}</strong>
-              <span>{metric.detail}</span>
-              <small>{metric.trend}</small>
-            </article>
-          );
-        })}
-      </section>
+      <DailyIncomeDashboard />
 
       <section className="dashboard-grid">
         <div className="dashboard-main">
