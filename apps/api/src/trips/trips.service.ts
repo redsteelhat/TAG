@@ -1,10 +1,12 @@
 import {
   BadRequestException,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from '@nestjs/common';
 import { PaymentMethodType, Prisma, Trip, Vehicle } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ShiftsService } from '../shifts/shifts.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { ListTripsQueryDto } from './dto/list-trips-query.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
@@ -38,7 +40,10 @@ interface TripCalculationResult {
 export class TripsService {
   private readonly calculationVersion = 'trip-crud-v1';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly shiftsService?: ShiftsService
+  ) {}
 
   async create(userId: string, dto: CreateTripDto) {
     const vehicle = await this.findOwnedVehicle(userId, dto.vehicleId);
@@ -87,6 +92,8 @@ export class TripsService {
       }
     });
 
+    await this.recalculateShiftTotals(userId, trip.shift_id);
+
     return this.toTripResponse(trip);
   }
 
@@ -125,6 +132,7 @@ export class TripsService {
 
   async update(userId: string, id: string, dto: UpdateTripDto) {
     const currentTrip = await this.findOwnedTrip(userId, id);
+    const previousShiftId = currentTrip.shift_id;
     const vehicleId = dto.vehicleId ?? currentTrip.vehicle_id;
     const vehicle = await this.findOwnedVehicle(userId, vehicleId);
     const shiftId = dto.shiftId ?? currentTrip.shift_id;
@@ -194,11 +202,14 @@ export class TripsService {
       }
     });
 
+    await this.recalculateShiftTotals(userId, previousShiftId);
+    await this.recalculateShiftTotals(userId, trip.shift_id, previousShiftId);
+
     return this.toTripResponse(trip);
   }
 
   async remove(userId: string, id: string) {
-    await this.findOwnedTrip(userId, id);
+    const trip = await this.findOwnedTrip(userId, id);
 
     await this.prisma.trip.update({
       where: {
@@ -209,9 +220,23 @@ export class TripsService {
       }
     });
 
+    await this.recalculateShiftTotals(userId, trip.shift_id);
+
     return {
       success: true
     };
+  }
+
+  private async recalculateShiftTotals(
+    userId: string,
+    shiftId?: string | null,
+    ignoredShiftId?: string | null
+  ) {
+    if (!shiftId || shiftId === ignoredShiftId) {
+      return;
+    }
+
+    await this.shiftsService?.recalculateShiftTotals(userId, shiftId);
   }
 
   private async calculateTrip(

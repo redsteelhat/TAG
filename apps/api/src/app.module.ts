@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 import { ProfileModule } from './profile/profile.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ShiftsModule } from './shifts/shifts.module';
 import { TripsModule } from './trips/trips.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 
@@ -34,6 +35,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     AuthModule,
     ProfileModule,
     VehiclesModule,
+    ShiftsModule,
     TripsModule,
     HealthModule
   ],
