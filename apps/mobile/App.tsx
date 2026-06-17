@@ -17,6 +17,7 @@ import {
 const ACCESS_TOKEN_KEY = 'tag.accessToken';
 const REFRESH_TOKEN_KEY = 'tag.refreshToken';
 const USER_KEY = 'tag.user';
+const SELECTED_VEHICLE_KEY = 'tag.selectedVehicle';
 
 const metrics = [
   ['Bugunku net kar', '1.460 TL'],
@@ -34,6 +35,7 @@ const expenses = [
 ];
 
 type AuthMode = 'login' | 'register';
+type FuelType = 'DIESEL' | 'GASOLINE' | 'LPG' | 'HYBRID' | 'ELECTRIC' | 'OTHER';
 
 interface AuthUser {
   id: string;
@@ -53,11 +55,33 @@ interface ApiErrorResponse {
   message?: string | string[];
 }
 
+interface Vehicle {
+  id: string;
+  plateNumber: string;
+  brand?: string | null;
+  model?: string | null;
+  modelYear?: number | null;
+  fuelType: FuelType;
+  averageConsumptionLPer100Km: string;
+  odometerKm?: string | null;
+  isActive: boolean;
+}
+
 interface AuthFormState {
   fullName: string;
   email: string;
   phone: string;
   password: string;
+}
+
+interface VehicleFormState {
+  plateNumber: string;
+  brand: string;
+  model: string;
+  modelYear: string;
+  fuelType: FuelType;
+  averageConsumptionLPer100Km: string;
+  odometerKm: string;
 }
 
 const initialFormState: AuthFormState = {
@@ -67,20 +91,42 @@ const initialFormState: AuthFormState = {
   password: ''
 };
 
+const initialVehicleFormState: VehicleFormState = {
+  plateNumber: '',
+  brand: '',
+  model: '',
+  modelYear: '',
+  fuelType: 'GASOLINE',
+  averageConsumptionLPer100Km: '7.50',
+  odometerKm: ''
+};
+
+const fuelOptions: Array<{ label: string; value: FuelType }> = [
+  { label: 'Benzin', value: 'GASOLINE' },
+  { label: 'Dizel', value: 'DIESEL' },
+  { label: 'LPG', value: 'LPG' },
+  { label: 'Hibrit', value: 'HYBRID' },
+  { label: 'Elektrik', value: 'ELECTRIC' },
+  { label: 'Diger', value: 'OTHER' }
+];
+
 export default function App() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [isBooting, setIsBooting] = useState(true);
 
   useEffect(() => {
     async function restoreSession() {
-      const [storedToken, storedUser] = await Promise.all([
+      const [storedToken, storedUser, storedVehicle] = await Promise.all([
         getStoredItem(ACCESS_TOKEN_KEY),
-        getStoredItem(USER_KEY)
+        getStoredItem(USER_KEY),
+        getStoredItem(SELECTED_VEHICLE_KEY)
       ]);
 
       setAccessToken(storedToken);
       setUser(parseStoredUser(storedUser));
+      setSelectedVehicle(parseStoredVehicle(storedVehicle));
       setIsBooting(false);
     }
 
@@ -100,17 +146,30 @@ export default function App() {
 
     setAccessToken(response.data.accessToken);
     setUser(nextUser);
+    setSelectedVehicle(null);
+  }
+
+  async function handleVehicleSelected(vehicle: Vehicle) {
+    await setStoredItem(SELECTED_VEHICLE_KEY, JSON.stringify(vehicle));
+    setSelectedVehicle(vehicle);
+  }
+
+  async function handleChangeVehicle() {
+    await deleteStoredItem(SELECTED_VEHICLE_KEY);
+    setSelectedVehicle(null);
   }
 
   async function handleLogout() {
     await Promise.all([
       deleteStoredItem(ACCESS_TOKEN_KEY),
       deleteStoredItem(REFRESH_TOKEN_KEY),
-      deleteStoredItem(USER_KEY)
+      deleteStoredItem(USER_KEY),
+      deleteStoredItem(SELECTED_VEHICLE_KEY)
     ]);
 
     setAccessToken(null);
     setUser(null);
+    setSelectedVehicle(null);
   }
 
   if (isBooting) {
@@ -134,7 +193,25 @@ export default function App() {
     );
   }
 
-  return <DashboardScreen onLogout={handleLogout} user={user} />;
+  if (!selectedVehicle) {
+    return (
+      <VehicleSelectionScreen
+        accessToken={accessToken}
+        apiBaseUrl={getApiBaseUrl()}
+        onLogout={handleLogout}
+        onVehicleSelected={handleVehicleSelected}
+      />
+    );
+  }
+
+  return (
+    <DashboardScreen
+      onChangeVehicle={handleChangeVehicle}
+      onLogout={handleLogout}
+      selectedVehicle={selectedVehicle}
+      user={user}
+    />
+  );
 }
 
 function AuthScreen({
@@ -343,11 +420,303 @@ function TextField({
   );
 }
 
-function DashboardScreen({
+function VehicleSelectionScreen({
+  accessToken,
+  apiBaseUrl,
   onLogout,
+  onVehicleSelected
+}: {
+  accessToken: string;
+  apiBaseUrl: string;
+  onLogout: () => Promise<void>;
+  onVehicleSelected: (vehicle: Vehicle) => Promise<void>;
+}) {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [form, setForm] = useState<VehicleFormState>(initialVehicleFormState);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+
+  useEffect(() => {
+    loadVehicles().catch((error) => {
+      setMessage(
+        error instanceof Error ? error.message : 'Araclar yuklenemedi.'
+      );
+      setIsLoading(false);
+    });
+  }, []);
+
+  async function loadVehicles() {
+    setIsLoading(true);
+    setMessage(null);
+
+    const response = await getJson<{ data: Vehicle[] }>(
+      `${apiBaseUrl}/vehicles`,
+      accessToken
+    );
+
+    setVehicles(response.data);
+    setShowCreateForm(response.data.length === 0);
+    setIsLoading(false);
+  }
+
+  function updateField(field: keyof VehicleFormState, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function selectVehicle(vehicle: Vehicle) {
+    setIsSubmitting(true);
+    setMessage(null);
+
+    try {
+      const response = await postJson<{ data: Vehicle }>(
+        `${apiBaseUrl}/vehicles/${vehicle.id}/set-active`,
+        {},
+        accessToken
+      );
+
+      await onVehicleSelected(response.data);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Arac secilemedi.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function createVehicle() {
+    if (!form.plateNumber.trim()) {
+      setMessage('Plaka zorunlu.');
+      return;
+    }
+
+    if (!form.averageConsumptionLPer100Km.trim()) {
+      setMessage('Ortalama tuketim zorunlu.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage(null);
+
+    try {
+      const response = await postJson<{ data: Vehicle }>(
+        `${apiBaseUrl}/vehicles`,
+        {
+          plateNumber: form.plateNumber.trim(),
+          brand: form.brand.trim() || undefined,
+          model: form.model.trim() || undefined,
+          modelYear: form.modelYear ? Number(form.modelYear) : undefined,
+          fuelType: form.fuelType,
+          averageConsumptionLPer100Km: form.averageConsumptionLPer100Km.trim(),
+          odometerKm: form.odometerKm.trim() || undefined
+        },
+        accessToken
+      );
+
+      await onVehicleSelected(response.data);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Arac olusturulamadi.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="dark" />
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerTitleBlock}>
+            <Text style={styles.eyebrow}>Ilk kurulum</Text>
+            <Text style={styles.title}>Arac secimi</Text>
+            <Text style={styles.userLine}>
+              Gunluk net kar hesaplari secili araca gore tutulur.
+            </Text>
+          </View>
+          <Pressable onPress={onLogout} style={styles.logoutButton}>
+            <Text style={styles.logoutButtonText}>Cikis</Text>
+          </Pressable>
+        </View>
+
+        {message ? <Text style={styles.formAlert}>{message}</Text> : null}
+
+        {isLoading ? (
+          <View style={styles.section}>
+            <ActivityIndicator color="#115e59" />
+            <Text style={styles.emptyText}>Araclar yukleniyor</Text>
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Kayitli araclar</Text>
+              <Pressable onPress={loadVehicles} style={styles.secondaryButton}>
+                <Text style={styles.secondaryButtonText}>Yenile</Text>
+              </Pressable>
+            </View>
+
+            {vehicles.length > 0 ? (
+              vehicles.map((vehicle) => (
+                <Pressable
+                  disabled={isSubmitting}
+                  key={vehicle.id}
+                  onPress={() => selectVehicle(vehicle)}
+                  style={({ pressed }) => [
+                    styles.vehicleCard,
+                    vehicle.isActive && styles.vehicleCardActive,
+                    pressed && styles.vehicleCardPressed
+                  ]}
+                >
+                  <View style={styles.vehiclePlate}>
+                    <Text style={styles.vehiclePlateText}>
+                      {vehicle.plateNumber}
+                    </Text>
+                  </View>
+                  <View style={styles.vehicleInfo}>
+                    <Text style={styles.vehicleName}>
+                      {formatVehicleName(vehicle)}
+                    </Text>
+                    <Text style={styles.vehicleMeta}>
+                      {formatFuelType(vehicle.fuelType)} -{' '}
+                      {vehicle.averageConsumptionLPer100Km} lt/100 km
+                    </Text>
+                  </View>
+                  {vehicle.isActive ? (
+                    <Text style={styles.activeTag}>Aktif</Text>
+                  ) : null}
+                </Pressable>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>
+                Henuz arac yok. Baslamak icin ilk aracini ekle.
+              </Text>
+            )}
+
+            <Pressable
+              onPress={() => setShowCreateForm((current) => !current)}
+              style={styles.outlineButton}
+            >
+              <Text style={styles.outlineButtonText}>
+                {showCreateForm ? 'Formu kapat' : 'Yeni arac ekle'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {showCreateForm ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Yeni arac</Text>
+            <TextField
+              autoCapitalize="characters"
+              label="Plaka"
+              onChangeText={(value) => updateField('plateNumber', value)}
+              placeholder="34ABC123"
+              value={form.plateNumber}
+            />
+            <View style={styles.formRow}>
+              <View style={styles.formColumn}>
+                <TextField
+                  label="Marka"
+                  onChangeText={(value) => updateField('brand', value)}
+                  placeholder="Toyota"
+                  value={form.brand}
+                />
+              </View>
+              <View style={styles.formColumn}>
+                <TextField
+                  label="Model"
+                  onChangeText={(value) => updateField('model', value)}
+                  placeholder="Corolla"
+                  value={form.model}
+                />
+              </View>
+            </View>
+            <View style={styles.formRow}>
+              <View style={styles.formColumn}>
+                <TextField
+                  inputMode="numeric"
+                  label="Model yili"
+                  onChangeText={(value) => updateField('modelYear', value)}
+                  placeholder="2020"
+                  value={form.modelYear}
+                />
+              </View>
+              <View style={styles.formColumn}>
+                <TextField
+                  inputMode="decimal"
+                  label="Km sayaci"
+                  onChangeText={(value) => updateField('odometerKm', value)}
+                  placeholder="85000"
+                  value={form.odometerKm}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.inputLabel}>Yakit tipi</Text>
+            <View style={styles.optionGrid}>
+              {fuelOptions.map((option) => (
+                <Pressable
+                  key={option.value}
+                  onPress={() => updateField('fuelType', option.value)}
+                  style={[
+                    styles.optionButton,
+                    form.fuelType === option.value && styles.optionButtonActive
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionButtonText,
+                      form.fuelType === option.value &&
+                        styles.optionButtonTextActive
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <TextField
+              inputMode="decimal"
+              label="Ortalama tuketim"
+              onChangeText={(value) =>
+                updateField('averageConsumptionLPer100Km', value)
+              }
+              placeholder="7.50"
+              value={form.averageConsumptionLPer100Km}
+            />
+
+            <Pressable
+              disabled={isSubmitting}
+              onPress={createVehicle}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                (pressed || isSubmitting) && styles.primaryButtonPressed
+              ]}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Araci Kaydet ve Sec</Text>
+              )}
+            </Pressable>
+          </View>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function DashboardScreen({
+  onChangeVehicle,
+  onLogout,
+  selectedVehicle,
   user
 }: {
+  onChangeVehicle: () => Promise<void>;
   onLogout: () => Promise<void>;
+  selectedVehicle: Vehicle;
   user: AuthUser | null;
 }) {
   return (
@@ -361,10 +730,18 @@ function DashboardScreen({
             <Text style={styles.userLine}>
               {user?.fullName || user?.email || 'Surucu'}
             </Text>
+            <Text style={styles.vehicleLine}>
+              {selectedVehicle.plateNumber} - {formatVehicleName(selectedVehicle)}
+            </Text>
           </View>
-          <Pressable onPress={onLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutButtonText}>Cikis</Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable onPress={onChangeVehicle} style={styles.logoutButton}>
+              <Text style={styles.logoutButtonText}>Arac</Text>
+            </Pressable>
+            <Pressable onPress={onLogout} style={styles.logoutButton}>
+              <Text style={styles.logoutButtonText}>Cikis</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.heroCard}>
@@ -412,11 +789,33 @@ function DashboardScreen({
   );
 }
 
-async function postJson<TResponse>(url: string, body: Record<string, unknown>) {
+async function getJson<TResponse>(url: string, accessToken?: string) {
+  const response = await fetch(url, {
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+    },
+    method: 'GET'
+  });
+
+  const payload = await response.json().catch(() => undefined);
+
+  if (!response.ok) {
+    throw new Error(formatApiError(payload));
+  }
+
+  return payload as TResponse;
+}
+
+async function postJson<TResponse>(
+  url: string,
+  body: Record<string, unknown>,
+  accessToken?: string
+) {
   const response = await fetch(url, {
     body: JSON.stringify(body),
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
     },
     method: 'POST'
   });
@@ -478,6 +877,32 @@ function parseStoredUser(value: string | null) {
   } catch {
     return null;
   }
+}
+
+function parseStoredVehicle(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as Vehicle;
+  } catch {
+    return null;
+  }
+}
+
+function formatVehicleName(vehicle: Vehicle) {
+  const name = [vehicle.brand, vehicle.model, vehicle.modelYear]
+    .filter(Boolean)
+    .join(' ');
+
+  return name || 'Arac profili';
+}
+
+function formatFuelType(fuelType: FuelType) {
+  const option = fuelOptions.find((fuel) => fuel.value === fuelType);
+
+  return option?.label ?? 'Diger';
 }
 
 async function getStoredItem(key: string) {
@@ -676,6 +1101,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 6
   },
+  vehicleLine: {
+    color: '#115e59',
+    fontSize: 13,
+    fontWeight: '900',
+    marginTop: 6
+  },
+  headerActions: {
+    alignItems: 'flex-end',
+    gap: 8
+  },
   logoutButton: {
     backgroundColor: '#e7f6f3',
     borderRadius: 8,
@@ -762,6 +1197,134 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     marginBottom: 12
+  },
+  sectionHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 12
+  },
+  secondaryButton: {
+    backgroundColor: '#edf2f4',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8
+  },
+  secondaryButtonText: {
+    color: '#115e59',
+    fontSize: 12,
+    fontWeight: '900'
+  },
+  outlineButton: {
+    alignItems: 'center',
+    borderColor: '#b7c6cc',
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginTop: 12,
+    minHeight: 48,
+    paddingHorizontal: 12
+  },
+  outlineButtonText: {
+    color: '#115e59',
+    fontSize: 14,
+    fontWeight: '900'
+  },
+  emptyText: {
+    color: '#62717c',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 21,
+    marginTop: 8
+  },
+  vehicleCard: {
+    alignItems: 'center',
+    backgroundColor: '#f8fafb',
+    borderColor: '#d9e2e6',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 10,
+    minHeight: 78,
+    padding: 12
+  },
+  vehicleCardActive: {
+    backgroundColor: '#e7f6f3',
+    borderColor: '#115e59'
+  },
+  vehicleCardPressed: {
+    opacity: 0.82
+  },
+  vehiclePlate: {
+    alignItems: 'center',
+    backgroundColor: '#101820',
+    borderRadius: 8,
+    justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 86,
+    paddingHorizontal: 10
+  },
+  vehiclePlateText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '900'
+  },
+  vehicleInfo: {
+    flex: 1
+  },
+  vehicleName: {
+    color: '#152028',
+    fontSize: 15,
+    fontWeight: '900'
+  },
+  vehicleMeta: {
+    color: '#62717c',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 5
+  },
+  activeTag: {
+    color: '#115e59',
+    fontSize: 12,
+    fontWeight: '900'
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 10
+  },
+  formColumn: {
+    flex: 1
+  },
+  optionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14
+  },
+  optionButton: {
+    alignItems: 'center',
+    backgroundColor: '#edf2f4',
+    borderColor: '#d9e2e6',
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 42,
+    minWidth: 86,
+    justifyContent: 'center',
+    paddingHorizontal: 10
+  },
+  optionButtonActive: {
+    backgroundColor: '#115e59',
+    borderColor: '#115e59'
+  },
+  optionButtonText: {
+    color: '#34444f',
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  optionButtonTextActive: {
+    color: '#ffffff'
   },
   actionGrid: {
     flexDirection: 'row',
