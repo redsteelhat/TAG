@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AppShell } from '../components/app-shell';
 
 const metrics = [
   {
@@ -40,110 +41,75 @@ const trips = [
 
 export default function HomePage() {
   return (
-    <main className="app-shell">
-      <aside className="sidebar" aria-label="Ana navigasyon">
-        <Link className="brand" href="/">
-          <span className="brand-mark">TF</span>
-          <div>
-            <p className="brand-name">TAG Finans</p>
-            <p className="brand-subtitle">Surucu operasyon paneli</p>
-          </div>
-        </Link>
-
-        <nav className="nav-list">
-          <a className="nav-item active" href="/">
-            Dashboard
-          </a>
-          <a className="nav-item" href="/">
-            Gelirler
-          </a>
-          <a className="nav-item" href="/">
-            Giderler
-          </a>
-          <a className="nav-item" href="/">
-            Yakit
-          </a>
-          <a className="nav-item" href="/">
-            Paketler
-          </a>
-          <a className="nav-item" href="/">
-            Raporlar
-          </a>
-        </nav>
-      </aside>
-
-      <section className="workspace">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">Bugun</p>
-            <h1>Gercek net kar ozeti</h1>
-          </div>
-          <div className="actions">
-            <Link className="secondary-button button-link" href="/login">
-              Giris
-            </Link>
-            <Link className="secondary-button button-link" href="/register">
-              Kayit
-            </Link>
-            <button className="secondary-button" type="button">
-              Vardiya Baslat
-            </button>
-            <button className="primary-button" type="button">
-              Sefer Ekle
-            </button>
-          </div>
-        </header>
-
-        <section className="metric-grid" aria-label="Gunluk metrikler">
-          {metrics.map((metric) => (
-            <article className="metric-card" key={metric.label}>
-              <p>{metric.label}</p>
-              <strong>{metric.value}</strong>
-              <span>{metric.detail}</span>
-            </article>
-          ))}
-        </section>
-
-        <section className="content-grid">
-          <div className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Kar zarari etkileyenler</p>
-                <h2>Gider kirilimi</h2>
-              </div>
-              <span className="status-pill">Break-even asildi</span>
-            </div>
-            <div className="expense-list">
-              {expenses.map(([name, amount]) => (
-                <div className="expense-row" key={name}>
-                  <span>{name}</span>
-                  <strong>{amount}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Son kayitlar</p>
-                <h2>Sefer karliligi</h2>
-              </div>
-            </div>
-            <div className="trip-table" role="table" aria-label="Seferler">
-              {trips.map(([time, route, km, gross, profit]) => (
-                <div className="trip-row" role="row" key={`${time}-${route}`}>
-                  <span>{time}</span>
-                  <strong>{route}</strong>
-                  <span>{km}</span>
-                  <span>{gross}</span>
-                  <b>{profit}</b>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+    <AppShell
+      actions={
+        <>
+          <Link className="secondary-button button-link" href="/login">
+            Giris
+          </Link>
+          <Link className="secondary-button button-link" href="/register">
+            Kayit
+          </Link>
+          <button className="secondary-button" type="button">
+            Vardiya Baslat
+          </button>
+          <button className="primary-button" type="button">
+            Sefer Ekle
+          </button>
+        </>
+      }
+      eyebrow="Bugun"
+      title="Gercek net kar ozeti"
+    >
+      <section className="metric-grid" aria-label="Gunluk metrikler">
+        {metrics.map((metric) => (
+          <article className="metric-card" key={metric.label}>
+            <p>{metric.label}</p>
+            <strong>{metric.value}</strong>
+            <span>{metric.detail}</span>
+          </article>
+        ))}
       </section>
-    </main>
+
+      <section className="content-grid">
+        <div className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Kar zarari etkileyenler</p>
+              <h2>Gider kirilimi</h2>
+            </div>
+            <span className="status-pill">Break-even asildi</span>
+          </div>
+          <div className="expense-list">
+            {expenses.map(([name, amount]) => (
+              <div className="expense-row" key={name}>
+                <span>{name}</span>
+                <strong>{amount}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Son kayitlar</p>
+              <h2>Sefer karliligi</h2>
+            </div>
+          </div>
+          <div className="trip-table" role="table" aria-label="Seferler">
+            {trips.map(([time, route, km, gross, profit]) => (
+              <div className="trip-row" role="row" key={`${time}-${route}`}>
+                <span>{time}</span>
+                <strong>{route}</strong>
+                <span>{km}</span>
+                <span>{gross}</span>
+                <b>{profit}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </AppShell>
   );
 }

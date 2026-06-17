@@ -48,6 +48,8 @@ a {
 }
 
 .sidebar {
+  display: flex;
+  flex-direction: column;
   border-right: 1px solid var(--line);
   background: #101820;
   color: #f6fbfc;
@@ -105,6 +107,25 @@ a {
 .nav-item:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
+}
+
+.sidebar-footer {
+  display: grid;
+  gap: 4px;
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  padding-top: 18px;
+}
+
+.sidebar-footer-label {
+  color: #a9b8c0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sidebar-footer strong {
+  font-size: 14px;
 }
 
 .workspace {
