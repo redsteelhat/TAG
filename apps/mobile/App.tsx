@@ -1,5 +1,4 @@
 import { StatusBar } from 'expo-status-bar';
-import * as SecureStore from 'expo-secure-store';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,11 +12,15 @@ import {
   TextInput,
   View
 } from 'react-native';
-
-const ACCESS_TOKEN_KEY = 'tag.accessToken';
-const REFRESH_TOKEN_KEY = 'tag.refreshToken';
-const USER_KEY = 'tag.user';
-const SELECTED_VEHICLE_KEY = 'tag.selectedVehicle';
+import {
+  clearStoredValues,
+  getStoredJson,
+  getStoredString,
+  removeStoredValue,
+  setStoredJson,
+  setStoredString,
+  storageKeys
+} from './src/storage/local-storage';
 
 const metrics = [
   ['Bugunku net kar', '1.460 TL'],
@@ -34,7 +37,22 @@ const expenses = [
   ['Sabit gider', '420 TL']
 ];
 
+const reportRows = [
+  ['Gunluk net kar', '1.460 TL'],
+  ['Haftalik net kar', '8.920 TL'],
+  ['Aylik net kar', '34.700 TL'],
+  ['Paket break-even', 'Asildi']
+];
+
+const mainTabs: Array<{ key: MainTab; label: string; icon: string }> = [
+  { key: 'today', label: 'Bugun', icon: 'B' },
+  { key: 'record', label: 'Kayit', icon: 'K' },
+  { key: 'reports', label: 'Rapor', icon: 'R' },
+  { key: 'vehicles', label: 'Arac', icon: 'A' }
+];
+
 type AuthMode = 'login' | 'register';
+type MainTab = 'today' | 'record' | 'reports' | 'vehicles';
 type FuelType = 'DIESEL' | 'GASOLINE' | 'LPG' | 'HYBRID' | 'ELECTRIC' | 'OTHER';
 
 interface AuthUser {
@@ -119,14 +137,14 @@ export default function App() {
   useEffect(() => {
     async function restoreSession() {
       const [storedToken, storedUser, storedVehicle] = await Promise.all([
-        getStoredItem(ACCESS_TOKEN_KEY),
-        getStoredItem(USER_KEY),
-        getStoredItem(SELECTED_VEHICLE_KEY)
+        getStoredString(storageKeys.accessToken),
+        getStoredJson<AuthUser>(storageKeys.user),
+        getStoredJson<Vehicle>(storageKeys.selectedVehicle)
       ]);
 
       setAccessToken(storedToken);
-      setUser(parseStoredUser(storedUser));
-      setSelectedVehicle(parseStoredVehicle(storedVehicle));
+      setUser(storedUser);
+      setSelectedVehicle(storedVehicle);
       setIsBooting(false);
     }
 
@@ -137,11 +155,11 @@ export default function App() {
     const nextUser = response.data.user ?? null;
 
     await Promise.all([
-      setStoredItem(ACCESS_TOKEN_KEY, response.data.accessToken),
-      setStoredItem(REFRESH_TOKEN_KEY, response.data.refreshToken),
+      setStoredString(storageKeys.accessToken, response.data.accessToken),
+      setStoredString(storageKeys.refreshToken, response.data.refreshToken),
       nextUser
-        ? setStoredItem(USER_KEY, JSON.stringify(nextUser))
-        : deleteStoredItem(USER_KEY)
+        ? setStoredJson(storageKeys.user, nextUser)
+        : removeStoredValue(storageKeys.user)
     ]);
 
     setAccessToken(response.data.accessToken);
@@ -150,21 +168,21 @@ export default function App() {
   }
 
   async function handleVehicleSelected(vehicle: Vehicle) {
-    await setStoredItem(SELECTED_VEHICLE_KEY, JSON.stringify(vehicle));
+    await setStoredJson(storageKeys.selectedVehicle, vehicle);
     setSelectedVehicle(vehicle);
   }
 
   async function handleChangeVehicle() {
-    await deleteStoredItem(SELECTED_VEHICLE_KEY);
+    await removeStoredValue(storageKeys.selectedVehicle);
     setSelectedVehicle(null);
   }
 
   async function handleLogout() {
-    await Promise.all([
-      deleteStoredItem(ACCESS_TOKEN_KEY),
-      deleteStoredItem(REFRESH_TOKEN_KEY),
-      deleteStoredItem(USER_KEY),
-      deleteStoredItem(SELECTED_VEHICLE_KEY)
+    await clearStoredValues([
+      storageKeys.accessToken,
+      storageKeys.refreshToken,
+      storageKeys.user,
+      storageKeys.selectedVehicle
     ]);
 
     setAccessToken(null);
@@ -719,74 +737,276 @@ function DashboardScreen({
   selectedVehicle: Vehicle;
   user: AuthUser | null;
 }) {
+  const [activeTab, setActiveTab] = useState<MainTab>('today');
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerTitleBlock}>
-            <Text style={styles.eyebrow}>Bugun</Text>
-            <Text style={styles.title}>Gercek net kar</Text>
-            <Text style={styles.userLine}>
-              {user?.fullName || user?.email || 'Surucu'}
-            </Text>
-            <Text style={styles.vehicleLine}>
-              {selectedVehicle.plateNumber} - {formatVehicleName(selectedVehicle)}
-            </Text>
-          </View>
-          <View style={styles.headerActions}>
-            <Pressable onPress={onChangeVehicle} style={styles.logoutButton}>
-              <Text style={styles.logoutButtonText}>Arac</Text>
-            </Pressable>
-            <Pressable onPress={onLogout} style={styles.logoutButton}>
-              <Text style={styles.logoutButtonText}>Cikis</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={styles.heroCard}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>Break-even asildi</Text>
-          </View>
-          <Text style={styles.heroLabel}>Net kar</Text>
-          <Text style={styles.heroValue}>1.460 TL</Text>
-          <Text style={styles.heroDetail}>
-            Yakit, paket, sabit gider ve bakim rezervi dusuldu.
-          </Text>
-        </View>
-
-        <View style={styles.metricGrid}>
-          {metrics.map(([label, value]) => (
-            <View key={label} style={styles.metricCard}>
-              <Text style={styles.metricLabel}>{label}</Text>
-              <Text style={styles.metricValue}>{value}</Text>
+      <View style={styles.appShell}>
+        <ScrollView contentContainerStyle={styles.containerWithTabs}>
+          <View style={styles.header}>
+            <View style={styles.headerTitleBlock}>
+              <Text style={styles.eyebrow}>{getTabEyebrow(activeTab)}</Text>
+              <Text style={styles.title}>{getTabTitle(activeTab)}</Text>
+              <Text style={styles.userLine}>
+                {user?.fullName || user?.email || 'Surucu'}
+              </Text>
+              <Text style={styles.vehicleLine}>
+                {selectedVehicle.plateNumber} -{' '}
+                {formatVehicleName(selectedVehicle)}
+              </Text>
             </View>
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Hizli kayit</Text>
-          <View style={styles.actionGrid}>
-            {quickActions.map((action) => (
-              <Pressable key={action} style={styles.actionButton}>
-                <Text style={styles.actionText}>{action}</Text>
+            <View style={styles.headerActions}>
+              <Pressable onPress={onChangeVehicle} style={styles.logoutButton}>
+                <Text style={styles.logoutButtonText}>Arac</Text>
               </Pressable>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Gider kirilimi</Text>
-          {expenses.map(([name, amount]) => (
-            <View key={name} style={styles.expenseRow}>
-              <Text style={styles.expenseName}>{name}</Text>
-              <Text style={styles.expenseAmount}>{amount}</Text>
+              <Pressable onPress={onLogout} style={styles.logoutButton}>
+                <Text style={styles.logoutButtonText}>Cikis</Text>
+              </Pressable>
             </View>
-          ))}
+          </View>
+
+          {activeTab === 'today' ? <TodayTabContent /> : null}
+          {activeTab === 'record' ? <RecordTabContent /> : null}
+          {activeTab === 'reports' ? <ReportsTabContent /> : null}
+          {activeTab === 'vehicles' ? (
+            <VehiclesTabContent
+              onChangeVehicle={onChangeVehicle}
+              selectedVehicle={selectedVehicle}
+            />
+          ) : null}
+        </ScrollView>
+
+        <View style={styles.bottomTabBar}>
+          {mainTabs.map((tab) => {
+            const isActive = activeTab === tab.key;
+
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setActiveTab(tab.key)}
+                style={styles.tabButton}
+              >
+                <View
+                  style={[
+                    styles.tabIcon,
+                    isActive ? styles.tabIconActive : null
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.tabIconText,
+                      isActive ? styles.tabIconTextActive : null
+                    ]}
+                  >
+                    {tab.icon}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    isActive ? styles.tabLabelActive : null
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
+}
+
+function TodayTabContent() {
+  return (
+    <>
+      <View style={styles.heroCard}>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>Break-even asildi</Text>
+        </View>
+        <Text style={styles.heroLabel}>Net kar</Text>
+        <Text style={styles.heroValue}>1.460 TL</Text>
+        <Text style={styles.heroDetail}>
+          Yakit, paket, sabit gider ve bakim rezervi dusuldu.
+        </Text>
+      </View>
+
+      <View style={styles.metricGrid}>
+        {metrics.map(([label, value]) => (
+          <View key={label} style={styles.metricCard}>
+            <Text style={styles.metricLabel}>{label}</Text>
+            <Text style={styles.metricValue}>{value}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Gider kirilimi</Text>
+        {expenses.map(([name, amount]) => (
+          <View key={name} style={styles.expenseRow}>
+            <Text style={styles.expenseName}>{name}</Text>
+            <Text style={styles.expenseAmount}>{amount}</Text>
+          </View>
+        ))}
+      </View>
+    </>
+  );
+}
+
+function RecordTabContent() {
+  return (
+    <>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Hizli kayit</Text>
+        <View style={styles.actionGrid}>
+          {quickActions.map((action) => (
+            <Pressable key={action} style={styles.actionButton}>
+              <Text style={styles.actionText}>{action}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Vardiya modu</Text>
+        <View style={styles.shiftPanel}>
+          <View>
+            <Text style={styles.shiftLabel}>Durum</Text>
+            <Text style={styles.shiftValue}>Hazir</Text>
+          </View>
+          <Pressable style={styles.shiftButton}>
+            <Text style={styles.shiftButtonText}>Baslat</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Son kayit ozeti</Text>
+        <View style={styles.expenseRow}>
+          <Text style={styles.expenseName}>Sefer sayisi</Text>
+          <Text style={styles.expenseAmount}>6</Text>
+        </View>
+        <View style={styles.expenseRow}>
+          <Text style={styles.expenseName}>Toplam gelir</Text>
+          <Text style={styles.expenseAmount}>3.400 TL</Text>
+        </View>
+      </View>
+    </>
+  );
+}
+
+function ReportsTabContent() {
+  return (
+    <>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Rapor ozeti</Text>
+        {reportRows.map(([label, value]) => (
+          <View key={label} style={styles.reportRow}>
+            <Text style={styles.reportLabel}>{label}</Text>
+            <Text style={styles.reportValue}>{value}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Karlilik trendi</Text>
+        <View style={styles.trendBars}>
+          {[44, 72, 58, 86, 64, 92, 76].map((height, index) => (
+            <View key={index} style={styles.trendBarTrack}>
+              <View style={[styles.trendBarFill, { height }]} />
+            </View>
+          ))}
+        </View>
+      </View>
+    </>
+  );
+}
+
+function VehiclesTabContent({
+  onChangeVehicle,
+  selectedVehicle
+}: {
+  onChangeVehicle: () => Promise<void>;
+  selectedVehicle: Vehicle;
+}) {
+  return (
+    <>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Secili arac</Text>
+        <View style={[styles.vehicleCard, styles.vehicleCardActive]}>
+          <View style={styles.vehiclePlate}>
+            <Text style={styles.vehiclePlateText}>
+              {selectedVehicle.plateNumber}
+            </Text>
+          </View>
+          <View style={styles.vehicleInfo}>
+            <Text style={styles.vehicleName}>
+              {formatVehicleName(selectedVehicle)}
+            </Text>
+            <Text style={styles.vehicleMeta}>
+              {formatFuelType(selectedVehicle.fuelType)} -{' '}
+              {selectedVehicle.averageConsumptionLPer100Km} lt/100 km
+            </Text>
+          </View>
+          <Text style={styles.activeTag}>Aktif</Text>
+        </View>
+
+        <Pressable onPress={onChangeVehicle} style={styles.outlineButton}>
+          <Text style={styles.outlineButtonText}>Arac Degistir</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Arac maliyetleri</Text>
+        <View style={styles.expenseRow}>
+          <Text style={styles.expenseName}>Yakit varsayimi</Text>
+          <Text style={styles.expenseAmount}>
+            {selectedVehicle.averageConsumptionLPer100Km} lt
+          </Text>
+        </View>
+        <View style={styles.expenseRow}>
+          <Text style={styles.expenseName}>Km sayaci</Text>
+          <Text style={styles.expenseAmount}>
+            {selectedVehicle.odometerKm ?? '-'}
+          </Text>
+        </View>
+      </View>
+    </>
+  );
+}
+
+function getTabEyebrow(tab: MainTab) {
+  if (tab === 'record') {
+    return 'Kayit';
+  }
+
+  if (tab === 'reports') {
+    return 'Analiz';
+  }
+
+  if (tab === 'vehicles') {
+    return 'Arac';
+  }
+
+  return 'Bugun';
+}
+
+function getTabTitle(tab: MainTab) {
+  if (tab === 'record') {
+    return 'Hizli islem';
+  }
+
+  if (tab === 'reports') {
+    return 'Raporlar';
+  }
+
+  if (tab === 'vehicles') {
+    return 'Arac profili';
+  }
+
+  return 'Gercek net kar';
 }
 
 async function getJson<TResponse>(url: string, accessToken?: string) {
@@ -867,30 +1087,6 @@ function getDeviceName() {
   return 'Expo Web';
 }
 
-function parseStoredUser(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(value) as AuthUser;
-  } catch {
-    return null;
-  }
-}
-
-function parseStoredVehicle(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(value) as Vehicle;
-  } catch {
-    return null;
-  }
-}
-
 function formatVehicleName(vehicle: Vehicle) {
   const name = [vehicle.brand, vehicle.model, vehicle.modelYear]
     .filter(Boolean)
@@ -905,36 +1101,13 @@ function formatFuelType(fuelType: FuelType) {
   return option?.label ?? 'Diger';
 }
 
-async function getStoredItem(key: string) {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return window.localStorage.getItem(key);
-  }
-
-  return SecureStore.getItemAsync(key);
-}
-
-async function setStoredItem(key: string, value: string) {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    window.localStorage.setItem(key, value);
-    return;
-  }
-
-  await SecureStore.setItemAsync(key, value);
-}
-
-async function deleteStoredItem(key: string) {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    window.localStorage.removeItem(key);
-    return;
-  }
-
-  await SecureStore.deleteItemAsync(key);
-}
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f4f7f8'
+  },
+  appShell: {
+    flex: 1
   },
   flex: {
     flex: 1
@@ -1072,6 +1245,10 @@ const styles = StyleSheet.create({
     padding: 18,
     paddingBottom: 32
   },
+  containerWithTabs: {
+    padding: 18,
+    paddingBottom: 110
+  },
   header: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -1110,6 +1287,57 @@ const styles = StyleSheet.create({
   headerActions: {
     alignItems: 'flex-end',
     gap: 8
+  },
+  bottomTabBar: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#d9e2e6',
+    borderTopWidth: 1,
+    bottom: 0,
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'space-around',
+    left: 0,
+    minHeight: 78,
+    paddingBottom: 10,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    position: 'absolute',
+    right: 0
+  },
+  tabButton: {
+    alignItems: 'center',
+    flex: 1,
+    gap: 5,
+    justifyContent: 'center',
+    minHeight: 58
+  },
+  tabIcon: {
+    alignItems: 'center',
+    backgroundColor: '#edf2f4',
+    borderRadius: 8,
+    height: 32,
+    justifyContent: 'center',
+    width: 38
+  },
+  tabIconActive: {
+    backgroundColor: '#115e59'
+  },
+  tabIconText: {
+    color: '#62717c',
+    fontSize: 13,
+    fontWeight: '900'
+  },
+  tabIconTextActive: {
+    color: '#ffffff'
+  },
+  tabLabel: {
+    color: '#62717c',
+    fontSize: 11,
+    fontWeight: '800'
+  },
+  tabLabelActive: {
+    color: '#115e59'
   },
   logoutButton: {
     backgroundColor: '#e7f6f3',
@@ -1325,6 +1553,79 @@ const styles = StyleSheet.create({
   },
   optionButtonTextActive: {
     color: '#ffffff'
+  },
+  shiftPanel: {
+    alignItems: 'center',
+    backgroundColor: '#edf2f4',
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 72,
+    padding: 12
+  },
+  shiftLabel: {
+    color: '#62717c',
+    fontSize: 12,
+    fontWeight: '800'
+  },
+  shiftValue: {
+    color: '#152028',
+    fontSize: 20,
+    fontWeight: '900',
+    marginTop: 4
+  },
+  shiftButton: {
+    alignItems: 'center',
+    backgroundColor: '#115e59',
+    borderRadius: 8,
+    justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 94,
+    paddingHorizontal: 14
+  },
+  shiftButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '900'
+  },
+  reportRow: {
+    alignItems: 'center',
+    borderBottomColor: '#edf2f4',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 48
+  },
+  reportLabel: {
+    color: '#62717c',
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  reportValue: {
+    color: '#152028',
+    fontSize: 15,
+    fontWeight: '900'
+  },
+  trendBars: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 10,
+    height: 120,
+    justifyContent: 'space-between'
+  },
+  trendBarTrack: {
+    alignItems: 'center',
+    backgroundColor: '#edf2f4',
+    borderRadius: 8,
+    flex: 1,
+    height: 104,
+    justifyContent: 'flex-end',
+    overflow: 'hidden'
+  },
+  trendBarFill: {
+    backgroundColor: '#115e59',
+    borderRadius: 8,
+    width: '100%'
   },
   actionGrid: {
     flexDirection: 'row',
