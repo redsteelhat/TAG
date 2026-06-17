@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuditLog } from '../audit/audit-log.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UpdateDriverProfileDto } from './dto/update-driver-profile.dto';
@@ -23,6 +24,11 @@ export class ProfileController {
 
   @Patch('me')
   @ApiOperation({ summary: 'Update current user profile' })
+  @AuditLog({
+    action: 'user.update_profile',
+    entityType: 'user',
+    entityIdPath: 'data.id'
+  })
   async updateMe(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateMeDto
@@ -42,6 +48,11 @@ export class ProfileController {
 
   @Patch('driver-profile')
   @ApiOperation({ summary: 'Update driver finance preferences' })
+  @AuditLog({
+    action: 'driver_profile.update',
+    entityType: 'driver_profile',
+    entityIdPath: 'data.id'
+  })
   async updateDriverProfile(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateDriverProfileDto
