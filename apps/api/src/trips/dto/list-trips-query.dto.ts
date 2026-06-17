@@ -1,17 +1,26 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import { PaymentMethodType } from '@prisma/client';
 import {
   IsEnum,
-  IsInt,
   IsISO8601,
   IsOptional,
-  IsString,
-  Max,
-  Min
+  IsString
 } from 'class-validator';
+import {
+  PaginationQueryDto,
+  SortDirection
+} from '../../common/dto/pagination-query.dto';
+import { IsDecimalString } from '../../common/validators/decimal-string.decorator';
 
-export class ListTripsQueryDto {
+export enum TripSortBy {
+  CREATED_AT = 'createdAt',
+  TOTAL_INCOME = 'totalIncome',
+  TOTAL_KM = 'totalKm',
+  TRIP_DATE = 'tripDate',
+  TRUE_NET_PROFIT = 'trueNetProfit'
+}
+
+export class ListTripsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ example: 'veh_123' })
   @IsOptional()
   @IsString()
@@ -37,18 +46,38 @@ export class ListTripsQueryDto {
   @IsEnum(PaymentMethodType)
   paymentMethod?: PaymentMethodType;
 
-  @ApiPropertyOptional({ example: 1, minimum: 1 })
+  @ApiPropertyOptional({ example: 'Kadikoy' })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
+  @IsString()
+  q?: string;
 
-  @ApiPropertyOptional({ example: 20, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({ example: '250.00' })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  pageSize?: number = 20;
+  @IsDecimalString()
+  minTotalIncome?: string;
+
+  @ApiPropertyOptional({ example: '1000.00' })
+  @IsOptional()
+  @IsDecimalString()
+  maxTotalIncome?: string;
+
+  @ApiPropertyOptional({ example: '5.00' })
+  @IsOptional()
+  @IsDecimalString()
+  minTotalKm?: string;
+
+  @ApiPropertyOptional({ example: '100.00' })
+  @IsOptional()
+  @IsDecimalString()
+  maxTotalKm?: string;
+
+  @ApiPropertyOptional({ enum: TripSortBy, example: TripSortBy.TRIP_DATE })
+  @IsOptional()
+  @IsEnum(TripSortBy)
+  sortBy?: TripSortBy = TripSortBy.TRIP_DATE;
+
+  @ApiPropertyOptional({ enum: SortDirection, example: SortDirection.DESC })
+  @IsOptional()
+  @IsEnum(SortDirection)
+  sortDirection?: SortDirection = SortDirection.DESC;
 }

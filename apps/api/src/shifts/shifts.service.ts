@@ -4,9 +4,15 @@ import {
   NotFoundException
 } from '@nestjs/common';
 import { Prisma, Shift, ShiftStatus } from '@prisma/client';
+import { SortDirection } from '../common/dto/pagination-query.dto';
+import {
+  buildPaginationMeta,
+  getPaginationParams
+} from '../common/pagination/pagination';
+import { buildDateRangeFilter } from '../common/utils/date-range';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
-import { ListShiftsQueryDto } from './dto/list-shifts-query.dto';
+import { ListShiftsQueryDto, ShiftSortBy } from './dto/list-shifts-query.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 
 interface ShiftCalculationInput {
@@ -55,15 +61,14 @@ export class ShiftsService {
   }
 
   async findAll(userId: string, query: ListShiftsQueryDto) {
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 20;
+    const pagination = getPaginationParams(query);
     const where = this.toShiftWhereInput(userId, query);
     const [items, total] = await this.prisma.$transaction([
       this.prisma.shift.findMany({
         where,
-        orderBy: [{ started_at: 'desc' }, { created_at: 'desc' }],
-        skip: (page - 1) * pageSize,
-        take: pageSize
+        orderBy: this.toShiftOrderBy(query),
+        skip: pagination.skip,
+        take: pagination.take
       }),
       this.prisma.shift.count({
         where
@@ -72,12 +77,7 @@ export class ShiftsService {
 
     return {
       data: items.map((shift) => this.toShiftResponse(shift)),
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize)
-      }
+      meta: buildPaginationMeta(pagination, total)
     };
   }
 
@@ -331,19 +331,70 @@ export class ShiftsService {
       where.vehicle_id = query.vehicleId;
     }
 
-    if (query.startDate || query.endDate) {
-      where.started_at = {};
+    const startedAtRange = buildDateRangeFilter(query);
 
-      if (query.startDate) {
-        where.started_at.gte = this.toDate(query.startDate);
+    if (startedAtRange) {
+      where.started_at = startedAtRange;
+    }
+
+    if (query.q) {
+      where.note = {
+        contains: query.q,
+        mode: 'insensitive'
+      };
+    }
+
+    if (query.minGrossIncome || query.maxGrossIncome) {
+      where.gross_income = {};
+
+      if (query.minGrossIncome) {
+        where.gross_income.gte = query.minGrossIncome;
       }
 
-      if (query.endDate) {
-        where.started_at.lte = this.toDate(query.endDate);
+      if (query.maxGrossIncome) {
+        where.gross_income.lte = query.maxGrossIncome;
+      }
+    }
+
+    if (query.minTotalKm || query.maxTotalKm) {
+      where.total_km = {};
+
+      if (query.minTotalKm) {
+        where.total_km.gte = query.minTotalKm;
+      }
+
+      if (query.maxTotalKm) {
+        where.total_km.lte = query.maxTotalKm;
       }
     }
 
     return where;
+  }
+
+  private toShiftOrderBy(
+    query: ListShiftsQueryDto
+  ): Prisma.ShiftOrderByWithRelationInput[] {
+    const direction = query.sortDirection ?? SortDirection.DESC;
+    const sortBy = query.sortBy ?? ShiftSortBy.STARTED_AT;
+    const fieldBySort: Record<
+      ShiftSortBy,
+      keyof Prisma.ShiftOrderByWithRelationInput
+    > = {
+      [ShiftSortBy.CREATED_AT]: 'created_at',
+      [ShiftSortBy.GROSS_INCOME]: 'gross_income',
+      [ShiftSortBy.STARTED_AT]: 'started_at',
+      [ShiftSortBy.TOTAL_KM]: 'total_km',
+      [ShiftSortBy.TRUE_NET_PROFIT]: 'true_net_profit'
+    };
+
+    return [
+      {
+        [fieldBySort[sortBy]]: direction
+      },
+      {
+        created_at: 'desc'
+      }
+    ];
   }
 
   private toDate(value: string) {

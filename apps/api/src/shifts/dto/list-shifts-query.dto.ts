@@ -1,17 +1,26 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import { ShiftStatus } from '@prisma/client';
 import {
   IsEnum,
-  IsInt,
   IsISO8601,
   IsOptional,
-  IsString,
-  Max,
-  Min
+  IsString
 } from 'class-validator';
+import {
+  PaginationQueryDto,
+  SortDirection
+} from '../../common/dto/pagination-query.dto';
+import { IsDecimalString } from '../../common/validators/decimal-string.decorator';
 
-export class ListShiftsQueryDto {
+export enum ShiftSortBy {
+  CREATED_AT = 'createdAt',
+  GROSS_INCOME = 'grossIncome',
+  STARTED_AT = 'startedAt',
+  TOTAL_KM = 'totalKm',
+  TRUE_NET_PROFIT = 'trueNetProfit'
+}
+
+export class ListShiftsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ example: 'veh_123' })
   @IsOptional()
   @IsString()
@@ -32,18 +41,38 @@ export class ListShiftsQueryDto {
   @IsISO8601()
   endDate?: string;
 
-  @ApiPropertyOptional({ example: 1, minimum: 1 })
+  @ApiPropertyOptional({ example: 'aksam' })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
+  @IsString()
+  q?: string;
 
-  @ApiPropertyOptional({ example: 20, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({ example: '500.00' })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  pageSize?: number = 20;
+  @IsDecimalString()
+  minGrossIncome?: string;
+
+  @ApiPropertyOptional({ example: '5000.00' })
+  @IsOptional()
+  @IsDecimalString()
+  maxGrossIncome?: string;
+
+  @ApiPropertyOptional({ example: '10.0' })
+  @IsOptional()
+  @IsDecimalString()
+  minTotalKm?: string;
+
+  @ApiPropertyOptional({ example: '300.0' })
+  @IsOptional()
+  @IsDecimalString()
+  maxTotalKm?: string;
+
+  @ApiPropertyOptional({ enum: ShiftSortBy, example: ShiftSortBy.STARTED_AT })
+  @IsOptional()
+  @IsEnum(ShiftSortBy)
+  sortBy?: ShiftSortBy = ShiftSortBy.STARTED_AT;
+
+  @ApiPropertyOptional({ enum: SortDirection, example: SortDirection.DESC })
+  @IsOptional()
+  @IsEnum(SortDirection)
+  sortDirection?: SortDirection = SortDirection.DESC;
 }

@@ -5,11 +5,17 @@ import {
   Optional
 } from '@nestjs/common';
 import { PaymentMethodType, Prisma, Trip } from '@prisma/client';
+import { SortDirection } from '../common/dto/pagination-query.dto';
+import {
+  buildPaginationMeta,
+  getPaginationParams
+} from '../common/pagination/pagination';
+import { buildDateRangeFilter } from '../common/utils/date-range';
 import { IncomeCalculationService } from '../income-calculation/income-calculation.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShiftsService } from '../shifts/shifts.service';
 import { CreateTripDto } from './dto/create-trip.dto';
-import { ListTripsQueryDto } from './dto/list-trips-query.dto';
+import { ListTripsQueryDto, TripSortBy } from './dto/list-trips-query.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 
 @Injectable()
@@ -78,15 +84,14 @@ export class TripsService {
   }
 
   async findAll(userId: string, query: ListTripsQueryDto) {
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 20;
+    const pagination = getPaginationParams(query);
     const where = this.toTripWhereInput(userId, query);
     const [items, total] = await this.prisma.$transaction([
       this.prisma.trip.findMany({
         where,
-        orderBy: [{ trip_date: 'desc' }, { created_at: 'desc' }],
-        skip: (page - 1) * pageSize,
-        take: pageSize
+        orderBy: this.toTripOrderBy(query),
+        skip: pagination.skip,
+        take: pagination.take
       }),
       this.prisma.trip.count({
         where
@@ -95,12 +100,7 @@ export class TripsService {
 
     return {
       data: items.map((trip) => this.toTripResponse(trip)),
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize)
-      }
+      meta: buildPaginationMeta(pagination, total)
     };
   }
 
@@ -296,19 +296,86 @@ export class TripsService {
       where.payment_method = query.paymentMethod;
     }
 
-    if (query.startDate || query.endDate) {
-      where.trip_date = {};
+    const tripDateRange = buildDateRangeFilter(query);
 
-      if (query.startDate) {
-        where.trip_date.gte = this.toDate(query.startDate);
+    if (tripDateRange) {
+      where.trip_date = tripDateRange;
+    }
+
+    if (query.q) {
+      where.OR = [
+        {
+          pickup_location: {
+            contains: query.q,
+            mode: 'insensitive'
+          }
+        },
+        {
+          dropoff_location: {
+            contains: query.q,
+            mode: 'insensitive'
+          }
+        },
+        {
+          note: {
+            contains: query.q,
+            mode: 'insensitive'
+          }
+        }
+      ];
+    }
+
+    if (query.minTotalIncome || query.maxTotalIncome) {
+      where.total_income = {};
+
+      if (query.minTotalIncome) {
+        where.total_income.gte = query.minTotalIncome;
       }
 
-      if (query.endDate) {
-        where.trip_date.lte = this.toDate(query.endDate);
+      if (query.maxTotalIncome) {
+        where.total_income.lte = query.maxTotalIncome;
+      }
+    }
+
+    if (query.minTotalKm || query.maxTotalKm) {
+      where.total_km = {};
+
+      if (query.minTotalKm) {
+        where.total_km.gte = query.minTotalKm;
+      }
+
+      if (query.maxTotalKm) {
+        where.total_km.lte = query.maxTotalKm;
       }
     }
 
     return where;
+  }
+
+  private toTripOrderBy(
+    query: ListTripsQueryDto
+  ): Prisma.TripOrderByWithRelationInput[] {
+    const direction = query.sortDirection ?? SortDirection.DESC;
+    const sortBy = query.sortBy ?? TripSortBy.TRIP_DATE;
+    const fieldBySort: Record<
+      TripSortBy,
+      keyof Prisma.TripOrderByWithRelationInput
+    > = {
+      [TripSortBy.CREATED_AT]: 'created_at',
+      [TripSortBy.TOTAL_INCOME]: 'total_income',
+      [TripSortBy.TOTAL_KM]: 'total_km',
+      [TripSortBy.TRIP_DATE]: 'trip_date',
+      [TripSortBy.TRUE_NET_PROFIT]: 'true_net_profit'
+    };
+
+    return [
+      {
+        [fieldBySort[sortBy]]: direction
+      },
+      {
+        created_at: 'desc'
+      }
+    ];
   }
 
   private toDate(value: string) {
