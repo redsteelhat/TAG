@@ -58,6 +58,17 @@ export class TripsController {
     };
   }
 
+  @Get(':id/profit-breakdown')
+  @ApiOperation({ summary: 'Get trip-level net profit breakdown' })
+  async getProfitBreakdown(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string
+  ) {
+    return {
+      data: await this.tripsService.getProfitBreakdown(user.id, id)
+    };
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: 'Update a trip by id' })
   @AuditLog({

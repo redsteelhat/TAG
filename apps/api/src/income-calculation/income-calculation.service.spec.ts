@@ -51,6 +51,33 @@ describe('IncomeCalculationService', () => {
     expect(result.toFixed(2)).toBe('0.00');
   });
 
+  it('builds a trip-level net profit placeholder breakdown', () => {
+    const service = new IncomeCalculationService({} as never);
+    const breakdown = service.buildTripProfitBreakdown({
+      allocated_depreciation_cost: new Prisma.Decimal('0'),
+      allocated_fixed_cost: new Prisma.Decimal('0'),
+      allocated_maintenance_cost: new Prisma.Decimal('0'),
+      allocated_other_variable_cost: new Prisma.Decimal('0'),
+      allocated_package_cost: new Prisma.Decimal('0'),
+      cancellation_income: new Prisma.Decimal('0'),
+      cash_net_profit: new Prisma.Decimal('414'),
+      estimated_fuel_cost: new Prisma.Decimal('66'),
+      gross_income: new Prisma.Decimal('450'),
+      tip_amount: new Prisma.Decimal('30'),
+      total_income: new Prisma.Decimal('480'),
+      total_km: new Prisma.Decimal('22'),
+      true_net_profit: new Prisma.Decimal('414')
+    });
+
+    expect(breakdown.cashNetProfit).toBe('414.00');
+    expect(breakdown.trueNetProfit).toBe('414.00');
+    expect(breakdown.packageCost).toBe('0.00');
+    expect(breakdown.placeholderCosts).toContain('packageCost');
+    expect(breakdown.method.package).toBe(
+      'placeholder_zero_until_package_allocation_service'
+    );
+  });
+
   it('uses fallback duration when timestamps are missing', () => {
     const service = new IncomeCalculationService({} as never);
 

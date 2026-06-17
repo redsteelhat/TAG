@@ -110,6 +110,12 @@ export class TripsService {
     return this.toTripResponse(trip);
   }
 
+  async getProfitBreakdown(userId: string, id: string) {
+    const trip = await this.findOwnedTrip(userId, id);
+
+    return this.incomeCalculationService.buildTripProfitBreakdown(trip);
+  }
+
   async update(userId: string, id: string, dto: UpdateTripDto) {
     const currentTrip = await this.findOwnedTrip(userId, id);
     const previousShiftId = currentTrip.shift_id;

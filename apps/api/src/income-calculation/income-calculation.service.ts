@@ -27,6 +27,22 @@ export interface TripIncomeCalculationResult {
   trueNetProfit: Prisma.Decimal;
 }
 
+export interface TripProfitBreakdownSnapshot {
+  allocated_depreciation_cost: Prisma.Decimal;
+  allocated_fixed_cost: Prisma.Decimal;
+  allocated_maintenance_cost: Prisma.Decimal;
+  allocated_other_variable_cost: Prisma.Decimal;
+  allocated_package_cost: Prisma.Decimal;
+  cancellation_income: Prisma.Decimal;
+  cash_net_profit: Prisma.Decimal;
+  estimated_fuel_cost: Prisma.Decimal;
+  gross_income: Prisma.Decimal;
+  tip_amount: Prisma.Decimal;
+  total_income: Prisma.Decimal;
+  total_km: Prisma.Decimal;
+  true_net_profit: Prisma.Decimal;
+}
+
 @Injectable()
 export class IncomeCalculationService {
   readonly calculationVersion = 'income-calculation-v1';
@@ -81,6 +97,43 @@ export class IncomeCalculationService {
       totalIncome,
       totalKm,
       trueNetProfit
+    };
+  }
+
+  buildTripProfitBreakdown(trip: TripProfitBreakdownSnapshot) {
+    return {
+      grossIncome: trip.gross_income.toFixed(2),
+      tipAmount: trip.tip_amount.toFixed(2),
+      cancellationIncome: trip.cancellation_income.toFixed(2),
+      totalIncome: trip.total_income.toFixed(2),
+      totalKm: trip.total_km.toFixed(2),
+      fuelCost: trip.estimated_fuel_cost.toFixed(2),
+      packageCost: trip.allocated_package_cost.toFixed(2),
+      fixedCost: trip.allocated_fixed_cost.toFixed(2),
+      maintenanceCost: trip.allocated_maintenance_cost.toFixed(2),
+      depreciationCost: trip.allocated_depreciation_cost.toFixed(2),
+      otherVariableCost: trip.allocated_other_variable_cost.toFixed(2),
+      cashNetProfit: trip.cash_net_profit.toFixed(2),
+      trueNetProfit: trip.true_net_profit.toFixed(2),
+      method: {
+        totalIncome: 'gross_plus_tip_plus_cancellation',
+        fuel: 'latest_fuel_price_x_vehicle_average_consumption_x_total_km',
+        package: 'placeholder_zero_until_package_allocation_service',
+        fixedCost: 'placeholder_zero_until_fixed_cost_allocation_service',
+        maintenance:
+          'placeholder_zero_until_maintenance_reserve_allocation_service',
+        depreciation: 'placeholder_zero_until_depreciation_service',
+        otherVariable:
+          'placeholder_zero_until_variable_expense_allocation_service'
+      },
+      placeholderCosts: [
+        'packageCost',
+        'fixedCost',
+        'maintenanceCost',
+        'depreciationCost',
+        'otherVariableCost'
+      ],
+      calculationVersion: this.calculationVersion
     };
   }
 
