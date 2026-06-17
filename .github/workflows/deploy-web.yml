@@ -1,0 +1,73 @@
+name: Deploy Web
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "preview"
+        type: choice
+        options:
+          - preview
+          - staging
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-web:
+    name: Deploy Web
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect web app
+        id: detect
+        shell: bash
+        run: |
+          if [ -f apps/web/package.json ]; then
+            echo "has_web=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_web=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        if: steps.detect.outputs.has_web == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Enable pnpm
+        if: steps.detect.outputs.has_web == 'true'
+        run: corepack enable
+
+      - name: Install dependencies
+        if: steps.detect.outputs.has_web == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        if: steps.detect.outputs.has_web == 'true'
+        run: pnpm --filter web build
+
+      - name: Deploy to Vercel
+        if: steps.detect.outputs.has_web == 'true' && env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != ''
+        run: |
+          pnpm dlx vercel pull --yes --environment=${{ inputs.environment }} --token="$VERCEL_TOKEN"
+          pnpm dlx vercel build --token="$VERCEL_TOKEN"
+          pnpm dlx vercel deploy --prebuilt --token="$VERCEL_TOKEN"
+
+      - name: Deployment skipped
+        if: steps.detect.outputs.has_web == 'false' || env.VERCEL_TOKEN == '' || env.VERCEL_ORG_ID == '' || env.VERCEL_PROJECT_ID == ''
+        run: echo "Web deploy skipped. Add apps/web and Vercel secrets to enable deployment."
+

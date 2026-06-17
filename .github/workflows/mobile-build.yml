@@ -1,0 +1,76 @@
+name: Mobile Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Mobile platform"
+        required: true
+        default: "android"
+        type: choice
+        options:
+          - android
+          - ios
+          - all
+      profile:
+        description: "EAS build profile"
+        required: true
+        default: "preview"
+        type: choice
+        options:
+          - preview
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-build:
+    name: Expo EAS Build
+    runs-on: ubuntu-latest
+
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect mobile app
+        id: detect
+        shell: bash
+        run: |
+          if [ -f apps/mobile/package.json ]; then
+            echo "has_mobile=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_mobile=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        if: steps.detect.outputs.has_mobile == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Enable pnpm
+        if: steps.detect.outputs.has_mobile == 'true'
+        run: corepack enable
+
+      - name: Install dependencies
+        if: steps.detect.outputs.has_mobile == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup EAS
+        if: steps.detect.outputs.has_mobile == 'true' && env.EXPO_TOKEN != ''
+        run: pnpm dlx eas-cli --version
+
+      - name: Run EAS build
+        if: steps.detect.outputs.has_mobile == 'true' && env.EXPO_TOKEN != ''
+        working-directory: apps/mobile
+        run: pnpm dlx eas-cli build --platform ${{ inputs.platform }} --profile ${{ inputs.profile }} --non-interactive
+
+      - name: Build skipped
+        if: steps.detect.outputs.has_mobile == 'false' || env.EXPO_TOKEN == ''
+        run: echo "Mobile build skipped. Add apps/mobile and EXPO_TOKEN to enable EAS builds."
+

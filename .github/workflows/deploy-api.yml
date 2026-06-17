@@ -1,0 +1,80 @@
+name: Deploy API
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-api:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    env:
+      API_DEPLOY_HOST: ${{ secrets.API_DEPLOY_HOST }}
+      API_DEPLOY_USER: ${{ secrets.API_DEPLOY_USER }}
+      API_DEPLOY_KEY: ${{ secrets.API_DEPLOY_KEY }}
+      API_DEPLOY_PATH: ${{ secrets.API_DEPLOY_PATH }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect API app
+        id: detect
+        shell: bash
+        run: |
+          if [ -f apps/api/package.json ]; then
+            echo "has_api=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_api=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        if: steps.detect.outputs.has_api == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Enable pnpm
+        if: steps.detect.outputs.has_api == 'true'
+        run: corepack enable
+
+      - name: Install dependencies
+        if: steps.detect.outputs.has_api == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Test API
+        if: steps.detect.outputs.has_api == 'true'
+        run: pnpm --filter api test --if-present
+
+      - name: Build API
+        if: steps.detect.outputs.has_api == 'true'
+        run: pnpm --filter api build
+
+      - name: Run Prisma migration deploy
+        if: steps.detect.outputs.has_api == 'true'
+        run: pnpm --filter api prisma migrate deploy
+
+      - name: Deploy placeholder
+        if: steps.detect.outputs.has_api == 'true' && env.API_DEPLOY_HOST != '' && env.API_DEPLOY_USER != '' && env.API_DEPLOY_KEY != ''
+        run: |
+          echo "API deployment target is configured."
+          echo "Add rsync/ssh/docker deployment commands after API scaffold is finalized."
+
+      - name: Deployment skipped
+        if: steps.detect.outputs.has_api == 'false' || env.API_DEPLOY_HOST == '' || env.API_DEPLOY_USER == '' || env.API_DEPLOY_KEY == ''
+        run: echo "API deploy skipped. Add apps/api and deployment secrets to enable deployment."
+
