@@ -574,6 +574,21 @@ h2 {
   align-items: end;
 }
 
+.trip-editor-panel {
+  gap: 16px;
+}
+
+.trip-editor-form {
+  display: grid;
+  gap: 16px;
+}
+
+.trip-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .list-toolbar label {
   display: grid;
   gap: 7px;
@@ -583,7 +598,8 @@ h2 {
 }
 
 .list-toolbar input,
-.list-toolbar select {
+.list-toolbar select,
+.data-form textarea {
   width: 100%;
   min-height: 40px;
   border: 1px solid var(--line);
@@ -592,6 +608,20 @@ h2 {
   color: var(--text);
   font: inherit;
   padding: 0 11px;
+}
+
+.data-form textarea {
+  min-height: 88px;
+  padding: 11px 12px;
+  resize: vertical;
+}
+
+.list-toolbar input:focus,
+.list-toolbar select:focus,
+.data-form textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+  outline: none;
 }
 
 .toolbar-search {
@@ -630,7 +660,7 @@ h2 {
   grid-template-columns:
     minmax(98px, 0.8fr) minmax(210px, 1.7fr) minmax(86px, 0.7fr)
     minmax(74px, 0.6fr) minmax(92px, 0.8fr) minmax(92px, 0.8fr)
-    minmax(98px, 0.8fr);
+    minmax(98px, 0.8fr) 44px;
   gap: 12px;
   align-items: center;
   min-height: 58px;
@@ -669,6 +699,27 @@ h2 {
 
 .data-table-row b {
   color: var(--accent-strong);
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent-strong);
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: #e7f6f3;
+}
+
+.icon-button svg {
+  width: 17px;
+  height: 17px;
 }
 
 .pagination-bar {
@@ -980,6 +1031,7 @@ h2 {
   .dashboard-grid,
   .analytics-grid,
   .form-layout,
+  .trip-editor-grid,
   .list-toolbar {
     grid-template-columns: 1fr;
   }

@@ -45,6 +45,33 @@ export async function postJson<TResponse>(
   return payload as TResponse;
 }
 
+export async function patchJson<TResponse>(
+  path: string,
+  body: Record<string, unknown>,
+  options?: {
+    accessToken?: string;
+  }
+) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options?.accessToken
+        ? { Authorization: `Bearer ${options.accessToken}` }
+        : {})
+    },
+    body: JSON.stringify(body)
+  });
+
+  const payload = await response.json().catch(() => undefined);
+
+  if (!response.ok) {
+    throw new Error(formatApiError(payload));
+  }
+
+  return payload as TResponse;
+}
+
 export async function getJson<TResponse>(
   path: string,
   options?: {
