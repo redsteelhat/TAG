@@ -22,19 +22,6 @@ import {
   storageKeys,
 } from "./src/storage/local-storage";
 
-const metrics = [
-  ["Bugunku net kar", "1.460 TL"],
-  ["Km basi net", "14,20 TL"],
-  ["Saatlik net", "243 TL"],
-  ["Toplam km", "103 km"],
-];
-
-const expenses = [
-  ["Yakit", "820 TL"],
-  ["Paket payi", "700 TL"],
-  ["Sabit gider", "420 TL"],
-];
-
 const reportRows = [
   ["Gunluk net kar", "1.460 TL"],
   ["Haftalik net kar", "8.920 TL"],
@@ -119,6 +106,7 @@ interface ShiftFormState {
 
 interface Trip {
   id: string;
+  durationMinutes?: number | null;
   totalIncome: string;
   totalKm: string;
   estimatedFuelCost: string;
@@ -141,6 +129,22 @@ interface Shift {
 
 interface ShiftsResponse {
   data: Shift[];
+}
+
+interface TripsResponse {
+  data: Trip[];
+  meta: {
+    total: number;
+  };
+}
+
+interface DailyIncomeSummary {
+  grossIncome: number;
+  netProfit: number;
+  totalKm: number;
+  estimatedFuelCost: number;
+  activeMinutes: number;
+  tripCount: number;
 }
 
 const initialFormState: AuthFormState = {
@@ -843,7 +847,13 @@ function DashboardScreen({
             </View>
           </View>
 
-          {activeTab === "today" ? <TodayTabContent /> : null}
+          {activeTab === "today" ? (
+            <TodayTabContent
+              accessToken={accessToken}
+              apiBaseUrl={getApiBaseUrl()}
+              selectedVehicle={selectedVehicle}
+            />
+          ) : null}
           {activeTab === "record" ? (
             <RecordTabContent
               accessToken={accessToken}
@@ -902,37 +912,162 @@ function DashboardScreen({
   );
 }
 
-function TodayTabContent() {
+function TodayTabContent({
+  accessToken,
+  apiBaseUrl,
+  selectedVehicle,
+}: {
+  accessToken: string;
+  apiBaseUrl: string;
+  selectedVehicle: Vehicle;
+}) {
+  const [summary, setSummary] = useState<DailyIncomeSummary>({
+    activeMinutes: 0,
+    estimatedFuelCost: 0,
+    grossIncome: 0,
+    netProfit: 0,
+    totalKm: 0,
+    tripCount: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadDailySummary().catch((error) => {
+      setMessage(
+        error instanceof Error ? error.message : "Gunluk gelir yuklenemedi.",
+      );
+      setIsLoading(false);
+    });
+  }, [selectedVehicle.id]);
+
+  async function loadDailySummary() {
+    setIsLoading(true);
+    setMessage(null);
+
+    const today = getLocalDateInputValue();
+    const [tripsResponse, shiftsResponse] = await Promise.all([
+      getJson<TripsResponse>(
+        `${apiBaseUrl}/trips${buildQueryString({
+          endDate: today,
+          page: 1,
+          pageSize: 100,
+          sortBy: "tripDate",
+          sortDirection: "desc",
+          startDate: today,
+          vehicleId: selectedVehicle.id,
+        })}`,
+        accessToken,
+      ),
+      getJson<ShiftsResponse>(
+        `${apiBaseUrl}/shifts${buildQueryString({
+          endDate: today,
+          page: 1,
+          pageSize: 50,
+          sortBy: "startedAt",
+          sortDirection: "desc",
+          startDate: today,
+          vehicleId: selectedVehicle.id,
+        })}`,
+        accessToken,
+      ),
+    ]);
+
+    setSummary(calculateDailyIncomeSummary(tripsResponse, shiftsResponse));
+    setIsLoading(false);
+  }
+
+  const netPerKm =
+    summary.totalKm > 0 ? summary.netProfit / summary.totalKm : 0;
+  const hourlyNet =
+    summary.activeMinutes > 0
+      ? summary.netProfit / (summary.activeMinutes / 60)
+      : 0;
+  const allocatedCost = Math.max(
+    summary.grossIncome - summary.netProfit - summary.estimatedFuelCost,
+    0,
+  );
+  const breakEvenStatus =
+    summary.tripCount === 0
+      ? "Kayit bekliyor"
+      : summary.netProfit >= 0
+        ? "Karda"
+        : "Zararda";
+  const metricRows = [
+    ["Bugunku brut gelir", formatMoney(summary.grossIncome)],
+    ["Sefer sayisi", String(summary.tripCount)],
+    ["Km basi net", `${formatNumber(netPerKm)} TL`],
+    ["Saatlik net", formatMoney(hourlyNet)],
+  ];
+  const expenseRows = [
+    ["Tahmini yakit", formatMoney(summary.estimatedFuelCost)],
+    ["Paket/sabit gider payi", formatMoney(allocatedCost)],
+    ["Toplam km", `${formatNumber(summary.totalKm)} km`],
+  ];
+
   return (
     <>
       <View style={styles.heroCard}>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>Break-even asildi</Text>
+          <Text style={styles.badgeText}>{breakEvenStatus}</Text>
         </View>
         <Text style={styles.heroLabel}>Net kar</Text>
-        <Text style={styles.heroValue}>1.460 TL</Text>
+        <Text style={styles.heroValue}>
+          {isLoading ? "..." : formatMoney(summary.netProfit)}
+        </Text>
         <Text style={styles.heroDetail}>
-          Yakit, paket, sabit gider ve bakim rezervi dusuldu.
+          {isLoading
+            ? "Bugunun sefer ve vardiya kayitlari yukleniyor."
+            : `${formatMoney(summary.grossIncome)} brut gelir, ${formatMoney(
+                summary.estimatedFuelCost,
+              )} tahmini yakit maliyeti ile hesaplandi.`}
         </Text>
       </View>
 
+      {message ? <Text style={styles.formAlert}>{message}</Text> : null}
+
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Gunluk gelir ozeti</Text>
+        <Pressable onPress={loadDailySummary} style={styles.secondaryButton}>
+          <Text style={styles.secondaryButtonText}>Yenile</Text>
+        </Pressable>
+      </View>
+
       <View style={styles.metricGrid}>
-        {metrics.map(([label, value]) => (
+        {metricRows.map(([label, value]) => (
           <View key={label} style={styles.metricCard}>
             <Text style={styles.metricLabel}>{label}</Text>
-            <Text style={styles.metricValue}>{value}</Text>
+            <Text style={styles.metricValue}>{isLoading ? "..." : value}</Text>
           </View>
         ))}
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Gider kirilimi</Text>
-        {expenses.map(([name, amount]) => (
+        {expenseRows.map(([name, amount]) => (
           <View key={name} style={styles.expenseRow}>
             <Text style={styles.expenseName}>{name}</Text>
-            <Text style={styles.expenseAmount}>{amount}</Text>
+            <Text style={styles.expenseAmount}>
+              {isLoading ? "..." : amount}
+            </Text>
           </View>
         ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Aktif calisma</Text>
+        <View style={styles.expenseRow}>
+          <Text style={styles.expenseName}>Sure</Text>
+          <Text style={styles.expenseAmount}>
+            {isLoading ? "..." : formatDuration(summary.activeMinutes)}
+          </Text>
+        </View>
+        <View style={styles.expenseRow}>
+          <Text style={styles.expenseName}>Arac</Text>
+          <Text style={styles.expenseAmount}>
+            {selectedVehicle.plateNumber}
+          </Text>
+        </View>
       </View>
     </>
   );
@@ -1603,6 +1738,50 @@ function getTabTitle(tab: MainTab) {
   }
 
   return "Gercek net kar";
+}
+
+function calculateDailyIncomeSummary(
+  tripsResponse: TripsResponse,
+  shiftsResponse: ShiftsResponse,
+): DailyIncomeSummary {
+  const tripTotals = tripsResponse.data.reduce(
+    (totals, trip) => ({
+      activeMinutes: totals.activeMinutes + (trip.durationMinutes ?? 0),
+      estimatedFuelCost:
+        totals.estimatedFuelCost + toNumber(trip.estimatedFuelCost),
+      grossIncome: totals.grossIncome + toNumber(trip.totalIncome),
+      netProfit: totals.netProfit + toNumber(trip.trueNetProfit),
+      totalKm: totals.totalKm + toNumber(trip.totalKm),
+    }),
+    {
+      activeMinutes: 0,
+      estimatedFuelCost: 0,
+      grossIncome: 0,
+      netProfit: 0,
+      totalKm: 0,
+    },
+  );
+  const shiftActiveMinutes = shiftsResponse.data.reduce(
+    (total, shift) => total + (shift.activeMinutes ?? 0),
+    0,
+  );
+
+  return {
+    ...tripTotals,
+    activeMinutes: shiftActiveMinutes || tripTotals.activeMinutes,
+    tripCount: tripsResponse.meta.total,
+  };
+}
+
+function buildQueryString(query: Record<string, string | number | undefined>) {
+  const params = Object.entries(query)
+    .filter(([, value]) => value !== undefined && value !== "")
+    .map(
+      ([key, value]) =>
+        `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`,
+    );
+
+  return params.length > 0 ? `?${params.join("&")}` : "";
 }
 
 async function getJson<TResponse>(url: string, accessToken?: string) {
