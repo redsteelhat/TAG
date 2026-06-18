@@ -229,6 +229,18 @@ interface TripsResponse {
   };
 }
 
+interface ExpenseEntriesResponse {
+  data: ExpenseEntry[];
+}
+
+interface FuelEntriesResponse {
+  data: FuelEntry[];
+}
+
+interface TagPackagesResponse {
+  data: TagPackage[];
+}
+
 interface DailyIncomeSummary {
   grossIncome: number;
   netProfit: number;
@@ -236,6 +248,17 @@ interface DailyIncomeSummary {
   estimatedFuelCost: number;
   activeMinutes: number;
   tripCount: number;
+}
+
+interface DailyExpenseSummary {
+  activePackageCount: number;
+  fuelCost: number;
+  fuelEntryCount: number;
+  otherExpenseCost: number;
+  packageCost: number;
+  receiptCount: number;
+  totalCost: number;
+  totalEntryCount: number;
 }
 
 interface QuickTripDraftInput {
@@ -267,6 +290,17 @@ const initialQuickTripFormState: QuickTripFormState = {
   note: "",
   paymentMethod: "DIGITAL",
   tripKm: "",
+};
+
+const initialDailyExpenseSummary: DailyExpenseSummary = {
+  activePackageCount: 0,
+  fuelCost: 0,
+  fuelEntryCount: 0,
+  otherExpenseCost: 0,
+  packageCost: 0,
+  receiptCount: 0,
+  totalCost: 0,
+  totalEntryCount: 0,
 };
 
 const initialQuickExpenseFormState: QuickExpenseFormState = {
@@ -1294,6 +1328,13 @@ function RecordTabContent({
   const [packageMessage, setPackageMessage] = useState<string | null>(null);
   const [isPackageSubmitting, setIsPackageSubmitting] = useState(false);
   const [lastPackage, setLastPackage] = useState<TagPackage | null>(null);
+  const [expenseSummary, setExpenseSummary] = useState<DailyExpenseSummary>(
+    initialDailyExpenseSummary,
+  );
+  const [expenseSummaryMessage, setExpenseSummaryMessage] = useState<
+    string | null
+  >(null);
+  const [isExpenseSummaryLoading, setIsExpenseSummaryLoading] = useState(true);
   const [tripDrafts, setTripDrafts] = useState<TripDraft[]>([]);
   const [isDraftLoading, setIsDraftLoading] = useState(true);
   const [isSyncingDrafts, setIsSyncingDrafts] = useState(false);
@@ -1328,6 +1369,7 @@ function RecordTabContent({
     setLastCompletedShift(null);
     setLastFuelEntry(null);
     setLastPackage(null);
+    refreshExpenseSummary();
     loadTripDrafts().catch(() => setIsDraftLoading(false));
     loadActiveShift().catch((error) => {
       setShiftMessage(
@@ -1412,6 +1454,69 @@ function RecordTabContent({
         "",
     }));
     setIsShiftLoading(false);
+  }
+
+  async function loadExpenseSummary() {
+    setIsExpenseSummaryLoading(true);
+    setExpenseSummaryMessage(null);
+
+    const today = getLocalDateInputValue();
+    const [expensesResponse, fuelEntriesResponse, tagPackagesResponse] =
+      await Promise.all([
+        getJson<ExpenseEntriesResponse>(
+          `${apiBaseUrl}/expenses${buildQueryString({
+            endDate: today,
+            page: 1,
+            pageSize: 100,
+            sortBy: "expenseDate",
+            sortDirection: "desc",
+            startDate: today,
+            vehicleId: selectedVehicle.id,
+          })}`,
+          accessToken,
+        ),
+        getJson<FuelEntriesResponse>(
+          `${apiBaseUrl}/fuel-entries${buildQueryString({
+            endDate: today,
+            page: 1,
+            pageSize: 100,
+            sortBy: "createdAt",
+            sortDirection: "desc",
+            startDate: today,
+            vehicleId: selectedVehicle.id,
+          })}`,
+          accessToken,
+        ),
+        getJson<TagPackagesResponse>(
+          `${apiBaseUrl}/tag-packages${buildQueryString({
+            isActive: "true",
+            page: 1,
+            pageSize: 100,
+            sortBy: "startsAt",
+            sortDirection: "desc",
+            vehicleId: selectedVehicle.id,
+          })}`,
+          accessToken,
+        ),
+      ]);
+
+    setExpenseSummary(
+      calculateDailyExpenseSummary(
+        expensesResponse,
+        fuelEntriesResponse,
+        tagPackagesResponse,
+      ),
+    );
+    setIsExpenseSummaryLoading(false);
+  }
+
+  function refreshExpenseSummary() {
+    loadExpenseSummary().catch((error) => {
+      setExpenseSummaryMessage(
+        error instanceof Error ? error.message : "Gider ozeti yuklenemedi.",
+      );
+      setIsExpenseSummaryLoading(false);
+    });
   }
 
   async function submitQuickTrip() {
@@ -1610,6 +1715,7 @@ function RecordTabContent({
       setLastExpense(response.data);
       setExpenseForm(initialQuickExpenseFormState);
       setExpenseMessage("Gider kaydi eklendi.");
+      refreshExpenseSummary();
     } catch (error) {
       setExpenseMessage(
         error instanceof Error ? error.message : "Gider kaydedilemedi.",
@@ -1667,6 +1773,7 @@ function RecordTabContent({
         odometerKm: response.data.odometerKm ?? fuelForm.odometerKm,
       });
       setFuelMessage("Yakit kaydi eklendi.");
+      refreshExpenseSummary();
     } catch (error) {
       setFuelMessage(
         error instanceof Error ? error.message : "Yakit kaydedilemedi.",
@@ -1731,6 +1838,7 @@ function RecordTabContent({
         startsAt: getLocalDateInputValue(),
       });
       setPackageMessage("Paket kaydi eklendi.");
+      refreshExpenseSummary();
     } catch (error) {
       setPackageMessage(
         error instanceof Error ? error.message : "Paket kaydedilemedi.",
@@ -1981,6 +2089,72 @@ function RecordTabContent({
         >
           <Text style={styles.outlineButtonText}>Offline Taslak Kaydet</Text>
         </Pressable>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <View>
+            <Text style={styles.sectionTitle}>Gider ozeti</Text>
+            <Text style={styles.sectionSubtitle}>
+              Bugunku yakit, paket ve diger giderlerin toplam kirilimi.
+            </Text>
+          </View>
+          <Pressable
+            disabled={isExpenseSummaryLoading}
+            onPress={refreshExpenseSummary}
+            style={[
+              styles.secondaryButton,
+              isExpenseSummaryLoading ? styles.disabledButton : null,
+            ]}
+          >
+            <Text style={styles.secondaryButtonText}>
+              {isExpenseSummaryLoading ? "..." : "Yenile"}
+            </Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.metricGrid}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Toplam gider</Text>
+            <Text style={styles.metricValue}>
+              {isExpenseSummaryLoading
+                ? "..."
+                : formatMoney(expenseSummary.totalCost)}
+            </Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Kayit sayisi</Text>
+            <Text style={styles.metricValue}>
+              {isExpenseSummaryLoading
+                ? "..."
+                : String(expenseSummary.totalEntryCount)}
+            </Text>
+          </View>
+        </View>
+
+        {[
+          ["Yakit", formatMoney(expenseSummary.fuelCost)],
+          ["Paket gunluk payi", formatMoney(expenseSummary.packageCost)],
+          ["Diger giderler", formatMoney(expenseSummary.otherExpenseCost)],
+          ["Fisli kayit", String(expenseSummary.receiptCount)],
+        ].map(([name, amount]) => (
+          <View key={name} style={styles.expenseRow}>
+            <Text style={styles.expenseName}>{name}</Text>
+            <Text style={styles.expenseAmount}>
+              {isExpenseSummaryLoading ? "..." : amount}
+            </Text>
+          </View>
+        ))}
+
+        {expenseSummaryMessage ? (
+          <Text style={styles.formAlert}>{expenseSummaryMessage}</Text>
+        ) : null}
+
+        {!isExpenseSummaryLoading && expenseSummary.totalEntryCount === 0 ? (
+          <Text style={styles.emptyText}>
+            Bugun icin gider, yakit veya aktif paket kaydi bulunmuyor.
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.section}>
@@ -2913,6 +3087,48 @@ function calculateDailyIncomeSummary(
     ...tripTotals,
     activeMinutes: shiftActiveMinutes || tripTotals.activeMinutes,
     tripCount: tripsResponse.meta.total,
+  };
+}
+
+function calculateDailyExpenseSummary(
+  expensesResponse: ExpenseEntriesResponse,
+  fuelEntriesResponse: FuelEntriesResponse,
+  tagPackagesResponse: TagPackagesResponse,
+): DailyExpenseSummary {
+  const packageExpenseCost = expensesResponse.data
+    .filter((expense) => expense.expenseType === "PLATFORM_PACKAGE")
+    .reduce((total, expense) => total + toNumber(expense.amount), 0);
+  const otherExpenseCost = expensesResponse.data
+    .filter((expense) => expense.expenseType !== "PLATFORM_PACKAGE")
+    .reduce((total, expense) => total + toNumber(expense.amount), 0);
+  const fuelCost = fuelEntriesResponse.data.reduce(
+    (total, fuelEntry) => total + toNumber(fuelEntry.amount),
+    0,
+  );
+  const activePackageDailyCost = tagPackagesResponse.data.reduce(
+    (total, tagPackage) => total + toNumber(tagPackage.dailyCost),
+    0,
+  );
+  const packageCost = packageExpenseCost + activePackageDailyCost;
+  const receiptCount =
+    expensesResponse.data.filter((expense) => Boolean(expense.receiptUrl))
+      .length +
+    fuelEntriesResponse.data.filter((fuelEntry) =>
+      Boolean(fuelEntry.receiptUrl),
+    ).length;
+
+  return {
+    activePackageCount: tagPackagesResponse.data.length,
+    fuelCost,
+    fuelEntryCount: fuelEntriesResponse.data.length,
+    otherExpenseCost,
+    packageCost,
+    receiptCount,
+    totalCost: fuelCost + packageCost + otherExpenseCost,
+    totalEntryCount:
+      expensesResponse.data.length +
+      fuelEntriesResponse.data.length +
+      tagPackagesResponse.data.length,
   };
 }
 
