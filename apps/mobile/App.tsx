@@ -48,6 +48,22 @@ type MainTab = "today" | "record" | "reports" | "vehicles";
 type FuelType = "DIESEL" | "GASOLINE" | "LPG" | "HYBRID" | "ELECTRIC" | "OTHER";
 type PaymentMethod = "CASH" | "CARD" | "DIGITAL" | "MIXED" | "OTHER";
 type ShiftStatus = "ACTIVE" | "COMPLETED" | "CANCELED";
+type ExpenseType =
+  | "VARIABLE"
+  | "FIXED"
+  | "SEMI_VARIABLE"
+  | "PLATFORM_PACKAGE"
+  | "FINANCING"
+  | "DEPRECIATION"
+  | "OPERATIONAL";
+type AllocationType =
+  | "IMMEDIATE"
+  | "DAILY"
+  | "MONTHLY"
+  | "YEARLY"
+  | "PER_KM"
+  | "PER_TRIP"
+  | "PACKAGE_PERIOD";
 
 interface AuthUser {
   id: string;
@@ -105,6 +121,15 @@ interface QuickTripFormState {
   note: string;
 }
 
+interface QuickExpenseFormState {
+  amount: string;
+  expenseType: ExpenseType;
+  allocationType: AllocationType;
+  paymentMethod: PaymentMethod;
+  odometerKm: string;
+  note: string;
+}
+
 interface ShiftFormState {
   startOdometerKm: string;
   endOdometerKm: string;
@@ -118,6 +143,15 @@ interface Trip {
   totalKm: string;
   estimatedFuelCost: string;
   trueNetProfit: string;
+}
+
+interface ExpenseEntry {
+  id: string;
+  amount: string;
+  expenseType: ExpenseType;
+  allocationType: AllocationType;
+  paymentMethod?: PaymentMethod | null;
+  note?: string | null;
 }
 
 interface Shift {
@@ -185,6 +219,15 @@ const initialQuickTripFormState: QuickTripFormState = {
   tripKm: "",
 };
 
+const initialQuickExpenseFormState: QuickExpenseFormState = {
+  allocationType: "IMMEDIATE",
+  amount: "",
+  expenseType: "VARIABLE",
+  note: "",
+  odometerKm: "",
+  paymentMethod: "CARD",
+};
+
 const initialShiftFormState: ShiftFormState = {
   endOdometerKm: "",
   note: "",
@@ -206,6 +249,56 @@ const paymentMethodOptions: Array<{ label: string; value: PaymentMethod }> = [
   { label: "Kart", value: "CARD" },
   { label: "Karma", value: "MIXED" },
   { label: "Diger", value: "OTHER" },
+];
+
+const quickExpensePresets: Array<{
+  label: string;
+  expenseType: ExpenseType;
+  allocationType: AllocationType;
+  note: string;
+}> = [
+  {
+    allocationType: "IMMEDIATE",
+    expenseType: "VARIABLE",
+    label: "Otopark",
+    note: "Otopark ucreti",
+  },
+  {
+    allocationType: "IMMEDIATE",
+    expenseType: "VARIABLE",
+    label: "HGS",
+    note: "HGS gecisi",
+  },
+  {
+    allocationType: "IMMEDIATE",
+    expenseType: "OPERATIONAL",
+    label: "Yikama",
+    note: "Arac yikama",
+  },
+  {
+    allocationType: "PER_KM",
+    expenseType: "SEMI_VARIABLE",
+    label: "Bakim",
+    note: "Bakim gideri",
+  },
+  {
+    allocationType: "IMMEDIATE",
+    expenseType: "VARIABLE",
+    label: "Ceza",
+    note: "Ceza gideri",
+  },
+  {
+    allocationType: "DAILY",
+    expenseType: "PLATFORM_PACKAGE",
+    label: "Paket",
+    note: "Paket / kullanim bedeli",
+  },
+  {
+    allocationType: "IMMEDIATE",
+    expenseType: "VARIABLE",
+    label: "Diger",
+    note: "",
+  },
 ];
 
 export default function App() {
@@ -1097,8 +1190,14 @@ function RecordTabContent({
   const [form, setForm] = useState<QuickTripFormState>(
     initialQuickTripFormState,
   );
+  const [expenseForm, setExpenseForm] = useState<QuickExpenseFormState>(
+    initialQuickExpenseFormState,
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expenseMessage, setExpenseMessage] = useState<string | null>(null);
+  const [isExpenseSubmitting, setIsExpenseSubmitting] = useState(false);
+  const [lastExpense, setLastExpense] = useState<ExpenseEntry | null>(null);
   const [tripDrafts, setTripDrafts] = useState<TripDraft[]>([]);
   const [isDraftLoading, setIsDraftLoading] = useState(true);
   const [isSyncingDrafts, setIsSyncingDrafts] = useState(false);
@@ -1132,6 +1231,23 @@ function RecordTabContent({
 
   function updateField(field: keyof QuickTripFormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateExpenseField(
+    field: keyof QuickExpenseFormState,
+    value: string,
+  ) {
+    setExpenseForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function applyExpensePreset(preset: (typeof quickExpensePresets)[number]) {
+    setExpenseForm((current) => ({
+      ...current,
+      allocationType: preset.allocationType,
+      expenseType: preset.expenseType,
+      note: preset.note,
+    }));
+    setExpenseMessage(null);
   }
 
   function updateShiftField(field: keyof ShiftFormState, value: string) {
@@ -1320,6 +1436,51 @@ function RecordTabContent({
   const totalKmPreview =
     toNumber(normalizeDecimalInput(form.tripKm)) +
     toNumber(normalizeDecimalInput(form.deadheadKm));
+
+  async function submitQuickExpense() {
+    const amount = normalizeDecimalInput(expenseForm.amount);
+    const odometerKm = normalizeDecimalInput(expenseForm.odometerKm);
+
+    if (!amount || Number(amount) <= 0) {
+      setExpenseMessage("Gider tutari 0 TL uzerinde olmali.");
+      return;
+    }
+
+    if (odometerKm && Number(odometerKm) < 0) {
+      setExpenseMessage("Km sayaci negatif olamaz.");
+      return;
+    }
+
+    setIsExpenseSubmitting(true);
+    setExpenseMessage(null);
+
+    try {
+      const response = await postJson<{ data: ExpenseEntry }>(
+        `${apiBaseUrl}/expenses`,
+        {
+          allocationType: expenseForm.allocationType,
+          amount,
+          expenseDate: getLocalDateInputValue(),
+          expenseType: expenseForm.expenseType,
+          note: expenseForm.note.trim() || undefined,
+          odometerKm: odometerKm || undefined,
+          paymentMethod: expenseForm.paymentMethod,
+          vehicleId: selectedVehicle.id,
+        },
+        accessToken,
+      );
+
+      setLastExpense(response.data);
+      setExpenseForm(initialQuickExpenseFormState);
+      setExpenseMessage("Gider kaydi eklendi.");
+    } catch (error) {
+      setExpenseMessage(
+        error instanceof Error ? error.message : "Gider kaydedilemedi.",
+      );
+    } finally {
+      setIsExpenseSubmitting(false);
+    }
+  }
 
   async function startShift() {
     const startOdometerKm = normalizeDecimalInput(shiftForm.startOdometerKm);
@@ -1567,6 +1728,169 @@ function RecordTabContent({
       <View style={styles.section}>
         <View style={styles.sectionHeaderRow}>
           <View>
+            <Text style={styles.sectionTitle}>Hizli gider ekle</Text>
+            <Text style={styles.sectionSubtitle}>
+              Otopark, HGS, yikama, bakim ve ceza giderlerini hizli kaydet.
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.inputLabel}>Gider tipi</Text>
+        <View style={styles.optionGrid}>
+          {quickExpensePresets.map((preset) => {
+            const isActive =
+              expenseForm.expenseType === preset.expenseType &&
+              expenseForm.allocationType === preset.allocationType &&
+              expenseForm.note === preset.note;
+
+            return (
+              <Pressable
+                key={preset.label}
+                onPress={() => applyExpensePreset(preset)}
+                style={[
+                  styles.optionButton,
+                  isActive ? styles.optionButtonActive : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    isActive ? styles.optionButtonTextActive : null,
+                  ]}
+                >
+                  {preset.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.formRow}>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Tutar"
+              onChangeText={(value) => updateExpenseField("amount", value)}
+              placeholder="250"
+              value={expenseForm.amount}
+            />
+          </View>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Km sayaci"
+              onChangeText={(value) => updateExpenseField("odometerKm", value)}
+              placeholder="85120"
+              value={expenseForm.odometerKm}
+            />
+          </View>
+        </View>
+
+        <Text style={styles.inputLabel}>Odeme tipi</Text>
+        <View style={styles.optionGrid}>
+          {paymentMethodOptions.map((option) => {
+            const isActive = expenseForm.paymentMethod === option.value;
+
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => updateExpenseField("paymentMethod", option.value)}
+                style={[
+                  styles.optionButton,
+                  isActive ? styles.optionButtonActive : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    isActive ? styles.optionButtonTextActive : null,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <TextField
+          label="Not"
+          multiline
+          onChangeText={(value) => updateExpenseField("note", value)}
+          placeholder="Otopark, HGS gecisi, yikama..."
+          style={[styles.input, styles.textArea]}
+          value={expenseForm.note}
+        />
+
+        <View style={styles.quickTripPreview}>
+          <View>
+            <Text style={styles.shiftLabel}>Gider sinifi</Text>
+            <Text style={styles.shiftValue}>
+              {formatExpenseType(expenseForm.expenseType)}
+            </Text>
+          </View>
+          <View style={styles.autoCalcBadge}>
+            <Text style={styles.autoCalcBadgeText}>
+              {formatAllocationType(expenseForm.allocationType)}
+            </Text>
+          </View>
+        </View>
+
+        {expenseMessage ? (
+          <Text
+            style={[
+              styles.formAlert,
+              isSuccessMessage(expenseMessage) ? styles.formSuccess : null,
+            ]}
+          >
+            {expenseMessage}
+          </Text>
+        ) : null}
+
+        <Pressable
+          disabled={isExpenseSubmitting}
+          onPress={submitQuickExpense}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            (pressed || isExpenseSubmitting) && styles.primaryButtonPressed,
+          ]}
+        >
+          {isExpenseSubmitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Gideri Kaydet</Text>
+          )}
+        </Pressable>
+
+        {lastExpense ? (
+          <View style={styles.shiftResultPanel}>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Son gider</Text>
+              <Text style={styles.expenseAmount}>
+                {formatMoney(toNumber(lastExpense.amount))}
+              </Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Tip</Text>
+              <Text style={styles.expenseAmount}>
+                {formatExpenseType(lastExpense.expenseType)}
+              </Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Not</Text>
+              <Text style={styles.expenseAmount}>
+                {lastExpense.note || "-"}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <View>
             <Text style={styles.sectionTitle}>Offline taslaklar</Text>
             <Text style={styles.sectionSubtitle}>
               Baglanti yokken seferleri cihazda sakla, sonra API'ye gonder.
@@ -1654,7 +1978,7 @@ function RecordTabContent({
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Diger hizli kayitlar</Text>
         <View style={styles.actionGrid}>
-          {["Gider Ekle", "Yakit Ekle", "Paket Ekle", "Bakim Ekle"].map(
+          {["Yakit Ekle", "Paket Ekle", "Bakim Ekle"].map(
             (action) => (
               <Pressable key={action} style={styles.actionButton}>
                 <Text style={styles.actionText}>{action}</Text>
@@ -2123,6 +2447,34 @@ function formatFuelType(fuelType: FuelType) {
   const option = fuelOptions.find((fuel) => fuel.value === fuelType);
 
   return option?.label ?? "Diger";
+}
+
+function formatExpenseType(expenseType: ExpenseType) {
+  const labels: Record<ExpenseType, string> = {
+    DEPRECIATION: "Amortisman",
+    FINANCING: "Finansman",
+    FIXED: "Sabit",
+    OPERATIONAL: "Operasyon",
+    PLATFORM_PACKAGE: "Paket",
+    SEMI_VARIABLE: "Yari degisken",
+    VARIABLE: "Degisken",
+  };
+
+  return labels[expenseType];
+}
+
+function formatAllocationType(allocationType: AllocationType) {
+  const labels: Partial<Record<AllocationType, string>> = {
+    DAILY: "Gunluk dagitim",
+    IMMEDIATE: "Anlik gider",
+    MONTHLY: "Aylik dagitim",
+    PACKAGE_PERIOD: "Paket donemi",
+    PER_KM: "Km bazli",
+    PER_TRIP: "Sefer bazli",
+    YEARLY: "Yillik dagitim",
+  };
+
+  return labels[allocationType] ?? "Dagitim";
 }
 
 const styles = StyleSheet.create({
