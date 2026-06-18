@@ -1,12 +1,10 @@
-import { ModulePlaceholder } from '../../components/module-placeholder';
+import { AppShell } from '../../components/app-shell';
+import { FuelPanel } from '../../components/fuel-panel';
 
 export default function FuelPage() {
   return (
-    <ModulePlaceholder
-      description="Litre, tutar, km sayaci ve tuketim analizleriyle yakit maliyetinin kara etkisi bu ekranda izlenecek."
-      eyebrow="Yakit analizi"
-      primaryActionLabel="Yakit Ekle"
-      title="Yakit"
-    />
+    <AppShell eyebrow="Yakit analizi" title="Yakit">
+      <FuelPanel />
+    </AppShell>
   );
 }

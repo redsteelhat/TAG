@@ -1,0 +1,1035 @@
+'use client';
+
+import {
+  ChevronLeft,
+  ChevronRight,
+  Fuel,
+  ListFilter,
+  RefreshCw,
+  Save,
+  Search
+} from 'lucide-react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { getJson, postJson } from '../lib/api-client';
+import { getAccessToken } from '../lib/auth-storage';
+
+type FuelType = 'DIESEL' | 'GASOLINE' | 'LPG' | 'HYBRID' | 'ELECTRIC' | 'OTHER';
+type PaymentMethod = 'CASH' | 'CARD' | 'DIGITAL' | 'MIXED' | 'OTHER';
+type SortDirection = 'asc' | 'desc';
+type FuelSortBy =
+  | 'amount'
+  | 'createdAt'
+  | 'liters'
+  | 'odometerKm'
+  | 'pricePerLiter';
+
+interface FuelEntry {
+  id: string;
+  vehicleId: string;
+  fuelType: FuelType;
+  amount: string;
+  liters: string;
+  pricePerLiter: string;
+  odometerKm?: string | null;
+  stationName?: string | null;
+  city?: string | null;
+  district?: string | null;
+  fullTank: boolean;
+  tankFillLevel?: string | null;
+  paymentMethod?: PaymentMethod | null;
+  receiptUrl?: string | null;
+  createdAt: string;
+}
+
+interface Vehicle {
+  id: string;
+  plateNumber: string;
+  brand?: string | null;
+  model?: string | null;
+  fuelType?: FuelType;
+  isActive: boolean;
+}
+
+interface FuelEntriesResponse {
+  data: FuelEntry[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+interface VehiclesResponse {
+  data: Vehicle[];
+}
+
+interface FuelEntryResponse {
+  data: FuelEntry;
+}
+
+interface FuelFilterValues {
+  endDate: string;
+  fuelType: string;
+  fullTank: string;
+  maxAmount: string;
+  maxLiters: string;
+  minAmount: string;
+  minLiters: string;
+  paymentMethod: string;
+  q: string;
+  sortBy: FuelSortBy;
+  sortDirection: SortDirection;
+  startDate: string;
+  vehicleId: string;
+}
+
+interface FuelFormState {
+  amount: string;
+  city: string;
+  district: string;
+  fuelType: FuelType;
+  fullTank: boolean;
+  liters: string;
+  odometerKm: string;
+  paymentMethod: PaymentMethod;
+  pricePerLiter: string;
+  receiptUrl: string;
+  stationName: string;
+  tankFillLevel: string;
+  vehicleId: string;
+}
+
+const fuelTypeLabels: Record<FuelType, string> = {
+  DIESEL: 'Dizel',
+  ELECTRIC: 'Elektrik',
+  GASOLINE: 'Benzin',
+  HYBRID: 'Hibrit',
+  LPG: 'LPG',
+  OTHER: 'Diger'
+};
+
+const paymentMethodLabels: Record<PaymentMethod, string> = {
+  CARD: 'Kart',
+  CASH: 'Nakit',
+  DIGITAL: 'Dijital',
+  MIXED: 'Karma',
+  OTHER: 'Diger'
+};
+
+const sortOptions: Array<{ label: string; value: FuelSortBy }> = [
+  { label: 'Kayit tarihi', value: 'createdAt' },
+  { label: 'Tutar', value: 'amount' },
+  { label: 'Litre', value: 'liters' },
+  { label: 'Litre fiyati', value: 'pricePerLiter' },
+  { label: 'Km sayaci', value: 'odometerKm' }
+];
+
+const emptyFuelForm: FuelFormState = {
+  amount: '',
+  city: '',
+  district: '',
+  fuelType: 'GASOLINE',
+  fullTank: false,
+  liters: '',
+  odometerKm: '',
+  paymentMethod: 'CARD',
+  pricePerLiter: '',
+  receiptUrl: '',
+  stationName: '',
+  tankFillLevel: '',
+  vehicleId: ''
+};
+
+export function FuelPanel() {
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [fuelEntries, setFuelEntries] = useState<FuelEntry[]>([]);
+  const [meta, setMeta] = useState<FuelEntriesResponse['meta'] | null>(null);
+  const [fuelForm, setFuelForm] = useState<FuelFormState>(emptyFuelForm);
+  const [vehicleId, setVehicleId] = useState('');
+  const [fuelType, setFuelType] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [fullTank, setFullTank] = useState('');
+  const [q, setQ] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+  const [minLiters, setMinLiters] = useState('');
+  const [maxLiters, setMaxLiters] = useState('');
+  const [sortBy, setSortBy] = useState<FuelSortBy>('createdAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [page, setPage] = useState(1);
+  const [message, setMessage] = useState<string | null>(null);
+  const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSavingFuel, setIsSavingFuel] = useState(false);
+
+  const pageMetrics = useMemo(() => {
+    const totals = fuelEntries.reduce(
+      (currentTotals, entry) => ({
+        amount: currentTotals.amount + toNumber(entry.amount),
+        liters: currentTotals.liters + toNumber(entry.liters)
+      }),
+      {
+        amount: 0,
+        liters: 0
+      }
+    );
+    const odometerValues = fuelEntries
+      .map((entry) => toNumber(entry.odometerKm ?? ''))
+      .filter((value) => value > 0)
+      .sort((first, second) => first - second);
+    const kmDelta =
+      odometerValues.length >= 2
+        ? odometerValues[odometerValues.length - 1] - odometerValues[0]
+        : 0;
+
+    return {
+      ...totals,
+      averagePricePerLiter:
+        totals.liters > 0 ? totals.amount / totals.liters : 0,
+      costPerKm: kmDelta > 0 ? totals.amount / kmDelta : 0,
+      consumptionPer100Km: kmDelta > 0 ? (totals.liters / kmDelta) * 100 : 0
+    };
+  }, [fuelEntries]);
+
+  useEffect(() => {
+    setAccessToken(getAccessToken());
+  }, []);
+
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    void fetchVehicles(accessToken);
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    void fetchFuelEntries(accessToken);
+  }, [accessToken, page, sortBy, sortDirection]);
+
+  useEffect(() => {
+    if (fuelForm.vehicleId || vehicles.length === 0) {
+      return;
+    }
+
+    const activeVehicle = vehicles.find((vehicle) => vehicle.isActive);
+    const selectedVehicle = activeVehicle ?? vehicles[0];
+
+    setFuelForm((currentForm) => ({
+      ...currentForm,
+      fuelType: selectedVehicle.fuelType ?? currentForm.fuelType,
+      vehicleId: selectedVehicle.id
+    }));
+  }, [fuelForm.vehicleId, vehicles]);
+
+  async function fetchVehicles(token = accessToken) {
+    if (!token) {
+      return;
+    }
+
+    try {
+      const response = await getJson<VehiclesResponse>('/vehicles', {
+        accessToken: token
+      });
+
+      setVehicles(response.data);
+    } catch (error) {
+      setFormMessage(
+        error instanceof Error ? error.message : 'Araclar yuklenemedi.'
+      );
+    }
+  }
+
+  async function fetchFuelEntries(
+    token = accessToken,
+    pageToLoad = page,
+    filters: FuelFilterValues = {
+      endDate,
+      fuelType,
+      fullTank,
+      maxAmount,
+      maxLiters,
+      minAmount,
+      minLiters,
+      paymentMethod,
+      q,
+      sortBy,
+      sortDirection,
+      startDate,
+      vehicleId
+    }
+  ) {
+    if (!token) {
+      setMessage('Yakit panelini gormek icin once giris yapmalisin.');
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await getJson<FuelEntriesResponse>('/fuel-entries', {
+        accessToken: token,
+        query: {
+          endDate: filters.endDate,
+          fuelType: filters.fuelType || undefined,
+          fullTank: filters.fullTank || undefined,
+          maxAmount: normalizeDecimal(filters.maxAmount),
+          maxLiters: normalizeDecimal(filters.maxLiters),
+          minAmount: normalizeDecimal(filters.minAmount),
+          minLiters: normalizeDecimal(filters.minLiters),
+          page: pageToLoad,
+          pageSize: 10,
+          paymentMethod: filters.paymentMethod || undefined,
+          q: filters.q.trim() || undefined,
+          sortBy: filters.sortBy,
+          sortDirection: filters.sortDirection,
+          startDate: filters.startDate,
+          vehicleId: filters.vehicleId || undefined
+        }
+      });
+
+      setFuelEntries(response.data);
+      setMeta(response.meta);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Yakit kayitlari yuklenemedi.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleFuelSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!accessToken) {
+      setFormMessage('Yakit kaydetmek icin once giris yapmalisin.');
+      return;
+    }
+
+    if (!fuelForm.vehicleId) {
+      setFormMessage('Yakit kaydetmek icin once arac secmelisin.');
+      return;
+    }
+
+    setIsSavingFuel(true);
+    setFormMessage(null);
+
+    try {
+      await postJson<FuelEntryResponse>(
+        '/fuel-entries',
+        buildFuelPayload(fuelForm),
+        { accessToken }
+      );
+
+      setFormMessage('Yakit kaydi olusturuldu.');
+      resetFuelForm();
+      setPage(1);
+      await fetchFuelEntries(accessToken, 1);
+    } catch (error) {
+      setFormMessage(
+        error instanceof Error ? error.message : 'Yakit kaydedilemedi.'
+      );
+    } finally {
+      setIsSavingFuel(false);
+    }
+  }
+
+  function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(1);
+    void fetchFuelEntries(accessToken, 1);
+  }
+
+  function clearFilters() {
+    const clearedFilters: FuelFilterValues = {
+      endDate: '',
+      fuelType: '',
+      fullTank: '',
+      maxAmount: '',
+      maxLiters: '',
+      minAmount: '',
+      minLiters: '',
+      paymentMethod: '',
+      q: '',
+      sortBy: 'createdAt',
+      sortDirection: 'desc',
+      startDate: '',
+      vehicleId: ''
+    };
+
+    setVehicleId('');
+    setFuelType('');
+    setPaymentMethod('');
+    setFullTank('');
+    setQ('');
+    setStartDate('');
+    setEndDate('');
+    setMinAmount('');
+    setMaxAmount('');
+    setMinLiters('');
+    setMaxLiters('');
+    setSortBy('createdAt');
+    setSortDirection('desc');
+    setPage(1);
+    void fetchFuelEntries(accessToken, 1, clearedFilters);
+  }
+
+  function resetFuelForm() {
+    const activeVehicle = vehicles.find((vehicle) => vehicle.isActive);
+    const selectedVehicle = activeVehicle ?? vehicles[0];
+
+    setFuelForm({
+      ...emptyFuelForm,
+      fuelType: selectedVehicle?.fuelType ?? emptyFuelForm.fuelType,
+      vehicleId: selectedVehicle?.id ?? ''
+    });
+  }
+
+  function updateFuelForm<Key extends keyof FuelFormState>(
+    key: Key,
+    value: FuelFormState[Key]
+  ) {
+    setFuelForm((currentForm) => ({
+      ...currentForm,
+      [key]: value
+    }));
+  }
+
+  if (!accessToken) {
+    return (
+      <section className="panel empty-state-panel">
+        <p className="eyebrow">Oturum gerekli</p>
+        <h2>Yakit panelini gormek icin giris yap.</h2>
+        <p>Token bulunamadigi icin API’den yakit verisi cekilmedi.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="income-list-page">
+      <section className="metric-grid income-metrics" aria-label="Yakit ozeti">
+        <MetricCard
+          label="Goruntulenen yakit"
+          value={formatMoney(pageMetrics.amount)}
+        />
+        <MetricCard
+          label="Toplam litre"
+          value={`${formatNumber(pageMetrics.liters)} lt`}
+        />
+        <MetricCard
+          label="Ortalama litre"
+          value={formatMoney(pageMetrics.averagePricePerLiter)}
+        />
+        <MetricCard
+          label="Tahmini 100 km"
+          value={
+            pageMetrics.consumptionPer100Km > 0
+              ? `${formatNumber(pageMetrics.consumptionPer100Km)} lt`
+              : 'Veri yok'
+          }
+        />
+      </section>
+
+      <section className="panel data-form quick-expense-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Yakit girisi</p>
+            <h2>Yakit ekle</h2>
+          </div>
+          <span className="status-pill">
+            {pageMetrics.costPerKm > 0
+              ? `${formatMoney(pageMetrics.costPerKm)} / km`
+              : 'Km maliyeti hazir degil'}
+          </span>
+        </div>
+
+        <form className="quick-expense-form" onSubmit={handleFuelSubmit}>
+          <div className="fuel-entry-grid">
+            <label>
+              Arac
+              <select
+                disabled={vehicles.length === 0}
+                onChange={(event) =>
+                  updateFuelForm('vehicleId', event.target.value)
+                }
+                required
+                value={fuelForm.vehicleId}
+              >
+                <option value="">Arac sec</option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {formatVehicleLabel(vehicle)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Yakit tipi
+              <select
+                onChange={(event) =>
+                  updateFuelForm('fuelType', event.target.value as FuelType)
+                }
+                value={fuelForm.fuelType}
+              >
+                {Object.entries(fuelTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Tutar
+              <input
+                inputMode="decimal"
+                onChange={(event) => updateFuelForm('amount', event.target.value)}
+                placeholder="1500.00"
+                required
+                value={fuelForm.amount}
+              />
+            </label>
+
+            <label>
+              Litre
+              <input
+                inputMode="decimal"
+                onChange={(event) => updateFuelForm('liters', event.target.value)}
+                placeholder="32.500"
+                required
+                value={fuelForm.liters}
+              />
+            </label>
+
+            <label>
+              Litre fiyati
+              <input
+                inputMode="decimal"
+                onChange={(event) =>
+                  updateFuelForm('pricePerLiter', event.target.value)
+                }
+                placeholder={formatOptionalPrice(fuelForm)}
+                value={fuelForm.pricePerLiter}
+              />
+            </label>
+
+            <label>
+              Km sayaci
+              <input
+                inputMode="decimal"
+                onChange={(event) =>
+                  updateFuelForm('odometerKm', event.target.value)
+                }
+                placeholder="85120.5"
+                value={fuelForm.odometerKm}
+              />
+            </label>
+
+            <label>
+              Depo durumu
+              <select
+                onChange={(event) =>
+                  updateFuelForm('tankFillLevel', event.target.value)
+                }
+                value={fuelForm.tankFillLevel}
+              >
+                <option value="">Belirtilmedi</option>
+                <option value="FULL">Full</option>
+                <option value="HALF">Yarim</option>
+                <option value="MANUAL">Manuel</option>
+              </select>
+            </label>
+
+            <label>
+              Odeme
+              <select
+                onChange={(event) =>
+                  updateFuelForm(
+                    'paymentMethod',
+                    event.target.value as PaymentMethod
+                  )
+                }
+                value={fuelForm.paymentMethod}
+              >
+                {Object.entries(paymentMethodLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Istasyon
+              <input
+                onChange={(event) =>
+                  updateFuelForm('stationName', event.target.value)
+                }
+                placeholder="Shell Kadikoy"
+                value={fuelForm.stationName}
+              />
+            </label>
+
+            <label>
+              Sehir
+              <input
+                onChange={(event) => updateFuelForm('city', event.target.value)}
+                placeholder="Istanbul"
+                value={fuelForm.city}
+              />
+            </label>
+
+            <label>
+              Ilce
+              <input
+                onChange={(event) =>
+                  updateFuelForm('district', event.target.value)
+                }
+                placeholder="Kadikoy"
+                value={fuelForm.district}
+              />
+            </label>
+
+            <label>
+              Fis URL
+              <input
+                onChange={(event) =>
+                  updateFuelForm('receiptUrl', event.target.value)
+                }
+                placeholder="https://..."
+                value={fuelForm.receiptUrl}
+              />
+            </label>
+          </div>
+
+          <label className="checkbox-row fuel-checkbox">
+            <input
+              checked={fuelForm.fullTank}
+              onChange={(event) =>
+                updateFuelForm('fullTank', event.target.checked)
+              }
+              type="checkbox"
+            />
+            Full depo kaydi
+          </label>
+
+          {formMessage ? (
+            <p
+              className={
+                formMessage.includes('olusturuldu')
+                  ? 'form-success'
+                  : 'form-alert'
+              }
+            >
+              {formMessage}
+            </p>
+          ) : null}
+
+          <div className="form-actions">
+            <button
+              className="secondary-button"
+              onClick={resetFuelForm}
+              type="button"
+            >
+              Temizle
+            </button>
+            <button
+              className="primary-button"
+              disabled={isSavingFuel || vehicles.length === 0}
+            >
+              <Save aria-hidden="true" className="button-icon" />
+              {isSavingFuel ? 'Kaydediliyor' : 'Yakit Ekle'}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="panel">
+        <form className="fuel-list-toolbar" onSubmit={handleFilterSubmit}>
+          <label className="toolbar-search">
+            <Search aria-hidden="true" />
+            <input
+              onChange={(event) => setQ(event.target.value)}
+              placeholder="Istasyon, sehir veya fis ara"
+              value={q}
+            />
+          </label>
+
+          <label>
+            Arac
+            <select
+              onChange={(event) => setVehicleId(event.target.value)}
+              value={vehicleId}
+            >
+              <option value="">Tum araclar</option>
+              {vehicles.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {formatVehicleLabel(vehicle)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Yakit
+            <select
+              onChange={(event) => setFuelType(event.target.value)}
+              value={fuelType}
+            >
+              <option value="">Tum yakitlar</option>
+              {Object.entries(fuelTypeLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Odeme
+            <select
+              onChange={(event) => setPaymentMethod(event.target.value)}
+              value={paymentMethod}
+            >
+              <option value="">Tum odemeler</option>
+              {Object.entries(paymentMethodLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Depo
+            <select
+              onChange={(event) => setFullTank(event.target.value)}
+              value={fullTank}
+            >
+              <option value="">Tum kayitlar</option>
+              <option value="true">Full depo</option>
+              <option value="false">Full degil</option>
+            </select>
+          </label>
+
+          <label>
+            Baslangic
+            <input
+              onChange={(event) => setStartDate(event.target.value)}
+              type="date"
+              value={startDate}
+            />
+          </label>
+
+          <label>
+            Bitis
+            <input
+              onChange={(event) => setEndDate(event.target.value)}
+              type="date"
+              value={endDate}
+            />
+          </label>
+
+          <label>
+            Min tutar
+            <input
+              inputMode="decimal"
+              onChange={(event) => setMinAmount(event.target.value)}
+              placeholder="500.00"
+              value={minAmount}
+            />
+          </label>
+
+          <label>
+            Max tutar
+            <input
+              inputMode="decimal"
+              onChange={(event) => setMaxAmount(event.target.value)}
+              placeholder="3000.00"
+              value={maxAmount}
+            />
+          </label>
+
+          <label>
+            Min litre
+            <input
+              inputMode="decimal"
+              onChange={(event) => setMinLiters(event.target.value)}
+              placeholder="10.000"
+              value={minLiters}
+            />
+          </label>
+
+          <label>
+            Max litre
+            <input
+              inputMode="decimal"
+              onChange={(event) => setMaxLiters(event.target.value)}
+              placeholder="70.000"
+              value={maxLiters}
+            />
+          </label>
+
+          <label>
+            Sirala
+            <select
+              onChange={(event) => setSortBy(event.target.value as FuelSortBy)}
+              value={sortBy}
+            >
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Yon
+            <select
+              onChange={(event) =>
+                setSortDirection(event.target.value as SortDirection)
+              }
+              value={sortDirection}
+            >
+              <option value="desc">Azalan</option>
+              <option value="asc">Artan</option>
+            </select>
+          </label>
+
+          <div className="toolbar-actions">
+            <button
+              className="secondary-button"
+              onClick={clearFilters}
+              type="button"
+            >
+              <ListFilter aria-hidden="true" className="button-icon" />
+              Temizle
+            </button>
+            <button className="primary-button" disabled={isLoading}>
+              <RefreshCw aria-hidden="true" className="button-icon" />
+              {isLoading ? 'Yukleniyor' : 'Filtrele'}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="panel income-table-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Yakit kayitlari</p>
+            <h2>Yakit paneli</h2>
+          </div>
+          <span className="status-pill">
+            {meta ? `${meta.total} kayit` : 'Hazirlaniyor'}
+          </span>
+        </div>
+
+        {message ? <p className="form-alert">{message}</p> : null}
+
+        {fuelEntries.length > 0 ? (
+          <div className="data-table" role="table" aria-label="Yakit kayitlari">
+            <div
+              className="data-table-row data-table-head fuel-table-row"
+              role="row"
+            >
+              <span>Tarih</span>
+              <span>Istasyon</span>
+              <span>Yakit</span>
+              <span>Litre</span>
+              <span>Litre fiyat</span>
+              <span>Tutar</span>
+              <span>Km</span>
+              <span>Depo</span>
+            </div>
+
+            {fuelEntries.map((entry) => (
+              <div className="data-table-row fuel-table-row" role="row" key={entry.id}>
+                <span>
+                  <strong>{formatDate(entry.createdAt)}</strong>
+                  <small>{formatVehicleName(vehicles, entry.vehicleId)}</small>
+                </span>
+                <span>
+                  <strong>{entry.stationName || 'Istasyon yok'}</strong>
+                  <small>{formatLocation(entry)}</small>
+                </span>
+                <span>{fuelTypeLabels[entry.fuelType]}</span>
+                <span>{formatNumber(toNumber(entry.liters))} lt</span>
+                <span>{formatMoney(toNumber(entry.pricePerLiter))}</span>
+                <b>{formatMoney(toNumber(entry.amount))}</b>
+                <span>{formatOdometer(entry.odometerKm)}</span>
+                <span>
+                  <span
+                    className={
+                      entry.fullTank
+                        ? 'status-pill compact active'
+                        : 'status-pill compact completed'
+                    }
+                  >
+                    {entry.fullTank ? 'Full' : entry.tankFillLevel || 'Kayit'}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state-panel compact">
+            <Fuel aria-hidden="true" className="panel-icon" />
+            <h2>Henuz yakit kaydi yok.</h2>
+            <p>
+              Litre, tutar, km sayaci ve istasyon bilgisi girdikce yakit
+              maliyeti burada analiz edilecek.
+            </p>
+          </div>
+        )}
+
+        <div className="pagination-bar">
+          <button
+            className="secondary-button"
+            disabled={!meta?.hasPreviousPage || isLoading}
+            onClick={() =>
+              setPage((currentPage) => Math.max(1, currentPage - 1))
+            }
+            type="button"
+          >
+            <ChevronLeft aria-hidden="true" className="button-icon" />
+            Onceki
+          </button>
+          <span>
+            Sayfa {meta?.page ?? page} / {meta?.totalPages || 1}
+          </span>
+          <button
+            className="secondary-button"
+            disabled={!meta?.hasNextPage || isLoading}
+            onClick={() => setPage((currentPage) => currentPage + 1)}
+            type="button"
+          >
+            Sonraki
+            <ChevronRight aria-hidden="true" className="button-icon trailing" />
+          </button>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="metric-card">
+      <div className="metric-card-header">
+        <p>{label}</p>
+      </div>
+      <strong>{value}</strong>
+      <span>Aktif filtre ve sayfa kapsaminda</span>
+    </article>
+  );
+}
+
+function buildFuelPayload(form: FuelFormState) {
+  return removeEmptyValues({
+    amount: normalizeDecimal(form.amount),
+    city: form.city.trim(),
+    district: form.district.trim(),
+    fuelType: form.fuelType,
+    fullTank: form.fullTank,
+    liters: normalizeDecimal(form.liters),
+    odometerKm: normalizeDecimal(form.odometerKm),
+    paymentMethod: form.paymentMethod,
+    pricePerLiter: normalizeDecimal(form.pricePerLiter),
+    receiptUrl: form.receiptUrl.trim(),
+    stationName: form.stationName.trim(),
+    tankFillLevel: form.tankFillLevel,
+    vehicleId: form.vehicleId
+  });
+}
+
+function removeEmptyValues(values: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(values).filter(
+      ([, value]) => value !== undefined && value !== ''
+    )
+  );
+}
+
+function formatOptionalPrice(form: FuelFormState) {
+  const amount = toNumber(form.amount);
+  const liters = toNumber(form.liters);
+
+  if (amount <= 0 || liters <= 0) {
+    return 'Otomatik';
+  }
+
+  return (amount / liters).toFixed(3);
+}
+
+function formatVehicleLabel(vehicle: Vehicle) {
+  const name = [vehicle.brand, vehicle.model].filter(Boolean).join(' ');
+
+  return name ? `${vehicle.plateNumber} - ${name}` : vehicle.plateNumber;
+}
+
+function formatVehicleName(vehicles: Vehicle[], vehicleId: string) {
+  const vehicle = vehicles.find((item) => item.id === vehicleId);
+
+  return vehicle ? formatVehicleLabel(vehicle) : 'Arac';
+}
+
+function formatLocation(entry: FuelEntry) {
+  const location = [entry.district, entry.city].filter(Boolean).join(' / ');
+
+  return location || 'Konum yok';
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('tr-TR', {
+    day: '2-digit',
+    month: 'short'
+  }).format(new Date(value));
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('tr-TR', {
+    currency: 'TRY',
+    maximumFractionDigits: 2,
+    style: 'currency'
+  }).format(value);
+}
+
+function formatOdometer(value?: string | null) {
+  if (!value) {
+    return 'Km yok';
+  }
+
+  return `${formatNumber(toNumber(value))} km`;
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('tr-TR', {
+    maximumFractionDigits: 1
+  }).format(value);
+}
+
+function normalizeDecimal(value: string) {
+  const normalizedValue = value.trim().replace(',', '.');
+
+  return normalizedValue || undefined;
+}
+
+function toNumber(value: string) {
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
