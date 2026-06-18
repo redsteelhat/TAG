@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  NativeModules,
   Platform,
   Pressable,
   ScrollView,
@@ -3076,8 +3077,19 @@ function isSuccessMessage(message: string) {
 }
 
 function getApiBaseUrl() {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+  const envApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+  const isNativeRuntime = Platform.OS !== "web";
+
+  if (envApiUrl && !(isNativeRuntime && isLoopbackUrl(envApiUrl))) {
+    return envApiUrl;
+  }
+
+  if (isNativeRuntime) {
+    const devServerApiUrl = getNativeDevServerApiUrl();
+
+    if (devServerApiUrl) {
+      return devServerApiUrl;
+    }
   }
 
   if (Platform.OS === "android") {
@@ -3089,6 +3101,21 @@ function getApiBaseUrl() {
   }
 
   return "http://localhost:3001/api/v1";
+}
+
+function isLoopbackUrl(value: string) {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(value);
+}
+
+function getNativeDevServerApiUrl() {
+  const scriptUrl = NativeModules.SourceCode?.scriptURL as string | undefined;
+  const host = scriptUrl?.match(/^[a-zA-Z][a-zA-Z\d+.-]*:\/\/([^/:?#]+)/)?.[1];
+
+  if (!host || host === "localhost" || host === "127.0.0.1") {
+    return null;
+  }
+
+  return `http://${host}:3001/api/v1`;
 }
 
 function getDeviceName() {

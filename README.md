@@ -80,6 +80,20 @@ Health check:
 curl http://localhost:3001/api/v1/health
 ```
 
+Mobil uygulama:
+
+```bash
+pnpm dev:mobile
+```
+
+`pnpm dev:mobile` Expo LAN modu ve temiz Metro cache ile baslar. Telefon ve bilgisayar ayni Wi-Fi aginda olmali. QR LAN'da acilmazsa tunnel modu icin:
+
+```bash
+pnpm --filter @tag/mobile dev:tunnel
+```
+
+Tunnel modu Expo tarafinda `@expo/ngrok` kurulumu isteyebilir. Fiziksel cihazda API'ye baglanmak icin `apps/mobile/.env` icinde `EXPO_PUBLIC_API_URL` degerini bilgisayarin LAN IP adresiyle verin veya bos birakin; uygulama Metro dev server host'undan `http://<bilgisayar-ip>:3001/api/v1` adresini turetir.
+
 Prisma komutlari:
 
 ```bash
