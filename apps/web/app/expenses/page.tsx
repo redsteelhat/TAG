@@ -1,12 +1,10 @@
-import { ModulePlaceholder } from '../../components/module-placeholder';
+import { AppShell } from '../../components/app-shell';
+import { ExpenseList } from '../../components/expense-list';
 
 export default function ExpensesPage() {
   return (
-    <ModulePlaceholder
-      description="Yakit disi giderler, sabit giderler, HGS, otopark, ceza ve operasyon giderleri burada yonetilecek."
-      eyebrow="Gider operasyonu"
-      primaryActionLabel="Gider Ekle"
-      title="Giderler"
-    />
+    <AppShell eyebrow="Gider operasyonu" title="Giderler">
+      <ExpenseList />
+    </AppShell>
   );
 }
