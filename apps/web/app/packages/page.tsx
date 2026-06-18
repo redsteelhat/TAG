@@ -1,12 +1,10 @@
-import { ModulePlaceholder } from '../../components/module-placeholder';
+import { AppShell } from '../../components/app-shell';
+import { PackagePanel } from '../../components/package-panel';
 
 export default function PackagesPage() {
   return (
-    <ModulePlaceholder
-      description="TAG paket, uyelik veya operasyonel kullanim bedelleri ve break-even dagitimi burada takip edilecek."
-      eyebrow="Paket giderleri"
-      primaryActionLabel="Paket Ekle"
-      title="Paketler"
-    />
+    <AppShell eyebrow="Paket giderleri" title="Paketler">
+      <PackagePanel />
+    </AppShell>
   );
 }
