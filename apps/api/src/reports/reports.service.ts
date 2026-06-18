@@ -10,11 +10,17 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
+import { WeeklyProfitQueryDto } from './dto/weekly-profit-query.dto';
 
-interface DayRange {
+type ProfitPeriod = 'daily' | 'weekly';
+
+interface PeriodRange {
   date: string;
+  endDate: string;
   nextStart: Date;
+  period: ProfitPeriod;
   start: Date;
+  startDate: string;
 }
 
 interface CostBuckets {
@@ -27,24 +33,46 @@ interface CostBuckets {
 
 @Injectable()
 export class ReportsService {
-  readonly calculationVersion = 'daily-profit-v1';
+  readonly calculationVersion = 'profit-period-v1';
 
   constructor(private readonly prisma: PrismaService) {}
 
   async calculateDailyProfit(userId: string, query: DailyProfitQueryDto) {
-    const dayRange = this.resolveDayRange(query.date);
-    const vehicleFilter = query.vehicleId
+    return this.calculateProfitForPeriod(
+      userId,
+      this.resolveDayRange(query.date),
+      query.vehicleId
+    );
+  }
+
+  async calculateWeeklyProfit(userId: string, query: WeeklyProfitQueryDto) {
+    return this.calculateProfitForPeriod(
+      userId,
+      query.weekStart
+        ? this.resolveWeekRange(query.weekStart, false)
+        : this.resolveWeekRange(query.date),
+      query.vehicleId
+    );
+  }
+
+  private async calculateProfitForPeriod(
+    userId: string,
+    periodRange: PeriodRange,
+    vehicleId?: string
+  ) {
+    const vehicleFilter = vehicleId
       ? {
-          vehicle_id: query.vehicleId
+          vehicle_id: vehicleId
         }
       : {};
+    const dateFilter = {
+      gte: periodRange.start,
+      lt: periodRange.nextStart
+    };
     const tripWhere: Prisma.TripWhereInput = {
       user_id: userId,
       deleted_at: null,
-      trip_date: {
-        gte: dayRange.start,
-        lt: dayRange.nextStart
-      },
+      trip_date: dateFilter,
       ...vehicleFilter
     };
 
@@ -86,10 +114,7 @@ export class ReportsService {
           status: {
             not: 'CANCELED'
           },
-          started_at: {
-            gte: dayRange.start,
-            lt: dayRange.nextStart
-          },
+          started_at: dateFilter,
           ...vehicleFilter
         },
         _count: {
@@ -103,10 +128,7 @@ export class ReportsService {
         where: {
           user_id: userId,
           deleted_at: null,
-          expense_date: {
-            gte: dayRange.start,
-            lt: dayRange.nextStart
-          },
+          expense_date: dateFilter,
           ...vehicleFilter
         }
       }),
@@ -114,10 +136,7 @@ export class ReportsService {
         where: {
           user_id: userId,
           deleted_at: null,
-          created_at: {
-            gte: dayRange.start,
-            lt: dayRange.nextStart
-          },
+          created_at: dateFilter,
           ...vehicleFilter
         },
         _count: {
@@ -134,7 +153,7 @@ export class ReportsService {
           deleted_at: null,
           is_active: true,
           starts_at: {
-            lt: dayRange.nextStart
+            lt: periodRange.nextStart
           },
           OR: [
             {
@@ -142,7 +161,7 @@ export class ReportsService {
             },
             {
               ends_at: {
-                gte: dayRange.start
+                gte: periodRange.start
               }
             }
           ],
@@ -155,10 +174,10 @@ export class ReportsService {
           deleted_at: null,
           is_active: true,
           starts_at: {
-            lt: dayRange.nextStart
+            lt: periodRange.nextStart
           },
           ends_at: {
-            gte: dayRange.start
+            gte: periodRange.start
           },
           ...vehicleFilter
         }
@@ -168,12 +187,12 @@ export class ReportsService {
     const directCosts = this.calculateDirectExpenseBuckets(directExpenses);
     const recurringCosts = this.calculateRecurringExpenseBuckets(
       recurringExpenses,
-      dayRange.start
+      periodRange
     );
-    const tagPackageCost = await this.calculateTagPackageCostForDay(
+    const tagPackageCost = await this.calculateTagPackageCostForPeriod(
       userId,
       activePackages,
-      dayRange
+      periodRange
     );
     const grossIncome = this.decimal(tripAggregate._sum.total_income);
     const tripGrossIncome = this.decimal(tripAggregate._sum.gross_income);
@@ -219,8 +238,11 @@ export class ReportsService {
       0;
 
     return {
-      date: dayRange.date,
-      vehicleId: query.vehicleId ?? null,
+      date: periodRange.date,
+      endDate: periodRange.endDate,
+      period: periodRange.period,
+      startDate: periodRange.startDate,
+      vehicleId: vehicleId ?? null,
       grossIncome: this.money(grossIncome),
       tripGrossIncome: this.money(tripGrossIncome),
       tipAmount: this.money(tipAmount),
@@ -268,7 +290,7 @@ export class ReportsService {
         fuelCost:
           'estimated consumption from recorded trip km; actual fuel purchases are reported separately',
         tagPackageCost:
-          'daily active package allocation + direct package expenses + recurring package expenses'
+          'period active package allocation + direct package expenses + recurring package expenses'
       },
       calculationVersion: this.calculationVersion
     };
@@ -286,15 +308,18 @@ export class ReportsService {
 
   private calculateRecurringExpenseBuckets(
     recurringExpenses: RecurringExpense[],
-    reportDate: Date
+    periodRange: PeriodRange
   ): CostBuckets {
     return recurringExpenses.reduce((buckets, expense) => {
-      const dailyCost = this.calculateRecurringDailyCost(expense, reportDate);
+      const periodCost = this.calculateRecurringPeriodCost(
+        expense,
+        periodRange
+      );
 
       return this.addExpenseToBuckets(
         buckets,
         expense.expense_type,
-        dailyCost
+        periodCost
       );
     }, this.emptyCostBuckets());
   }
@@ -331,14 +356,14 @@ export class ReportsService {
     return buckets;
   }
 
-  private async calculateTagPackageCostForDay(
+  private async calculateTagPackageCostForPeriod(
     userId: string,
     activePackages: TagPackage[],
-    dayRange: DayRange
+    periodRange: PeriodRange
   ) {
     const costs = await Promise.all(
       activePackages.map((tagPackage) =>
-        this.calculateTagPackageLineForDay(userId, tagPackage, dayRange)
+        this.calculateTagPackageLineForPeriod(userId, tagPackage, periodRange)
       )
     );
 
@@ -348,21 +373,21 @@ export class ReportsService {
     );
   }
 
-  private async calculateTagPackageLineForDay(
+  private async calculateTagPackageLineForPeriod(
     userId: string,
     tagPackage: TagPackage,
-    dayRange: DayRange
+    periodRange: PeriodRange
   ) {
     if (tagPackage.allocation_method === PackageAllocationMethod.PER_TRIP) {
-      const [dailyTripCount, packageTripCount] = await Promise.all([
+      const [periodTripCount, packageTripCount] = await Promise.all([
         this.prisma.trip.count({
           where: {
             user_id: userId,
             vehicle_id: tagPackage.vehicle_id,
             deleted_at: null,
             trip_date: {
-              gte: dayRange.start,
-              lt: dayRange.nextStart
+              gte: periodRange.start,
+              lt: periodRange.nextStart
             }
           }
         }),
@@ -384,16 +409,16 @@ export class ReportsService {
       }
 
       return tagPackage.amount
-        .mul(dailyTripCount)
+        .mul(periodTripCount)
         .div(packageTripCount)
         .toDecimalPlaces(2);
     }
 
     if (tagPackage.allocation_method === PackageAllocationMethod.PER_KM) {
-      const [dailyKm, packageKm] = await Promise.all([
+      const [periodKm, packageKm] = await Promise.all([
         this.sumTripKm(userId, tagPackage.vehicle_id, {
-          gte: dayRange.start,
-          lt: dayRange.nextStart
+          gte: periodRange.start,
+          lt: periodRange.nextStart
         }),
         this.sumTripKm(userId, tagPackage.vehicle_id, {
           gte: tagPackage.starts_at,
@@ -405,11 +430,18 @@ export class ReportsService {
         return new Prisma.Decimal(0);
       }
 
-      return tagPackage.amount.mul(dailyKm).div(packageKm).toDecimalPlaces(2);
+      return tagPackage.amount.mul(periodKm).div(packageKm).toDecimalPlaces(2);
     }
+
+    const coveredDays = this.countCoveredDays(
+      periodRange,
+      tagPackage.starts_at,
+      tagPackage.ends_at
+    );
 
     return tagPackage.amount
       .div(Math.max(tagPackage.duration_days, 1))
+      .mul(coveredDays)
       .toDecimalPlaces(2);
   }
 
@@ -433,46 +465,140 @@ export class ReportsService {
     return this.decimal(aggregate._sum.total_km);
   }
 
-  private calculateRecurringDailyCost(
+  private calculateRecurringPeriodCost(
     expense: RecurringExpense,
-    reportDate: Date
+    periodRange: PeriodRange
   ) {
+    const coveredDays = this.eachCoveredDay(
+      periodRange,
+      expense.starts_at,
+      expense.ends_at
+    );
+
+    if (coveredDays.length === 0) {
+      return new Prisma.Decimal(0);
+    }
+
     if (expense.period === AllocationType.DAILY) {
-      return expense.amount;
+      return expense.amount.mul(coveredDays.length).toDecimalPlaces(2);
     }
 
-    if (expense.period === AllocationType.YEARLY) {
-      return expense.amount.div(this.daysInYear(reportDate)).toDecimalPlaces(2);
+    let total = new Prisma.Decimal(0);
+
+    for (const day of coveredDays) {
+      if (expense.period === AllocationType.YEARLY) {
+        total = total.plus(expense.amount.div(this.daysInYear(day)));
+      } else if (expense.period === AllocationType.MONTHLY) {
+        total = total.plus(expense.amount.div(this.daysInMonth(day)));
+      } else {
+        total = total.plus(expense.amount);
+      }
     }
 
-    if (expense.period === AllocationType.MONTHLY) {
-      return expense.amount
-        .div(this.daysInMonth(reportDate))
-        .toDecimalPlaces(2);
-    }
-
-    return expense.amount;
+    return total.toDecimalPlaces(2);
   }
 
-  private resolveDayRange(dateValue?: string): DayRange {
-    const date = dateValue ? new Date(dateValue) : new Date();
-
-    if (Number.isNaN(date.getTime())) {
-      throw new BadRequestException('Invalid date value.');
-    }
-
-    const start = new Date(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-    );
+  private resolveDayRange(dateValue?: string): PeriodRange {
+    const start = this.startOfUtcDay(this.parseDate(dateValue));
     const nextStart = new Date(start);
 
     nextStart.setUTCDate(nextStart.getUTCDate() + 1);
 
     return {
       date: start.toISOString().slice(0, 10),
+      endDate: start.toISOString().slice(0, 10),
       nextStart,
-      start
+      period: 'daily',
+      start,
+      startDate: start.toISOString().slice(0, 10)
     };
+  }
+
+  private resolveWeekRange(dateValue?: string, snapToMonday = true): PeriodRange {
+    const date = this.startOfUtcDay(this.parseDate(dateValue));
+    const start = new Date(date);
+
+    if (snapToMonday) {
+      start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+    }
+
+    const nextStart = new Date(start);
+
+    nextStart.setUTCDate(nextStart.getUTCDate() + 7);
+
+    const end = new Date(nextStart);
+
+    end.setUTCDate(end.getUTCDate() - 1);
+
+    return {
+      date: start.toISOString().slice(0, 10),
+      endDate: end.toISOString().slice(0, 10),
+      nextStart,
+      period: 'weekly',
+      start,
+      startDate: start.toISOString().slice(0, 10)
+    };
+  }
+
+  private parseDate(dateValue?: string) {
+    const date = dateValue ? new Date(dateValue) : new Date();
+
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException('Invalid date value.');
+    }
+
+    return date;
+  }
+
+  private countCoveredDays(
+    periodRange: PeriodRange,
+    startsAt: Date,
+    endsAt?: Date | null
+  ) {
+    return this.eachCoveredDay(periodRange, startsAt, endsAt).length;
+  }
+
+  private eachCoveredDay(
+    periodRange: PeriodRange,
+    startsAt: Date,
+    endsAt?: Date | null
+  ) {
+    const start = this.maxDate(periodRange.start, this.startOfUtcDay(startsAt));
+    const endNext = this.minDate(
+      periodRange.nextStart,
+      endsAt ? this.nextUtcDayStart(endsAt) : periodRange.nextStart
+    );
+    const days: Date[] = [];
+    const cursor = new Date(start);
+
+    while (cursor < endNext) {
+      days.push(new Date(cursor));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    return days;
+  }
+
+  private startOfUtcDay(date: Date) {
+    return new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+    );
+  }
+
+  private nextUtcDayStart(date: Date) {
+    const nextStart = this.startOfUtcDay(date);
+
+    nextStart.setUTCDate(nextStart.getUTCDate() + 1);
+
+    return nextStart;
+  }
+
+  private maxDate(first: Date, second: Date) {
+    return first > second ? first : second;
+  }
+
+  private minDate(first: Date, second: Date) {
+    return first < second ? first : second;
   }
 
   private emptyCostBuckets(): CostBuckets {

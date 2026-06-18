@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
+import { WeeklyProfitQueryDto } from './dto/weekly-profit-query.dto';
 import { ReportsService } from './reports.service';
 
 @UseGuards(JwtAuthGuard)
@@ -20,6 +21,17 @@ export class ReportsController {
   ) {
     return {
       data: await this.reportsService.calculateDailyProfit(user.id, query)
+    };
+  }
+
+  @Get('weekly-profit')
+  @ApiOperation({ summary: 'Calculate weekly profit for the current user' })
+  async getWeeklyProfit(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: WeeklyProfitQueryDto
+  ) {
+    return {
+      data: await this.reportsService.calculateWeeklyProfit(user.id, query)
     };
   }
 }
