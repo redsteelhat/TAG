@@ -128,6 +128,7 @@ interface QuickExpenseFormState {
   allocationType: AllocationType;
   paymentMethod: PaymentMethod;
   odometerKm: string;
+  receiptUrl: string;
   note: string;
 }
 
@@ -138,6 +139,7 @@ interface QuickFuelFormState {
   liters: string;
   odometerKm: string;
   paymentMethod: PaymentMethod;
+  receiptUrl: string;
   stationName: string;
 }
 
@@ -173,6 +175,7 @@ interface ExpenseEntry {
   expenseType: ExpenseType;
   allocationType: AllocationType;
   paymentMethod?: PaymentMethod | null;
+  receiptUrl?: string | null;
   note?: string | null;
 }
 
@@ -184,6 +187,7 @@ interface FuelEntry {
   liters: string;
   odometerKm?: string | null;
   pricePerLiter: string;
+  receiptUrl?: string | null;
   stationName?: string | null;
 }
 
@@ -271,6 +275,7 @@ const initialQuickExpenseFormState: QuickExpenseFormState = {
   note: "",
   odometerKm: "",
   paymentMethod: "CARD",
+  receiptUrl: "",
 };
 
 const initialQuickFuelFormState: QuickFuelFormState = {
@@ -280,6 +285,7 @@ const initialQuickFuelFormState: QuickFuelFormState = {
   liters: "",
   odometerKm: "",
   paymentMethod: "CARD",
+  receiptUrl: "",
   stationName: "",
 };
 
@@ -1594,6 +1600,7 @@ function RecordTabContent({
           note: expenseForm.note.trim() || undefined,
           odometerKm: odometerKm || undefined,
           paymentMethod: expenseForm.paymentMethod,
+          receiptUrl: expenseForm.receiptUrl.trim() || undefined,
           vehicleId: selectedVehicle.id,
         },
         accessToken,
@@ -1644,6 +1651,7 @@ function RecordTabContent({
           liters,
           odometerKm: odometerKm || undefined,
           paymentMethod: fuelForm.paymentMethod,
+          receiptUrl: fuelForm.receiptUrl.trim() || undefined,
           stationName: fuelForm.stationName.trim() || undefined,
           tankFillLevel: fuelForm.fullTank ? "FULL" : undefined,
           vehicleId: selectedVehicle.id,
@@ -2073,6 +2081,15 @@ function RecordTabContent({
           value={expenseForm.note}
         />
 
+        <TextField
+          autoCapitalize="none"
+          inputMode="url"
+          label="Fis fotografi"
+          onChangeText={(value) => updateExpenseField("receiptUrl", value)}
+          placeholder="https://..."
+          value={expenseForm.receiptUrl}
+        />
+
         <View style={styles.quickTripPreview}>
           <View>
             <Text style={styles.shiftLabel}>Gider sinifi</Text>
@@ -2133,6 +2150,12 @@ function RecordTabContent({
                 {lastExpense.note || "-"}
               </Text>
             </View>
+            {lastExpense.receiptUrl ? (
+              <View style={styles.expenseRow}>
+                <Text style={styles.expenseName}>Fis</Text>
+                <Text style={styles.expenseAmount}>Eklendi</Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -2217,6 +2240,15 @@ function RecordTabContent({
             />
           </View>
         </View>
+
+        <TextField
+          autoCapitalize="none"
+          inputMode="url"
+          label="Fis fotografi"
+          onChangeText={(value) => updateFuelField("receiptUrl", value)}
+          placeholder="https://..."
+          value={fuelForm.receiptUrl}
+        />
 
         <Text style={styles.inputLabel}>Odeme tipi</Text>
         <View style={styles.optionGrid}>
@@ -2322,6 +2354,12 @@ function RecordTabContent({
                 {formatMoney(toNumber(lastFuelEntry.pricePerLiter))}
               </Text>
             </View>
+            {lastFuelEntry.receiptUrl ? (
+              <View style={styles.expenseRow}>
+                <Text style={styles.expenseName}>Fis</Text>
+                <Text style={styles.expenseAmount}>Eklendi</Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
       </View>
