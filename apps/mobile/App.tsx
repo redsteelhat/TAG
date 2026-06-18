@@ -21,6 +21,13 @@ import {
   setStoredString,
   storageKeys,
 } from "./src/storage/local-storage";
+import {
+  listTripDrafts,
+  removeTripDraft,
+  saveTripDraft,
+  TripDraft,
+  TripDraftPayload,
+} from "./src/storage/offline-drafts";
 
 const reportRows = [
   ["Gunluk net kar", "1.460 TL"],
@@ -145,6 +152,11 @@ interface DailyIncomeSummary {
   estimatedFuelCost: number;
   activeMinutes: number;
   tripCount: number;
+}
+
+interface QuickTripDraftInput {
+  payload: TripDraftPayload;
+  totalKm: string;
 }
 
 const initialFormState: AuthFormState = {
@@ -1087,6 +1099,9 @@ function RecordTabContent({
   );
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tripDrafts, setTripDrafts] = useState<TripDraft[]>([]);
+  const [isDraftLoading, setIsDraftLoading] = useState(true);
+  const [isSyncingDrafts, setIsSyncingDrafts] = useState(false);
   const [lastTrip, setLastTrip] = useState<Trip | null>(null);
   const [shiftForm, setShiftForm] = useState<ShiftFormState>(() => ({
     ...initialShiftFormState,
@@ -1106,6 +1121,7 @@ function RecordTabContent({
       startOdometerKm: selectedVehicle.odometerKm ?? "",
     });
     setLastCompletedShift(null);
+    loadTripDrafts().catch(() => setIsDraftLoading(false));
     loadActiveShift().catch((error) => {
       setShiftMessage(
         error instanceof Error ? error.message : "Aktif vardiya yuklenemedi.",
@@ -1120,6 +1136,17 @@ function RecordTabContent({
 
   function updateShiftField(field: keyof ShiftFormState, value: string) {
     setShiftForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function loadTripDrafts() {
+    setIsDraftLoading(true);
+
+    const drafts = await listTripDrafts();
+
+    setTripDrafts(
+      drafts.filter((draft) => draft.payload?.vehicleId === selectedVehicle.id),
+    );
+    setIsDraftLoading(false);
   }
 
   async function loadActiveShift() {
@@ -1150,28 +1177,9 @@ function RecordTabContent({
   }
 
   async function submitQuickTrip() {
-    const grossIncome = normalizeDecimalInput(form.grossIncome);
-    const tripKm = normalizeDecimalInput(form.tripKm);
-    const deadheadKm = normalizeDecimalInput(form.deadheadKm);
-    const durationMinutes = form.durationMinutes.trim()
-      ? Number(form.durationMinutes)
-      : undefined;
+    const draftInput = buildQuickTripDraftInput();
 
-    if (!grossIncome || Number(grossIncome) <= 0) {
-      setMessage("Gelir 0 TL uzerinde olmali.");
-      return;
-    }
-
-    if (!tripKm || Number(tripKm) < 0) {
-      setMessage("Sefer km zorunlu.");
-      return;
-    }
-
-    if (
-      durationMinutes !== undefined &&
-      (!Number.isInteger(durationMinutes) || durationMinutes < 0)
-    ) {
-      setMessage("Sure dakika olarak pozitif tam sayi olmali.");
+    if (!draftInput) {
       return;
     }
 
@@ -1181,17 +1189,7 @@ function RecordTabContent({
     try {
       const response = await postJson<{ data: Trip }>(
         `${apiBaseUrl}/trips`,
-        {
-          deadheadKm: deadheadKm || undefined,
-          durationMinutes,
-          grossIncome,
-          note: form.note.trim() || undefined,
-          paymentMethod: form.paymentMethod,
-          shiftId: activeShift?.id,
-          tripDate: getLocalDateInputValue(),
-          tripKm,
-          vehicleId: selectedVehicle.id,
-        },
+        { ...draftInput.payload },
         accessToken,
       );
 
@@ -1199,9 +1197,123 @@ function RecordTabContent({
       setForm(initialQuickTripFormState);
       setMessage("Sefer kaydi eklendi.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Sefer eklenemedi.");
+      await saveCurrentTripDraft(draftInput);
+      setMessage(
+        `Sefer gonderilemedi, offline taslak kaydedildi. ${
+          error instanceof Error ? error.message : ""
+        }`.trim(),
+      );
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function buildQuickTripDraftInput(): QuickTripDraftInput | null {
+    const grossIncome = normalizeDecimalInput(form.grossIncome);
+    const tripKm = normalizeDecimalInput(form.tripKm);
+    const deadheadKm = normalizeDecimalInput(form.deadheadKm);
+    const durationMinutes = form.durationMinutes.trim()
+      ? Number(form.durationMinutes)
+      : undefined;
+
+    if (!grossIncome || Number(grossIncome) <= 0) {
+      setMessage("Gelir 0 TL uzerinde olmali.");
+      return null;
+    }
+
+    if (!tripKm || Number(tripKm) < 0) {
+      setMessage("Sefer km zorunlu.");
+      return null;
+    }
+
+    if (deadheadKm && Number(deadheadKm) < 0) {
+      setMessage("Bos km negatif olamaz.");
+      return null;
+    }
+
+    if (
+      durationMinutes !== undefined &&
+      (!Number.isInteger(durationMinutes) || durationMinutes < 0)
+    ) {
+      setMessage("Sure dakika olarak pozitif tam sayi olmali.");
+      return null;
+    }
+
+    const payload: TripDraftPayload = {
+      deadheadKm: deadheadKm || undefined,
+      durationMinutes,
+      grossIncome,
+      note: form.note.trim() || undefined,
+      paymentMethod: form.paymentMethod,
+      shiftId: activeShift?.id,
+      tripDate: getLocalDateInputValue(),
+      tripKm,
+      vehicleId: selectedVehicle.id,
+    };
+
+    return {
+      payload,
+      totalKm: String(toNumber(tripKm) + toNumber(deadheadKm)),
+    };
+  }
+
+  async function saveCurrentTripDraft(draftInput?: QuickTripDraftInput) {
+    const nextDraftInput = draftInput ?? buildQuickTripDraftInput();
+
+    if (!nextDraftInput) {
+      return;
+    }
+
+    const draft = await saveTripDraft({
+      grossIncome: nextDraftInput.payload.grossIncome,
+      note: nextDraftInput.payload.note,
+      payload: nextDraftInput.payload,
+      totalKm: nextDraftInput.totalKm,
+    });
+
+    setTripDrafts((current) => [draft, ...current]);
+    setForm(initialQuickTripFormState);
+
+    if (!draftInput) {
+      setMessage("Sefer offline taslak olarak kaydedildi.");
+    }
+  }
+
+  async function syncTripDrafts() {
+    if (tripDrafts.length === 0) {
+      setMessage("Gonderilecek offline taslak yok.");
+      return;
+    }
+
+    setIsSyncingDrafts(true);
+    setMessage(null);
+
+    let syncedCount = 0;
+
+    try {
+      for (const draft of tripDrafts) {
+        const response = await postJson<{ data: Trip }>(
+          `${apiBaseUrl}/trips`,
+          { ...draft.payload },
+          accessToken,
+        );
+
+        await removeTripDraft(draft.id);
+        setLastTrip(response.data);
+        syncedCount += 1;
+      }
+
+      setTripDrafts([]);
+      setMessage(`${syncedCount} offline taslak gonderildi.`);
+    } catch (error) {
+      await loadTripDrafts();
+      setMessage(
+        error instanceof Error
+          ? `Taslak gonderimi durdu: ${error.message}`
+          : "Taslaklar gonderilemedi.",
+      );
+    } finally {
+      setIsSyncingDrafts(false);
     }
   }
 
@@ -1421,7 +1533,7 @@ function RecordTabContent({
           <Text
             style={[
               styles.formAlert,
-              message.includes("eklendi") ? styles.formSuccess : null,
+              isSuccessMessage(message) ? styles.formSuccess : null,
             ]}
           >
             {message}
@@ -1442,6 +1554,64 @@ function RecordTabContent({
             <Text style={styles.primaryButtonText}>Seferi Kaydet</Text>
           )}
         </Pressable>
+
+        <Pressable
+          disabled={isSubmitting}
+          onPress={() => saveCurrentTripDraft()}
+          style={styles.outlineButton}
+        >
+          <Text style={styles.outlineButtonText}>Offline Taslak Kaydet</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <View>
+            <Text style={styles.sectionTitle}>Offline taslaklar</Text>
+            <Text style={styles.sectionSubtitle}>
+              Baglanti yokken seferleri cihazda sakla, sonra API'ye gonder.
+            </Text>
+          </View>
+          <Pressable
+            disabled={isSyncingDrafts || tripDrafts.length === 0}
+            onPress={syncTripDrafts}
+            style={[
+              styles.secondaryButton,
+              (isSyncingDrafts || tripDrafts.length === 0) &&
+                styles.disabledButton,
+            ]}
+          >
+            <Text style={styles.secondaryButtonText}>
+              {isSyncingDrafts ? "Gonderiliyor" : "Gonder"}
+            </Text>
+          </Pressable>
+        </View>
+
+        {isDraftLoading ? (
+          <View style={styles.draftRow}>
+            <ActivityIndicator color="#115e59" />
+            <Text style={styles.emptyText}>Taslaklar yukleniyor</Text>
+          </View>
+        ) : tripDrafts.length > 0 ? (
+          tripDrafts.map((draft) => (
+            <View key={draft.id} style={styles.draftRow}>
+              <View style={styles.draftInfo}>
+                <Text style={styles.expenseName}>
+                  {formatMoney(toNumber(draft.grossIncome))} gelir
+                </Text>
+                <Text style={styles.draftMeta}>
+                  {formatNumber(toNumber(draft.totalKm))} km -{" "}
+                  {formatDateTime(draft.createdAt)}
+                </Text>
+              </View>
+              <Text style={styles.activeTag}>Bekliyor</Text>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.emptyText}>
+            Bekleyen offline sefer taslagi yok.
+          </Text>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -1905,6 +2075,14 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function isSuccessMessage(message: string) {
+  return (
+    message.includes("eklendi") ||
+    message.includes("kaydedildi") ||
+    message.includes("gonderildi")
+  );
+}
+
 function getApiBaseUrl() {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
@@ -2302,6 +2480,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
+  disabledButton: {
+    opacity: 0.5,
+  },
   secondaryButtonText: {
     color: "#115e59",
     fontSize: 12,
@@ -2380,6 +2561,26 @@ const styles = StyleSheet.create({
     color: "#115e59",
     fontSize: 12,
     fontWeight: "900",
+  },
+  draftRow: {
+    alignItems: "center",
+    backgroundColor: "#edf2f4",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+    marginTop: 8,
+    minHeight: 58,
+    padding: 12,
+  },
+  draftInfo: {
+    flex: 1,
+  },
+  draftMeta: {
+    color: "#62717c",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 4,
   },
   formRow: {
     flexDirection: "row",
