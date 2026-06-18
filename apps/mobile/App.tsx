@@ -64,6 +64,7 @@ type AllocationType =
   | "PER_KM"
   | "PER_TRIP"
   | "PACKAGE_PERIOD";
+type PackageAllocationMethod = "PER_DAY" | "PER_TRIP" | "PER_KM";
 
 interface AuthUser {
   id: string;
@@ -140,6 +141,17 @@ interface QuickFuelFormState {
   stationName: string;
 }
 
+interface QuickPackageFormState {
+  allocationMethod: PackageAllocationMethod;
+  amount: string;
+  breakEvenTarget: string;
+  durationDays: string;
+  endsAt: string;
+  name: string;
+  note: string;
+  startsAt: string;
+}
+
 interface ShiftFormState {
   startOdometerKm: string;
   endOdometerKm: string;
@@ -173,6 +185,18 @@ interface FuelEntry {
   odometerKm?: string | null;
   pricePerLiter: string;
   stationName?: string | null;
+}
+
+interface TagPackage {
+  id: string;
+  allocationMethod: PackageAllocationMethod;
+  amount: string;
+  breakEvenTarget?: string | null;
+  dailyCost: string;
+  durationDays: number;
+  endsAt: string;
+  name: string;
+  startsAt: string;
 }
 
 interface Shift {
@@ -259,6 +283,17 @@ const initialQuickFuelFormState: QuickFuelFormState = {
   stationName: "",
 };
 
+const initialQuickPackageFormState: QuickPackageFormState = {
+  allocationMethod: "PER_DAY",
+  amount: "",
+  breakEvenTarget: "",
+  durationDays: "",
+  endsAt: addDays(getLocalDateInputValue(), 6),
+  name: "Haftalik TAG paketi",
+  note: "",
+  startsAt: getLocalDateInputValue(),
+};
+
 const initialShiftFormState: ShiftFormState = {
   endOdometerKm: "",
   note: "",
@@ -330,6 +365,15 @@ const quickExpensePresets: Array<{
     label: "Diger",
     note: "",
   },
+];
+
+const packageAllocationOptions: Array<{
+  label: string;
+  value: PackageAllocationMethod;
+}> = [
+  { label: "Gune bol", value: "PER_DAY" },
+  { label: "Sefere bol", value: "PER_TRIP" },
+  { label: "Km'ye bol", value: "PER_KM" },
 ];
 
 export default function App() {
@@ -1229,6 +1273,9 @@ function RecordTabContent({
     fuelType: selectedVehicle.fuelType,
     odometerKm: selectedVehicle.odometerKm ?? "",
   }));
+  const [packageForm, setPackageForm] = useState<QuickPackageFormState>(
+    initialQuickPackageFormState,
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expenseMessage, setExpenseMessage] = useState<string | null>(null);
@@ -1237,6 +1284,9 @@ function RecordTabContent({
   const [fuelMessage, setFuelMessage] = useState<string | null>(null);
   const [isFuelSubmitting, setIsFuelSubmitting] = useState(false);
   const [lastFuelEntry, setLastFuelEntry] = useState<FuelEntry | null>(null);
+  const [packageMessage, setPackageMessage] = useState<string | null>(null);
+  const [isPackageSubmitting, setIsPackageSubmitting] = useState(false);
+  const [lastPackage, setLastPackage] = useState<TagPackage | null>(null);
   const [tripDrafts, setTripDrafts] = useState<TripDraft[]>([]);
   const [isDraftLoading, setIsDraftLoading] = useState(true);
   const [isSyncingDrafts, setIsSyncingDrafts] = useState(false);
@@ -1263,8 +1313,14 @@ function RecordTabContent({
       fuelType: selectedVehicle.fuelType,
       odometerKm: selectedVehicle.odometerKm ?? "",
     });
+    setPackageForm({
+      ...initialQuickPackageFormState,
+      endsAt: addDays(getLocalDateInputValue(), 6),
+      startsAt: getLocalDateInputValue(),
+    });
     setLastCompletedShift(null);
     setLastFuelEntry(null);
+    setLastPackage(null);
     loadTripDrafts().catch(() => setIsDraftLoading(false));
     loadActiveShift().catch((error) => {
       setShiftMessage(
@@ -1300,6 +1356,13 @@ function RecordTabContent({
     value: QuickFuelFormState[Key],
   ) {
     setFuelForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updatePackageField<Key extends keyof QuickPackageFormState>(
+    field: Key,
+    value: QuickPackageFormState[Key],
+  ) {
+    setPackageForm((current) => ({ ...current, [field]: value }));
   }
 
   function updateShiftField(field: keyof ShiftFormState, value: string) {
@@ -1493,6 +1556,15 @@ function RecordTabContent({
       ? toNumber(normalizeDecimalInput(fuelForm.amount)) /
         toNumber(normalizeDecimalInput(fuelForm.liters))
       : 0;
+  const packageDurationPreview =
+    packageForm.durationDays.trim()
+      ? Number(packageForm.durationDays)
+      : calculateDateRangeDays(packageForm.startsAt, packageForm.endsAt);
+  const packageDailyCostPreview =
+    packageDurationPreview > 0
+      ? toNumber(normalizeDecimalInput(packageForm.amount)) /
+        packageDurationPreview
+      : 0;
 
   async function submitQuickExpense() {
     const amount = normalizeDecimalInput(expenseForm.amount);
@@ -1592,6 +1664,70 @@ function RecordTabContent({
       );
     } finally {
       setIsFuelSubmitting(false);
+    }
+  }
+
+  async function submitQuickPackage() {
+    const amount = normalizeDecimalInput(packageForm.amount);
+    const breakEvenTarget = normalizeDecimalInput(packageForm.breakEvenTarget);
+    const durationDays = packageForm.durationDays.trim()
+      ? Number(packageForm.durationDays)
+      : undefined;
+
+    if (!amount || Number(amount) <= 0) {
+      setPackageMessage("Paket tutari 0 TL uzerinde olmali.");
+      return;
+    }
+
+    if (!packageForm.name.trim()) {
+      setPackageMessage("Paket adi zorunlu.");
+      return;
+    }
+
+    if (!packageForm.startsAt || !packageForm.endsAt) {
+      setPackageMessage("Baslangic ve bitis tarihi zorunlu.");
+      return;
+    }
+
+    if (durationDays !== undefined && (!Number.isInteger(durationDays) || durationDays < 1)) {
+      setPackageMessage("Gecerlilik gunu pozitif tam sayi olmali.");
+      return;
+    }
+
+    setIsPackageSubmitting(true);
+    setPackageMessage(null);
+
+    try {
+      const response = await postJson<{ data: TagPackage }>(
+        `${apiBaseUrl}/tag-packages`,
+        {
+          allocationMethod: packageForm.allocationMethod,
+          amount,
+          breakEvenTarget: breakEvenTarget || undefined,
+          durationDays,
+          endsAt: packageForm.endsAt,
+          isActive: true,
+          name: packageForm.name.trim(),
+          note: packageForm.note.trim() || undefined,
+          startsAt: packageForm.startsAt,
+          vehicleId: selectedVehicle.id,
+        },
+        accessToken,
+      );
+
+      setLastPackage(response.data);
+      setPackageForm({
+        ...initialQuickPackageFormState,
+        endsAt: addDays(getLocalDateInputValue(), 6),
+        startsAt: getLocalDateInputValue(),
+      });
+      setPackageMessage("Paket kaydi eklendi.");
+    } catch (error) {
+      setPackageMessage(
+        error instanceof Error ? error.message : "Paket kaydedilemedi.",
+      );
+    } finally {
+      setIsPackageSubmitting(false);
     }
   }
 
@@ -2193,6 +2329,178 @@ function RecordTabContent({
       <View style={styles.section}>
         <View style={styles.sectionHeaderRow}>
           <View>
+            <Text style={styles.sectionTitle}>Paket ekle</Text>
+            <Text style={styles.sectionSubtitle}>
+              Paket, uyelik veya operasyonel kullanim bedelini kaydet.
+            </Text>
+          </View>
+        </View>
+
+        <TextField
+          label="Paket adi"
+          onChangeText={(value) => updatePackageField("name", value)}
+          placeholder="Haftalik TAG paketi"
+          value={packageForm.name}
+        />
+
+        <View style={styles.formRow}>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Paket tutari"
+              onChangeText={(value) => updatePackageField("amount", value)}
+              placeholder="700"
+              value={packageForm.amount}
+            />
+          </View>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Break-even"
+              onChangeText={(value) =>
+                updatePackageField("breakEvenTarget", value)
+              }
+              placeholder="1240"
+              value={packageForm.breakEvenTarget}
+            />
+          </View>
+        </View>
+
+        <View style={styles.formRow}>
+          <View style={styles.formColumn}>
+            <TextField
+              label="Baslangic"
+              onChangeText={(value) => updatePackageField("startsAt", value)}
+              placeholder="2026-06-18"
+              value={packageForm.startsAt}
+            />
+          </View>
+          <View style={styles.formColumn}>
+            <TextField
+              label="Bitis"
+              onChangeText={(value) => updatePackageField("endsAt", value)}
+              placeholder="2026-06-24"
+              value={packageForm.endsAt}
+            />
+          </View>
+        </View>
+
+        <TextField
+          inputMode="numeric"
+          keyboardType="number-pad"
+          label="Gecerlilik gunu"
+          onChangeText={(value) => updatePackageField("durationDays", value)}
+          placeholder={String(packageDurationPreview)}
+          value={packageForm.durationDays}
+        />
+
+        <Text style={styles.inputLabel}>Dagitim metodu</Text>
+        <View style={styles.optionGrid}>
+          {packageAllocationOptions.map((option) => {
+            const isActive = packageForm.allocationMethod === option.value;
+
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() =>
+                  updatePackageField("allocationMethod", option.value)
+                }
+                style={[
+                  styles.optionButton,
+                  isActive ? styles.optionButtonActive : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    isActive ? styles.optionButtonTextActive : null,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <TextField
+          label="Not"
+          multiline
+          onChangeText={(value) => updatePackageField("note", value)}
+          placeholder="Haftalik operasyon paketi"
+          style={[styles.input, styles.textArea]}
+          value={packageForm.note}
+        />
+
+        <View style={styles.quickTripPreview}>
+          <View>
+            <Text style={styles.shiftLabel}>Gunluk paket payi</Text>
+            <Text style={styles.shiftValue}>
+              {packageDailyCostPreview > 0
+                ? formatMoney(packageDailyCostPreview)
+                : "-"}
+            </Text>
+          </View>
+          <View style={styles.autoCalcBadge}>
+            <Text style={styles.autoCalcBadgeText}>
+              {formatPackageAllocationMethod(packageForm.allocationMethod)}
+            </Text>
+          </View>
+        </View>
+
+        {packageMessage ? (
+          <Text
+            style={[
+              styles.formAlert,
+              isSuccessMessage(packageMessage) ? styles.formSuccess : null,
+            ]}
+          >
+            {packageMessage}
+          </Text>
+        ) : null}
+
+        <Pressable
+          disabled={isPackageSubmitting}
+          onPress={submitQuickPackage}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            (pressed || isPackageSubmitting) && styles.primaryButtonPressed,
+          ]}
+        >
+          {isPackageSubmitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Paket Kaydet</Text>
+          )}
+        </Pressable>
+
+        {lastPackage ? (
+          <View style={styles.shiftResultPanel}>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Son paket</Text>
+              <Text style={styles.expenseAmount}>{lastPackage.name}</Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Paket tutari</Text>
+              <Text style={styles.expenseAmount}>
+                {formatMoney(toNumber(lastPackage.amount))}
+              </Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Gunluk pay</Text>
+              <Text style={styles.expenseAmount}>
+                {formatMoney(toNumber(lastPackage.dailyCost))}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <View>
             <Text style={styles.sectionTitle}>Offline taslaklar</Text>
             <Text style={styles.sectionSubtitle}>
               Baglanti yokken seferleri cihazda sakla, sonra API'ye gonder.
@@ -2280,7 +2588,7 @@ function RecordTabContent({
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Diger hizli kayitlar</Text>
         <View style={styles.actionGrid}>
-          {["Paket Ekle", "Bakim Ekle"].map(
+          {["Bakim Ekle"].map(
             (action) => (
               <Pressable key={action} style={styles.actionButton}>
                 <Text style={styles.actionText}>{action}</Text>
@@ -2660,6 +2968,26 @@ function getLocalDateInputValue() {
   return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
 }
 
+function addDays(dateValue: string, days: number) {
+  const date = new Date(`${dateValue}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return date.toISOString().slice(0, 10);
+}
+
+function calculateDateRangeDays(startValue: string, endValue: string) {
+  const start = new Date(`${startValue}T00:00:00.000Z`);
+  const end = new Date(`${endValue}T00:00:00.000Z`);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return 1;
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  return Math.max(1, Math.floor((end.getTime() - start.getTime()) / dayMs) + 1);
+}
+
 function normalizeDecimalInput(value: string) {
   return value.trim().replace(",", ".");
 }
@@ -2777,6 +3105,16 @@ function formatAllocationType(allocationType: AllocationType) {
   };
 
   return labels[allocationType] ?? "Dagitim";
+}
+
+function formatPackageAllocationMethod(method: PackageAllocationMethod) {
+  const labels: Record<PackageAllocationMethod, string> = {
+    PER_DAY: "Gune bol",
+    PER_KM: "Km'ye bol",
+    PER_TRIP: "Sefere bol",
+  };
+
+  return labels[method];
 }
 
 const styles = StyleSheet.create({
