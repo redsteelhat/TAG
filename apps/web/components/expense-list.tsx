@@ -6,10 +6,11 @@ import {
   ListFilter,
   Plus,
   RefreshCw,
+  Save,
   Search
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { getJson } from '../lib/api-client';
+import { getJson, postJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
 type AllocationType = 'IMMEDIATE' | 'DAILY' | 'MONTHLY' | 'PER_KM';
@@ -92,6 +93,23 @@ interface ExpenseFilterValues {
   vehicleId: string;
 }
 
+interface QuickExpenseFormState {
+  allocationType: AllocationType;
+  amount: string;
+  categoryId: string;
+  expenseDate: string;
+  expenseType: ExpenseType;
+  isRecurring: boolean;
+  note: string;
+  odometerKm: string;
+  paymentMethod: PaymentMethod;
+  vehicleId: string;
+}
+
+interface ExpenseResponse {
+  data: Expense;
+}
+
 const allocationTypeLabels: Record<AllocationType, string> = {
   DAILY: 'Gunluk',
   IMMEDIATE: 'Anlik',
@@ -123,6 +141,76 @@ const sortOptions: Array<{ label: string; value: ExpenseSortBy }> = [
   { label: 'Olusturma tarihi', value: 'createdAt' }
 ];
 
+const quickExpensePresets: Array<{
+  allocationType: AllocationType;
+  categoryName?: string;
+  expenseType: ExpenseType;
+  label: string;
+  note: string;
+}> = [
+  {
+    allocationType: 'IMMEDIATE',
+    categoryName: 'Otopark',
+    expenseType: 'VARIABLE',
+    label: 'Otopark',
+    note: 'Otopark ucreti'
+  },
+  {
+    allocationType: 'IMMEDIATE',
+    categoryName: 'HGS',
+    expenseType: 'VARIABLE',
+    label: 'HGS',
+    note: 'HGS gecisi'
+  },
+  {
+    allocationType: 'IMMEDIATE',
+    categoryName: 'Yikama',
+    expenseType: 'OPERATIONAL',
+    label: 'Yikama',
+    note: 'Arac yikama'
+  },
+  {
+    allocationType: 'PER_KM',
+    categoryName: 'Periyodik Bakim',
+    expenseType: 'SEMI_VARIABLE',
+    label: 'Bakim',
+    note: 'Bakim gideri'
+  },
+  {
+    allocationType: 'IMMEDIATE',
+    categoryName: 'Ceza',
+    expenseType: 'VARIABLE',
+    label: 'Ceza',
+    note: 'Ceza gideri'
+  },
+  {
+    allocationType: 'DAILY',
+    categoryName: 'Paket / Kullanim Bedeli',
+    expenseType: 'PLATFORM_PACKAGE',
+    label: 'Paket',
+    note: 'Paket / kullanim bedeli'
+  },
+  {
+    allocationType: 'IMMEDIATE',
+    expenseType: 'VARIABLE',
+    label: 'Diger',
+    note: ''
+  }
+];
+
+const emptyQuickExpenseForm: QuickExpenseFormState = {
+  allocationType: 'IMMEDIATE',
+  amount: '',
+  categoryId: '',
+  expenseDate: new Date().toISOString().slice(0, 10),
+  expenseType: 'VARIABLE',
+  isRecurring: false,
+  note: '',
+  odometerKm: '',
+  paymentMethod: 'CARD',
+  vehicleId: ''
+};
+
 export function ExpenseList() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -142,8 +230,12 @@ export function ExpenseList() {
   const [sortBy, setSortBy] = useState<ExpenseSortBy>('expenseDate');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(1);
+  const [quickExpenseForm, setQuickExpenseForm] =
+    useState<QuickExpenseFormState>(emptyQuickExpenseForm);
   const [message, setMessage] = useState<string | null>(null);
+  const [formMessage, setFormMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSavingExpense, setIsSavingExpense] = useState(false);
 
   const pageMetrics = useMemo(() => {
     return expenses.reduce(
@@ -185,6 +277,29 @@ export function ExpenseList() {
 
     void fetchExpenses(accessToken);
   }, [accessToken, page, sortBy, sortDirection]);
+
+  useEffect(() => {
+    if (quickExpenseForm.vehicleId || vehicles.length === 0) {
+      return;
+    }
+
+    const activeVehicle = vehicles.find((vehicle) => vehicle.isActive);
+
+    setQuickExpenseForm((currentForm) => ({
+      ...currentForm,
+      vehicleId: activeVehicle?.id ?? vehicles[0].id
+    }));
+  }, [quickExpenseForm.vehicleId, vehicles]);
+
+  const quickExpenseCategories = useMemo(
+    () =>
+      categories.filter(
+        (category) =>
+          !category.expenseType ||
+          category.expenseType === quickExpenseForm.expenseType
+      ),
+    [categories, quickExpenseForm.expenseType]
+  );
 
   async function fetchReferenceData(token = accessToken) {
     if (!token) {
@@ -313,6 +428,80 @@ export function ExpenseList() {
     void fetchExpenses(accessToken, 1, clearedFilters);
   }
 
+  async function handleQuickExpenseSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!accessToken) {
+      setFormMessage('Gider kaydetmek icin once giris yapmalisin.');
+      return;
+    }
+
+    if (!quickExpenseForm.vehicleId) {
+      setFormMessage('Gider kaydetmek icin once arac secmelisin.');
+      return;
+    }
+
+    setIsSavingExpense(true);
+    setFormMessage(null);
+
+    try {
+      await postJson<ExpenseResponse>(
+        '/expenses',
+        buildQuickExpensePayload(quickExpenseForm),
+        {
+          accessToken
+        }
+      );
+
+      setFormMessage('Gider kaydi olusturuldu.');
+      resetQuickExpenseForm();
+      setPage(1);
+      await fetchExpenses(accessToken, 1);
+    } catch (error) {
+      setFormMessage(
+        error instanceof Error ? error.message : 'Gider kaydedilemedi.'
+      );
+    } finally {
+      setIsSavingExpense(false);
+    }
+  }
+
+  function applyQuickPreset(preset: (typeof quickExpensePresets)[number]) {
+    const categoryId = preset.categoryName
+      ? findCategoryIdByName(categories, preset.categoryName)
+      : '';
+
+    setQuickExpenseForm((currentForm) => ({
+      ...currentForm,
+      allocationType: preset.allocationType,
+      categoryId,
+      expenseType: preset.expenseType,
+      note: preset.note
+    }));
+    setFormMessage(null);
+  }
+
+  function resetQuickExpenseForm() {
+    const activeVehicle = vehicles.find((vehicle) => vehicle.isActive);
+
+    setQuickExpenseForm({
+      ...emptyQuickExpenseForm,
+      expenseDate: new Date().toISOString().slice(0, 10),
+      vehicleId: activeVehicle?.id ?? vehicles[0]?.id ?? ''
+    });
+  }
+
+  function updateQuickExpenseForm<Key extends keyof QuickExpenseFormState>(
+    key: Key,
+    value: QuickExpenseFormState[Key]
+  ) {
+    setQuickExpenseForm((currentForm) => ({
+      ...currentForm,
+      [key]: value,
+      ...(key === 'expenseType' ? { categoryId: '' } : {})
+    }));
+  }
+
   if (!accessToken) {
     return (
       <section className="panel empty-state-panel">
@@ -342,6 +531,216 @@ export function ExpenseList() {
           label="Kayit sayisi"
           value={`${expenses.length}`}
         />
+      </section>
+
+      <section className="panel data-form quick-expense-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Hizli gider</p>
+            <h2>Gider ekle</h2>
+          </div>
+          <span className="status-pill">10 saniye kayit</span>
+        </div>
+
+        <div className="quick-expense-presets" aria-label="Hizli gider tipleri">
+          {quickExpensePresets.map((preset) => (
+            <button
+              className="quick-expense-preset"
+              key={preset.label}
+              onClick={() => applyQuickPreset(preset)}
+              type="button"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        <form className="quick-expense-form" onSubmit={handleQuickExpenseSubmit}>
+          <div className="quick-expense-grid">
+            <label>
+              Arac
+              <select
+                disabled={vehicles.length === 0}
+                onChange={(event) =>
+                  updateQuickExpenseForm('vehicleId', event.target.value)
+                }
+                required
+                value={quickExpenseForm.vehicleId}
+              >
+                <option value="">Arac sec</option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {formatVehicleLabel(vehicle)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Tutar
+              <input
+                inputMode="decimal"
+                onChange={(event) =>
+                  updateQuickExpenseForm('amount', event.target.value)
+                }
+                placeholder="250.00"
+                required
+                value={quickExpenseForm.amount}
+              />
+            </label>
+
+            <label>
+              Tarih
+              <input
+                onChange={(event) =>
+                  updateQuickExpenseForm('expenseDate', event.target.value)
+                }
+                required
+                type="date"
+                value={quickExpenseForm.expenseDate}
+              />
+            </label>
+
+            <label>
+              Tip
+              <select
+                onChange={(event) =>
+                  updateQuickExpenseForm(
+                    'expenseType',
+                    event.target.value as ExpenseType
+                  )
+                }
+                value={quickExpenseForm.expenseType}
+              >
+                {Object.entries(expenseTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Kategori
+              <select
+                onChange={(event) =>
+                  updateQuickExpenseForm('categoryId', event.target.value)
+                }
+                value={quickExpenseForm.categoryId}
+              >
+                <option value="">Kategori yok</option>
+                {quickExpenseCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Dagitim
+              <select
+                onChange={(event) =>
+                  updateQuickExpenseForm(
+                    'allocationType',
+                    event.target.value as AllocationType
+                  )
+                }
+                value={quickExpenseForm.allocationType}
+              >
+                {Object.entries(allocationTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Odeme
+              <select
+                onChange={(event) =>
+                  updateQuickExpenseForm(
+                    'paymentMethod',
+                    event.target.value as PaymentMethod
+                  )
+                }
+                value={quickExpenseForm.paymentMethod}
+              >
+                {Object.entries(paymentMethodLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Km sayaci
+              <input
+                inputMode="decimal"
+                onChange={(event) =>
+                  updateQuickExpenseForm('odometerKm', event.target.value)
+                }
+                placeholder="85120.5"
+                value={quickExpenseForm.odometerKm}
+              />
+            </label>
+          </div>
+
+          <div className="quick-expense-bottom-row">
+            <label>
+              Not
+              <input
+                onChange={(event) =>
+                  updateQuickExpenseForm('note', event.target.value)
+                }
+                placeholder="Otopark, HGS, yikama"
+                value={quickExpenseForm.note}
+              />
+            </label>
+
+            <label className="checkbox-row quick-expense-checkbox">
+              <input
+                checked={quickExpenseForm.isRecurring}
+                onChange={(event) =>
+                  updateQuickExpenseForm('isRecurring', event.target.checked)
+                }
+                type="checkbox"
+              />
+              Tekrarlayan gider
+            </label>
+          </div>
+
+          {formMessage ? (
+            <p
+              className={
+                formMessage.includes('olusturuldu')
+                  ? 'form-success'
+                  : 'form-alert'
+              }
+            >
+              {formMessage}
+            </p>
+          ) : null}
+
+          <div className="form-actions">
+            <button
+              className="secondary-button"
+              onClick={resetQuickExpenseForm}
+              type="button"
+            >
+              Temizle
+            </button>
+            <button
+              className="primary-button"
+              disabled={isSavingExpense || vehicles.length === 0}
+            >
+              <Save aria-hidden="true" className="button-icon" />
+              {isSavingExpense ? 'Kaydediliyor' : 'Gider Ekle'}
+            </button>
+          </div>
+        </form>
       </section>
 
       <section className="panel">
@@ -641,6 +1040,16 @@ function categoryNameById(categories: Category[], categoryId?: string | null) {
   return categories.find((category) => category.id === categoryId)?.name ?? 'Kategori';
 }
 
+function findCategoryIdByName(categories: Category[], name: string) {
+  const normalizedName = normalizeSearchText(name);
+
+  return (
+    categories.find(
+      (category) => normalizeSearchText(category.name) === normalizedName
+    )?.id ?? ''
+  );
+}
+
 function vehicleNameById(vehicles: Vehicle[], vehicleId: string) {
   const vehicle = vehicles.find((item) => item.id === vehicleId);
 
@@ -692,4 +1101,31 @@ function normalizeDecimal(value: string) {
   const normalizedValue = value.trim().replace(',', '.');
 
   return normalizedValue || undefined;
+}
+
+function buildQuickExpensePayload(form: QuickExpenseFormState) {
+  return removeEmptyValues({
+    allocationType: form.allocationType,
+    amount: normalizeDecimal(form.amount),
+    categoryId: form.categoryId,
+    expenseDate: form.expenseDate,
+    expenseType: form.expenseType,
+    isRecurring: form.isRecurring,
+    note: form.note.trim(),
+    odometerKm: normalizeDecimal(form.odometerKm),
+    paymentMethod: form.paymentMethod,
+    vehicleId: form.vehicleId
+  });
+}
+
+function removeEmptyValues(values: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(values).filter(
+      ([, value]) => value !== undefined && value !== ''
+    )
+  );
+}
+
+function normalizeSearchText(value: string) {
+  return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('tr-TR');
 }
