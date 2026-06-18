@@ -12,6 +12,7 @@ import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { ProfileModule } from './profile/profile.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ShiftsModule } from './shifts/shifts.module';
+import { TagPackagesModule } from './tag-packages/tag-packages.module';
 import { TripsModule } from './trips/trips.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 
@@ -45,6 +46,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     TripsModule,
     ExpensesModule,
     FuelEntriesModule,
+    TagPackagesModule,
     HealthModule
   ],
   providers: [
