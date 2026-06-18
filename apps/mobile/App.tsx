@@ -1,5 +1,5 @@
-import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -9,9 +9,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View
-} from 'react-native';
-import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+  View,
+} from "react-native";
+import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import {
   clearStoredValues,
   getStoredJson,
@@ -19,40 +19,41 @@ import {
   removeStoredValue,
   setStoredJson,
   setStoredString,
-  storageKeys
-} from './src/storage/local-storage';
+  storageKeys,
+} from "./src/storage/local-storage";
 
 const metrics = [
-  ['Bugunku net kar', '1.460 TL'],
-  ['Km basi net', '14,20 TL'],
-  ['Saatlik net', '243 TL'],
-  ['Toplam km', '103 km']
+  ["Bugunku net kar", "1.460 TL"],
+  ["Km basi net", "14,20 TL"],
+  ["Saatlik net", "243 TL"],
+  ["Toplam km", "103 km"],
 ];
 
 const expenses = [
-  ['Yakit', '820 TL'],
-  ['Paket payi', '700 TL'],
-  ['Sabit gider', '420 TL']
+  ["Yakit", "820 TL"],
+  ["Paket payi", "700 TL"],
+  ["Sabit gider", "420 TL"],
 ];
 
 const reportRows = [
-  ['Gunluk net kar', '1.460 TL'],
-  ['Haftalik net kar', '8.920 TL'],
-  ['Aylik net kar', '34.700 TL'],
-  ['Paket break-even', 'Asildi']
+  ["Gunluk net kar", "1.460 TL"],
+  ["Haftalik net kar", "8.920 TL"],
+  ["Aylik net kar", "34.700 TL"],
+  ["Paket break-even", "Asildi"],
 ];
 
 const mainTabs: Array<{ key: MainTab; label: string; icon: string }> = [
-  { key: 'today', label: 'Bugun', icon: 'B' },
-  { key: 'record', label: 'Kayit', icon: 'K' },
-  { key: 'reports', label: 'Rapor', icon: 'R' },
-  { key: 'vehicles', label: 'Arac', icon: 'A' }
+  { key: "today", label: "Bugun", icon: "B" },
+  { key: "record", label: "Kayit", icon: "K" },
+  { key: "reports", label: "Rapor", icon: "R" },
+  { key: "vehicles", label: "Arac", icon: "A" },
 ];
 
-type AuthMode = 'login' | 'register';
-type MainTab = 'today' | 'record' | 'reports' | 'vehicles';
-type FuelType = 'DIESEL' | 'GASOLINE' | 'LPG' | 'HYBRID' | 'ELECTRIC' | 'OTHER';
-type PaymentMethod = 'CASH' | 'CARD' | 'DIGITAL' | 'MIXED' | 'OTHER';
+type AuthMode = "login" | "register";
+type MainTab = "today" | "record" | "reports" | "vehicles";
+type FuelType = "DIESEL" | "GASOLINE" | "LPG" | "HYBRID" | "ELECTRIC" | "OTHER";
+type PaymentMethod = "CASH" | "CARD" | "DIGITAL" | "MIXED" | "OTHER";
+type ShiftStatus = "ACTIVE" | "COMPLETED" | "CANCELED";
 
 interface AuthUser {
   id: string;
@@ -110,6 +111,12 @@ interface QuickTripFormState {
   note: string;
 }
 
+interface ShiftFormState {
+  startOdometerKm: string;
+  endOdometerKm: string;
+  note: string;
+}
+
 interface Trip {
   id: string;
   totalIncome: string;
@@ -118,47 +125,71 @@ interface Trip {
   trueNetProfit: string;
 }
 
+interface Shift {
+  id: string;
+  startedAt: string;
+  endedAt?: string | null;
+  startOdometerKm?: string | null;
+  endOdometerKm?: string | null;
+  totalKm?: string | null;
+  activeMinutes?: number | null;
+  status: ShiftStatus;
+  grossIncome: string;
+  trueNetProfit: string;
+  note?: string | null;
+}
+
+interface ShiftsResponse {
+  data: Shift[];
+}
+
 const initialFormState: AuthFormState = {
-  fullName: '',
-  email: '',
-  phone: '',
-  password: ''
+  fullName: "",
+  email: "",
+  phone: "",
+  password: "",
 };
 
 const initialVehicleFormState: VehicleFormState = {
-  plateNumber: '',
-  brand: '',
-  model: '',
-  modelYear: '',
-  fuelType: 'GASOLINE',
-  averageConsumptionLPer100Km: '7.50',
-  odometerKm: ''
+  plateNumber: "",
+  brand: "",
+  model: "",
+  modelYear: "",
+  fuelType: "GASOLINE",
+  averageConsumptionLPer100Km: "7.50",
+  odometerKm: "",
 };
 
 const initialQuickTripFormState: QuickTripFormState = {
-  deadheadKm: '',
-  durationMinutes: '',
-  grossIncome: '',
-  note: '',
-  paymentMethod: 'DIGITAL',
-  tripKm: ''
+  deadheadKm: "",
+  durationMinutes: "",
+  grossIncome: "",
+  note: "",
+  paymentMethod: "DIGITAL",
+  tripKm: "",
+};
+
+const initialShiftFormState: ShiftFormState = {
+  endOdometerKm: "",
+  note: "",
+  startOdometerKm: "",
 };
 
 const fuelOptions: Array<{ label: string; value: FuelType }> = [
-  { label: 'Benzin', value: 'GASOLINE' },
-  { label: 'Dizel', value: 'DIESEL' },
-  { label: 'LPG', value: 'LPG' },
-  { label: 'Hibrit', value: 'HYBRID' },
-  { label: 'Elektrik', value: 'ELECTRIC' },
-  { label: 'Diger', value: 'OTHER' }
+  { label: "Benzin", value: "GASOLINE" },
+  { label: "Dizel", value: "DIESEL" },
+  { label: "LPG", value: "LPG" },
+  { label: "Hibrit", value: "HYBRID" },
+  { label: "Elektrik", value: "ELECTRIC" },
+  { label: "Diger", value: "OTHER" },
 ];
 
 const paymentMethodOptions: Array<{ label: string; value: PaymentMethod }> = [
-  { label: 'Dijital', value: 'DIGITAL' },
-  { label: 'Nakit', value: 'CASH' },
-  { label: 'Kart', value: 'CARD' },
-  { label: 'Karma', value: 'MIXED' },
-  { label: 'Diger', value: 'OTHER' }
+  { label: "Dijital", value: "DIGITAL" },
+  { label: "Nakit", value: "CASH" },
+  { label: "Kart", value: "CARD" },
+  { label: "Karma", value: "MIXED" },
+  { label: "Diger", value: "OTHER" },
 ];
 
 export default function App() {
@@ -180,7 +211,7 @@ function AppContent() {
       const [storedToken, storedUser, storedVehicle] = await Promise.all([
         getStoredString(storageKeys.accessToken),
         getStoredJson<AuthUser>(storageKeys.user),
-        getStoredJson<Vehicle>(storageKeys.selectedVehicle)
+        getStoredJson<Vehicle>(storageKeys.selectedVehicle),
       ]);
 
       setAccessToken(storedToken);
@@ -200,7 +231,7 @@ function AppContent() {
       setStoredString(storageKeys.refreshToken, response.data.refreshToken),
       nextUser
         ? setStoredJson(storageKeys.user, nextUser)
-        : removeStoredValue(storageKeys.user)
+        : removeStoredValue(storageKeys.user),
     ]);
 
     setAccessToken(response.data.accessToken);
@@ -223,7 +254,7 @@ function AppContent() {
       storageKeys.accessToken,
       storageKeys.refreshToken,
       storageKeys.user,
-      storageKeys.selectedVehicle
+      storageKeys.selectedVehicle,
     ]);
 
     setAccessToken(null);
@@ -276,38 +307,38 @@ function AppContent() {
 
 function AuthScreen({
   apiBaseUrl,
-  onAuthenticated
+  onAuthenticated,
 }: {
   apiBaseUrl: string;
   onAuthenticated: (response: AuthResponse) => Promise<void>;
 }) {
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [mode, setMode] = useState<AuthMode>("login");
   const [form, setForm] = useState<AuthFormState>(initialFormState);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const copy = useMemo(
     () =>
-      mode === 'login'
+      mode === "login"
         ? {
-            eyebrow: 'Mobil uygulama',
-            title: 'Hesabina giris yap',
-            detail: 'Gunluk net karini ve paket durumunu hizli takip et.',
-            button: 'Giris Yap',
-            loading: 'Giris yapiliyor',
-            switchText: 'Hesabin yok mu?',
-            switchAction: 'Kayit ol'
+            eyebrow: "Mobil uygulama",
+            title: "Hesabina giris yap",
+            detail: "Gunluk net karini ve paket durumunu hizli takip et.",
+            button: "Giris Yap",
+            loading: "Giris yapiliyor",
+            switchText: "Hesabin yok mu?",
+            switchAction: "Kayit ol",
           }
         : {
-            eyebrow: 'Ilk kurulum',
-            title: 'Surucu hesabini olustur',
-            detail: 'Arac ve paket gideri takibine baslamak icin hesap ac.',
-            button: 'Kayit Ol',
-            loading: 'Hesap olusturuluyor',
-            switchText: 'Zaten hesabin var mi?',
-            switchAction: 'Giris yap'
+            eyebrow: "Ilk kurulum",
+            title: "Surucu hesabini olustur",
+            detail: "Arac ve paket gideri takibine baslamak icin hesap ac.",
+            button: "Kayit Ol",
+            loading: "Hesap olusturuluyor",
+            switchText: "Zaten hesabin var mi?",
+            switchAction: "Giris yap",
           },
-    [mode]
+    [mode],
   );
 
   function updateField(field: keyof AuthFormState, value: string) {
@@ -315,19 +346,19 @@ function AuthScreen({
   }
 
   function switchMode() {
-    setMode((current) => (current === 'login' ? 'register' : 'login'));
+    setMode((current) => (current === "login" ? "register" : "login"));
     setForm(initialFormState);
     setMessage(null);
   }
 
   async function submit() {
     if (!form.email.trim() || !form.password) {
-      setMessage('E-posta ve sifre zorunlu.');
+      setMessage("E-posta ve sifre zorunlu.");
       return;
     }
 
     if (form.password.length < 8) {
-      setMessage('Sifre en az 8 karakter olmali.');
+      setMessage("Sifre en az 8 karakter olmali.");
       return;
     }
 
@@ -337,19 +368,19 @@ function AuthScreen({
     try {
       const response = await postJson<AuthResponse>(
         `${apiBaseUrl}/auth/${mode}`,
-        mode === 'login'
+        mode === "login"
           ? {
               email: form.email.trim(),
               password: form.password,
-              deviceName: getDeviceName()
+              deviceName: getDeviceName(),
             }
           : {
               fullName: form.fullName.trim() || undefined,
               email: form.email.trim(),
               phone: form.phone.trim() || undefined,
               password: form.password,
-              deviceName: getDeviceName()
-            }
+              deviceName: getDeviceName(),
+            },
       );
 
       await onAuthenticated(response);
@@ -357,9 +388,9 @@ function AuthScreen({
       setMessage(
         error instanceof Error
           ? error.message
-          : mode === 'login'
-            ? 'Giris yapilamadi.'
-            : 'Kayit olusturulamadi.'
+          : mode === "login"
+            ? "Giris yapilamadi."
+            : "Kayit olusturulamadi.",
       );
     } finally {
       setIsSubmitting(false);
@@ -370,7 +401,7 @@ function AuthScreen({
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
       >
         <ScrollView
@@ -391,11 +422,11 @@ function AuthScreen({
           </View>
 
           <View style={styles.authCard}>
-            {mode === 'register' ? (
+            {mode === "register" ? (
               <TextField
                 autoComplete="name"
                 label="Ad soyad"
-                onChangeText={(value) => updateField('fullName', value)}
+                onChangeText={(value) => updateField("fullName", value)}
                 placeholder="Ali Yilmaz"
                 value={form.fullName}
               />
@@ -406,17 +437,17 @@ function AuthScreen({
               autoComplete="email"
               inputMode="email"
               label="E-posta"
-              onChangeText={(value) => updateField('email', value)}
+              onChangeText={(value) => updateField("email", value)}
               placeholder="surucu@example.com"
               value={form.email}
             />
 
-            {mode === 'register' ? (
+            {mode === "register" ? (
               <TextField
                 autoComplete="tel"
                 inputMode="tel"
                 label="Telefon"
-                onChangeText={(value) => updateField('phone', value)}
+                onChangeText={(value) => updateField("phone", value)}
                 placeholder="+905551112233"
                 value={form.phone}
               />
@@ -425,10 +456,10 @@ function AuthScreen({
             <TextField
               autoCapitalize="none"
               autoComplete={
-                mode === 'login' ? 'current-password' : 'new-password'
+                mode === "login" ? "current-password" : "new-password"
               }
               label="Sifre"
-              onChangeText={(value) => updateField('password', value)}
+              onChangeText={(value) => updateField("password", value)}
               placeholder="En az 8 karakter"
               secureTextEntry
               value={form.password}
@@ -441,7 +472,7 @@ function AuthScreen({
               onPress={submit}
               style={({ pressed }) => [
                 styles.primaryButton,
-                (pressed || isSubmitting) && styles.primaryButtonPressed
+                (pressed || isSubmitting) && styles.primaryButtonPressed,
               ]}
             >
               {isSubmitting ? (
@@ -484,7 +515,7 @@ function VehicleSelectionScreen({
   accessToken,
   apiBaseUrl,
   onLogout,
-  onVehicleSelected
+  onVehicleSelected,
 }: {
   accessToken: string;
   apiBaseUrl: string;
@@ -501,7 +532,7 @@ function VehicleSelectionScreen({
   useEffect(() => {
     loadVehicles().catch((error) => {
       setMessage(
-        error instanceof Error ? error.message : 'Araclar yuklenemedi.'
+        error instanceof Error ? error.message : "Araclar yuklenemedi.",
       );
       setIsLoading(false);
     });
@@ -513,7 +544,7 @@ function VehicleSelectionScreen({
 
     const response = await getJson<{ data: Vehicle[] }>(
       `${apiBaseUrl}/vehicles`,
-      accessToken
+      accessToken,
     );
 
     setVehicles(response.data);
@@ -533,12 +564,12 @@ function VehicleSelectionScreen({
       const response = await postJson<{ data: Vehicle }>(
         `${apiBaseUrl}/vehicles/${vehicle.id}/set-active`,
         {},
-        accessToken
+        accessToken,
       );
 
       await onVehicleSelected(response.data);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Arac secilemedi.');
+      setMessage(error instanceof Error ? error.message : "Arac secilemedi.");
     } finally {
       setIsSubmitting(false);
     }
@@ -546,12 +577,12 @@ function VehicleSelectionScreen({
 
   async function createVehicle() {
     if (!form.plateNumber.trim()) {
-      setMessage('Plaka zorunlu.');
+      setMessage("Plaka zorunlu.");
       return;
     }
 
     if (!form.averageConsumptionLPer100Km.trim()) {
-      setMessage('Ortalama tuketim zorunlu.');
+      setMessage("Ortalama tuketim zorunlu.");
       return;
     }
 
@@ -568,15 +599,15 @@ function VehicleSelectionScreen({
           modelYear: form.modelYear ? Number(form.modelYear) : undefined,
           fuelType: form.fuelType,
           averageConsumptionLPer100Km: form.averageConsumptionLPer100Km.trim(),
-          odometerKm: form.odometerKm.trim() || undefined
+          odometerKm: form.odometerKm.trim() || undefined,
         },
-        accessToken
+        accessToken,
       );
 
       await onVehicleSelected(response.data);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Arac olusturulamadi.'
+        error instanceof Error ? error.message : "Arac olusturulamadi.",
       );
     } finally {
       setIsSubmitting(false);
@@ -625,7 +656,7 @@ function VehicleSelectionScreen({
                   style={({ pressed }) => [
                     styles.vehicleCard,
                     vehicle.isActive && styles.vehicleCardActive,
-                    pressed && styles.vehicleCardPressed
+                    pressed && styles.vehicleCardPressed,
                   ]}
                 >
                   <View style={styles.vehiclePlate}>
@@ -638,7 +669,7 @@ function VehicleSelectionScreen({
                       {formatVehicleName(vehicle)}
                     </Text>
                     <Text style={styles.vehicleMeta}>
-                      {formatFuelType(vehicle.fuelType)} -{' '}
+                      {formatFuelType(vehicle.fuelType)} -{" "}
                       {vehicle.averageConsumptionLPer100Km} lt/100 km
                     </Text>
                   </View>
@@ -658,7 +689,7 @@ function VehicleSelectionScreen({
               style={styles.outlineButton}
             >
               <Text style={styles.outlineButtonText}>
-                {showCreateForm ? 'Formu kapat' : 'Yeni arac ekle'}
+                {showCreateForm ? "Formu kapat" : "Yeni arac ekle"}
               </Text>
             </Pressable>
           </View>
@@ -670,7 +701,7 @@ function VehicleSelectionScreen({
             <TextField
               autoCapitalize="characters"
               label="Plaka"
-              onChangeText={(value) => updateField('plateNumber', value)}
+              onChangeText={(value) => updateField("plateNumber", value)}
               placeholder="34ABC123"
               value={form.plateNumber}
             />
@@ -678,7 +709,7 @@ function VehicleSelectionScreen({
               <View style={styles.formColumn}>
                 <TextField
                   label="Marka"
-                  onChangeText={(value) => updateField('brand', value)}
+                  onChangeText={(value) => updateField("brand", value)}
                   placeholder="Toyota"
                   value={form.brand}
                 />
@@ -686,7 +717,7 @@ function VehicleSelectionScreen({
               <View style={styles.formColumn}>
                 <TextField
                   label="Model"
-                  onChangeText={(value) => updateField('model', value)}
+                  onChangeText={(value) => updateField("model", value)}
                   placeholder="Corolla"
                   value={form.model}
                 />
@@ -697,7 +728,7 @@ function VehicleSelectionScreen({
                 <TextField
                   inputMode="numeric"
                   label="Model yili"
-                  onChangeText={(value) => updateField('modelYear', value)}
+                  onChangeText={(value) => updateField("modelYear", value)}
                   placeholder="2020"
                   value={form.modelYear}
                 />
@@ -706,7 +737,7 @@ function VehicleSelectionScreen({
                 <TextField
                   inputMode="decimal"
                   label="Km sayaci"
-                  onChangeText={(value) => updateField('odometerKm', value)}
+                  onChangeText={(value) => updateField("odometerKm", value)}
                   placeholder="85000"
                   value={form.odometerKm}
                 />
@@ -718,17 +749,17 @@ function VehicleSelectionScreen({
               {fuelOptions.map((option) => (
                 <Pressable
                   key={option.value}
-                  onPress={() => updateField('fuelType', option.value)}
+                  onPress={() => updateField("fuelType", option.value)}
                   style={[
                     styles.optionButton,
-                    form.fuelType === option.value && styles.optionButtonActive
+                    form.fuelType === option.value && styles.optionButtonActive,
                   ]}
                 >
                   <Text
                     style={[
                       styles.optionButtonText,
                       form.fuelType === option.value &&
-                        styles.optionButtonTextActive
+                        styles.optionButtonTextActive,
                     ]}
                   >
                     {option.label}
@@ -741,7 +772,7 @@ function VehicleSelectionScreen({
               inputMode="decimal"
               label="Ortalama tuketim"
               onChangeText={(value) =>
-                updateField('averageConsumptionLPer100Km', value)
+                updateField("averageConsumptionLPer100Km", value)
               }
               placeholder="7.50"
               value={form.averageConsumptionLPer100Km}
@@ -752,13 +783,15 @@ function VehicleSelectionScreen({
               onPress={createVehicle}
               style={({ pressed }) => [
                 styles.primaryButton,
-                (pressed || isSubmitting) && styles.primaryButtonPressed
+                (pressed || isSubmitting) && styles.primaryButtonPressed,
               ]}
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={styles.primaryButtonText}>Araci Kaydet ve Sec</Text>
+                <Text style={styles.primaryButtonText}>
+                  Araci Kaydet ve Sec
+                </Text>
               )}
             </Pressable>
           </View>
@@ -773,7 +806,7 @@ function DashboardScreen({
   onChangeVehicle,
   onLogout,
   selectedVehicle,
-  user
+  user,
 }: {
   accessToken: string;
   onChangeVehicle: () => Promise<void>;
@@ -781,7 +814,7 @@ function DashboardScreen({
   selectedVehicle: Vehicle;
   user: AuthUser | null;
 }) {
-  const [activeTab, setActiveTab] = useState<MainTab>('today');
+  const [activeTab, setActiveTab] = useState<MainTab>("today");
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -793,10 +826,10 @@ function DashboardScreen({
               <Text style={styles.eyebrow}>{getTabEyebrow(activeTab)}</Text>
               <Text style={styles.title}>{getTabTitle(activeTab)}</Text>
               <Text style={styles.userLine}>
-                {user?.fullName || user?.email || 'Surucu'}
+                {user?.fullName || user?.email || "Surucu"}
               </Text>
               <Text style={styles.vehicleLine}>
-                {selectedVehicle.plateNumber} -{' '}
+                {selectedVehicle.plateNumber} -{" "}
                 {formatVehicleName(selectedVehicle)}
               </Text>
             </View>
@@ -810,16 +843,16 @@ function DashboardScreen({
             </View>
           </View>
 
-          {activeTab === 'today' ? <TodayTabContent /> : null}
-          {activeTab === 'record' ? (
+          {activeTab === "today" ? <TodayTabContent /> : null}
+          {activeTab === "record" ? (
             <RecordTabContent
               accessToken={accessToken}
               apiBaseUrl={getApiBaseUrl()}
               selectedVehicle={selectedVehicle}
             />
           ) : null}
-          {activeTab === 'reports' ? <ReportsTabContent /> : null}
-          {activeTab === 'vehicles' ? (
+          {activeTab === "reports" ? <ReportsTabContent /> : null}
+          {activeTab === "vehicles" ? (
             <VehiclesTabContent
               onChangeVehicle={onChangeVehicle}
               selectedVehicle={selectedVehicle}
@@ -840,13 +873,13 @@ function DashboardScreen({
                 <View
                   style={[
                     styles.tabIcon,
-                    isActive ? styles.tabIconActive : null
+                    isActive ? styles.tabIconActive : null,
                   ]}
                 >
                   <Text
                     style={[
                       styles.tabIconText,
-                      isActive ? styles.tabIconTextActive : null
+                      isActive ? styles.tabIconTextActive : null,
                     ]}
                   >
                     {tab.icon}
@@ -855,7 +888,7 @@ function DashboardScreen({
                 <Text
                   style={[
                     styles.tabLabel,
-                    isActive ? styles.tabLabelActive : null
+                    isActive ? styles.tabLabelActive : null,
                   ]}
                 >
                   {tab.label}
@@ -908,21 +941,77 @@ function TodayTabContent() {
 function RecordTabContent({
   accessToken,
   apiBaseUrl,
-  selectedVehicle
+  selectedVehicle,
 }: {
   accessToken: string;
   apiBaseUrl: string;
   selectedVehicle: Vehicle;
 }) {
   const [form, setForm] = useState<QuickTripFormState>(
-    initialQuickTripFormState
+    initialQuickTripFormState,
   );
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastTrip, setLastTrip] = useState<Trip | null>(null);
+  const [shiftForm, setShiftForm] = useState<ShiftFormState>(() => ({
+    ...initialShiftFormState,
+    startOdometerKm: selectedVehicle.odometerKm ?? "",
+  }));
+  const [activeShift, setActiveShift] = useState<Shift | null>(null);
+  const [lastCompletedShift, setLastCompletedShift] = useState<Shift | null>(
+    null,
+  );
+  const [shiftMessage, setShiftMessage] = useState<string | null>(null);
+  const [isShiftLoading, setIsShiftLoading] = useState(true);
+  const [isShiftSubmitting, setIsShiftSubmitting] = useState(false);
+
+  useEffect(() => {
+    setShiftForm({
+      ...initialShiftFormState,
+      startOdometerKm: selectedVehicle.odometerKm ?? "",
+    });
+    setLastCompletedShift(null);
+    loadActiveShift().catch((error) => {
+      setShiftMessage(
+        error instanceof Error ? error.message : "Aktif vardiya yuklenemedi.",
+      );
+      setIsShiftLoading(false);
+    });
+  }, [selectedVehicle.id]);
 
   function updateField(field: keyof QuickTripFormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateShiftField(field: keyof ShiftFormState, value: string) {
+    setShiftForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function loadActiveShift() {
+    setIsShiftLoading(true);
+    setShiftMessage(null);
+
+    const response = await getJson<ShiftsResponse>(
+      `${apiBaseUrl}/shifts?vehicleId=${encodeURIComponent(
+        selectedVehicle.id,
+      )}&status=ACTIVE&page=1&pageSize=1&sortBy=startedAt&sortDirection=desc`,
+      accessToken,
+    );
+
+    const nextActiveShift = response.data[0] ?? null;
+
+    setActiveShift(nextActiveShift);
+    setShiftForm((current) => ({
+      ...current,
+      endOdometerKm: nextActiveShift?.endOdometerKm ?? "",
+      note: nextActiveShift?.note ?? current.note,
+      startOdometerKm:
+        nextActiveShift?.startOdometerKm ??
+        current.startOdometerKm ??
+        selectedVehicle.odometerKm ??
+        "",
+    }));
+    setIsShiftLoading(false);
   }
 
   async function submitQuickTrip() {
@@ -934,12 +1023,12 @@ function RecordTabContent({
       : undefined;
 
     if (!grossIncome || Number(grossIncome) <= 0) {
-      setMessage('Gelir 0 TL uzerinde olmali.');
+      setMessage("Gelir 0 TL uzerinde olmali.");
       return;
     }
 
     if (!tripKm || Number(tripKm) < 0) {
-      setMessage('Sefer km zorunlu.');
+      setMessage("Sefer km zorunlu.");
       return;
     }
 
@@ -947,7 +1036,7 @@ function RecordTabContent({
       durationMinutes !== undefined &&
       (!Number.isInteger(durationMinutes) || durationMinutes < 0)
     ) {
-      setMessage('Sure dakika olarak pozitif tam sayi olmali.');
+      setMessage("Sure dakika olarak pozitif tam sayi olmali.");
       return;
     }
 
@@ -963,18 +1052,19 @@ function RecordTabContent({
           grossIncome,
           note: form.note.trim() || undefined,
           paymentMethod: form.paymentMethod,
+          shiftId: activeShift?.id,
           tripDate: getLocalDateInputValue(),
           tripKm,
-          vehicleId: selectedVehicle.id
+          vehicleId: selectedVehicle.id,
         },
-        accessToken
+        accessToken,
       );
 
       setLastTrip(response.data);
       setForm(initialQuickTripFormState);
-      setMessage('Sefer kaydi eklendi.');
+      setMessage("Sefer kaydi eklendi.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Sefer eklenemedi.');
+      setMessage(error instanceof Error ? error.message : "Sefer eklenemedi.");
     } finally {
       setIsSubmitting(false);
     }
@@ -983,6 +1073,106 @@ function RecordTabContent({
   const totalKmPreview =
     toNumber(normalizeDecimalInput(form.tripKm)) +
     toNumber(normalizeDecimalInput(form.deadheadKm));
+
+  async function startShift() {
+    const startOdometerKm = normalizeDecimalInput(shiftForm.startOdometerKm);
+
+    if (startOdometerKm && Number(startOdometerKm) < 0) {
+      setShiftMessage("Baslangic km negatif olamaz.");
+      return;
+    }
+
+    setIsShiftSubmitting(true);
+    setShiftMessage(null);
+
+    try {
+      const response = await postJson<{ data: Shift }>(
+        `${apiBaseUrl}/shifts`,
+        {
+          note: shiftForm.note.trim() || undefined,
+          startOdometerKm: startOdometerKm || undefined,
+          startedAt: new Date().toISOString(),
+          status: "ACTIVE",
+          vehicleId: selectedVehicle.id,
+        },
+        accessToken,
+      );
+
+      setActiveShift(response.data);
+      setLastCompletedShift(null);
+      setShiftForm((current) => ({
+        ...current,
+        endOdometerKm: "",
+        startOdometerKm:
+          response.data.startOdometerKm ?? current.startOdometerKm,
+      }));
+      setShiftMessage("Vardiya baslatildi.");
+    } catch (error) {
+      setShiftMessage(
+        error instanceof Error ? error.message : "Vardiya baslatilamadi.",
+      );
+    } finally {
+      setIsShiftSubmitting(false);
+    }
+  }
+
+  async function finishShift() {
+    if (!activeShift) {
+      setShiftMessage("Aktif vardiya bulunamadi.");
+      return;
+    }
+
+    const endOdometerKm = normalizeDecimalInput(shiftForm.endOdometerKm);
+    const startOdometerKm = normalizeDecimalInput(
+      shiftForm.startOdometerKm || activeShift.startOdometerKm || "",
+    );
+
+    if (!endOdometerKm) {
+      setShiftMessage("Bitis km zorunlu.");
+      return;
+    }
+
+    if (Number(endOdometerKm) < 0) {
+      setShiftMessage("Bitis km negatif olamaz.");
+      return;
+    }
+
+    if (startOdometerKm && Number(endOdometerKm) < Number(startOdometerKm)) {
+      setShiftMessage("Bitis km baslangic kmden kucuk olamaz.");
+      return;
+    }
+
+    setIsShiftSubmitting(true);
+    setShiftMessage(null);
+
+    try {
+      const response = await patchJson<{ data: Shift }>(
+        `${apiBaseUrl}/shifts/${activeShift.id}`,
+        {
+          endedAt: new Date().toISOString(),
+          endOdometerKm,
+          note: shiftForm.note.trim() || activeShift.note || undefined,
+          startOdometerKm: startOdometerKm || undefined,
+          status: "COMPLETED",
+        },
+        accessToken,
+      );
+
+      setActiveShift(null);
+      setLastCompletedShift(response.data);
+      setShiftForm({
+        ...initialShiftFormState,
+        startOdometerKm: response.data.endOdometerKm ?? "",
+      });
+      setShiftMessage("Vardiya bitirildi.");
+    } catch (error) {
+      setShiftMessage(
+        error instanceof Error ? error.message : "Vardiya bitirilemedi.",
+      );
+    } finally {
+      setIsShiftSubmitting(false);
+    }
+  }
 
   return (
     <>
@@ -1002,7 +1192,7 @@ function RecordTabContent({
               inputMode="decimal"
               keyboardType="decimal-pad"
               label="Gelir"
-              onChangeText={(value) => updateField('grossIncome', value)}
+              onChangeText={(value) => updateField("grossIncome", value)}
               placeholder="450"
               value={form.grossIncome}
             />
@@ -1012,7 +1202,7 @@ function RecordTabContent({
               inputMode="decimal"
               keyboardType="decimal-pad"
               label="Sefer km"
-              onChangeText={(value) => updateField('tripKm', value)}
+              onChangeText={(value) => updateField("tripKm", value)}
               placeholder="18"
               value={form.tripKm}
             />
@@ -1025,7 +1215,7 @@ function RecordTabContent({
               inputMode="decimal"
               keyboardType="decimal-pad"
               label="Bos km"
-              onChangeText={(value) => updateField('deadheadKm', value)}
+              onChangeText={(value) => updateField("deadheadKm", value)}
               placeholder="4"
               value={form.deadheadKm}
             />
@@ -1035,7 +1225,7 @@ function RecordTabContent({
               inputMode="numeric"
               keyboardType="number-pad"
               label="Sure dk"
-              onChangeText={(value) => updateField('durationMinutes', value)}
+              onChangeText={(value) => updateField("durationMinutes", value)}
               placeholder="32"
               value={form.durationMinutes}
             />
@@ -1050,16 +1240,16 @@ function RecordTabContent({
             return (
               <Pressable
                 key={option.value}
-                onPress={() => updateField('paymentMethod', option.value)}
+                onPress={() => updateField("paymentMethod", option.value)}
                 style={[
                   styles.optionButton,
-                  isActive ? styles.optionButtonActive : null
+                  isActive ? styles.optionButtonActive : null,
                 ]}
               >
                 <Text
                   style={[
                     styles.optionButtonText,
-                    isActive ? styles.optionButtonTextActive : null
+                    isActive ? styles.optionButtonTextActive : null,
                   ]}
                 >
                   {option.label}
@@ -1072,7 +1262,7 @@ function RecordTabContent({
         <TextField
           label="Not"
           multiline
-          onChangeText={(value) => updateField('note', value)}
+          onChangeText={(value) => updateField("note", value)}
           placeholder="Yogun trafik, ekstra bekleme..."
           style={[styles.input, styles.textArea]}
           value={form.note}
@@ -1081,10 +1271,14 @@ function RecordTabContent({
         <View style={styles.quickTripPreview}>
           <View>
             <Text style={styles.shiftLabel}>Toplam km</Text>
-            <Text style={styles.shiftValue}>{formatNumber(totalKmPreview)} km</Text>
+            <Text style={styles.shiftValue}>
+              {formatNumber(totalKmPreview)} km
+            </Text>
           </View>
           <View style={styles.autoCalcBadge}>
-            <Text style={styles.autoCalcBadgeText}>Yakit otomatik hesaplanir</Text>
+            <Text style={styles.autoCalcBadgeText}>
+              Yakit otomatik hesaplanir
+            </Text>
           </View>
         </View>
 
@@ -1092,7 +1286,7 @@ function RecordTabContent({
           <Text
             style={[
               styles.formAlert,
-              message.includes('eklendi') ? styles.formSuccess : null
+              message.includes("eklendi") ? styles.formSuccess : null,
             ]}
           >
             {message}
@@ -1104,7 +1298,7 @@ function RecordTabContent({
           onPress={submitQuickTrip}
           style={({ pressed }) => [
             styles.primaryButton,
-            (pressed || isSubmitting) && styles.primaryButtonPressed
+            (pressed || isSubmitting) && styles.primaryButtonPressed,
           ]}
         >
           {isSubmitting ? (
@@ -1155,27 +1349,145 @@ function RecordTabContent({
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Diger hizli kayitlar</Text>
         <View style={styles.actionGrid}>
-          {['Gider Ekle', 'Yakit Ekle', 'Paket Ekle', 'Bakim Ekle'].map(
+          {["Gider Ekle", "Yakit Ekle", "Paket Ekle", "Bakim Ekle"].map(
             (action) => (
               <Pressable key={action} style={styles.actionButton}>
                 <Text style={styles.actionText}>{action}</Text>
               </Pressable>
-            )
+            ),
           )}
         </View>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Vardiya modu</Text>
-        <View style={styles.shiftPanel}>
-          <View>
-            <Text style={styles.shiftLabel}>Durum</Text>
-            <Text style={styles.shiftValue}>Hazir</Text>
+        {isShiftLoading ? (
+          <View style={styles.shiftPanel}>
+            <View>
+              <Text style={styles.shiftLabel}>Durum</Text>
+              <Text style={styles.shiftValue}>Yukleniyor</Text>
+            </View>
+            <ActivityIndicator color="#115e59" />
           </View>
-          <Pressable style={styles.shiftButton}>
-            <Text style={styles.shiftButtonText}>Baslat</Text>
-          </Pressable>
-        </View>
+        ) : (
+          <>
+            <View style={styles.shiftPanel}>
+              <View>
+                <Text style={styles.shiftLabel}>Durum</Text>
+                <Text style={styles.shiftValue}>
+                  {activeShift ? "Aktif" : "Hazir"}
+                </Text>
+                {activeShift ? (
+                  <Text style={styles.shiftDetail}>
+                    {formatDateTime(activeShift.startedAt)}
+                  </Text>
+                ) : null}
+              </View>
+              <View style={styles.autoCalcBadge}>
+                <Text style={styles.autoCalcBadgeText}>
+                  {activeShift ? "Vardiya acik" : "Baslatmaya hazir"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.formRow}>
+              <View style={styles.formColumn}>
+                <TextField
+                  editable={!activeShift}
+                  inputMode="decimal"
+                  keyboardType="decimal-pad"
+                  label="Baslangic km"
+                  onChangeText={(value) =>
+                    updateShiftField("startOdometerKm", value)
+                  }
+                  placeholder="85000"
+                  value={shiftForm.startOdometerKm}
+                />
+              </View>
+              <View style={styles.formColumn}>
+                <TextField
+                  editable={Boolean(activeShift)}
+                  inputMode="decimal"
+                  keyboardType="decimal-pad"
+                  label="Bitis km"
+                  onChangeText={(value) =>
+                    updateShiftField("endOdometerKm", value)
+                  }
+                  placeholder="85142"
+                  value={shiftForm.endOdometerKm}
+                />
+              </View>
+            </View>
+
+            <TextField
+              label="Vardiya notu"
+              onChangeText={(value) => updateShiftField("note", value)}
+              placeholder="Aksam yogunlugu, hedef..."
+              value={shiftForm.note}
+            />
+
+            {shiftMessage ? (
+              <Text
+                style={[
+                  styles.formAlert,
+                  shiftMessage.includes("baslatildi") ||
+                  shiftMessage.includes("bitirildi")
+                    ? styles.formSuccess
+                    : null,
+                ]}
+              >
+                {shiftMessage}
+              </Text>
+            ) : null}
+
+            <Pressable
+              disabled={isShiftSubmitting}
+              onPress={activeShift ? finishShift : startShift}
+              style={({ pressed }) => [
+                styles.shiftButtonWide,
+                activeShift ? styles.dangerButton : null,
+                (pressed || isShiftSubmitting) && styles.primaryButtonPressed,
+              ]}
+            >
+              {isShiftSubmitting ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.shiftButtonText}>
+                  {activeShift ? "Vardiyayi Bitir" : "Vardiyaya Basla"}
+                </Text>
+              )}
+            </Pressable>
+
+            {lastCompletedShift ? (
+              <View style={styles.shiftResultPanel}>
+                <View style={styles.expenseRow}>
+                  <Text style={styles.expenseName}>Sure</Text>
+                  <Text style={styles.expenseAmount}>
+                    {formatDuration(lastCompletedShift.activeMinutes ?? 0)}
+                  </Text>
+                </View>
+                <View style={styles.expenseRow}>
+                  <Text style={styles.expenseName}>Toplam km</Text>
+                  <Text style={styles.expenseAmount}>
+                    {formatNumber(toNumber(lastCompletedShift.totalKm))} km
+                  </Text>
+                </View>
+                <View style={styles.expenseRow}>
+                  <Text style={styles.expenseName}>Vardiya geliri</Text>
+                  <Text style={styles.expenseAmount}>
+                    {formatMoney(toNumber(lastCompletedShift.grossIncome))}
+                  </Text>
+                </View>
+                <View style={styles.expenseRow}>
+                  <Text style={styles.expenseName}>Net kar</Text>
+                  <Text style={styles.expenseAmount}>
+                    {formatMoney(toNumber(lastCompletedShift.trueNetProfit))}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </>
+        )}
       </View>
     </>
   );
@@ -1210,7 +1522,7 @@ function ReportsTabContent() {
 
 function VehiclesTabContent({
   onChangeVehicle,
-  selectedVehicle
+  selectedVehicle,
 }: {
   onChangeVehicle: () => Promise<void>;
   selectedVehicle: Vehicle;
@@ -1230,7 +1542,7 @@ function VehiclesTabContent({
               {formatVehicleName(selectedVehicle)}
             </Text>
             <Text style={styles.vehicleMeta}>
-              {formatFuelType(selectedVehicle.fuelType)} -{' '}
+              {formatFuelType(selectedVehicle.fuelType)} -{" "}
               {selectedVehicle.averageConsumptionLPer100Km} lt/100 km
             </Text>
           </View>
@@ -1253,7 +1565,7 @@ function VehiclesTabContent({
         <View style={styles.expenseRow}>
           <Text style={styles.expenseName}>Km sayaci</Text>
           <Text style={styles.expenseAmount}>
-            {selectedVehicle.odometerKm ?? '-'}
+            {selectedVehicle.odometerKm ?? "-"}
           </Text>
         </View>
       </View>
@@ -1262,43 +1574,43 @@ function VehiclesTabContent({
 }
 
 function getTabEyebrow(tab: MainTab) {
-  if (tab === 'record') {
-    return 'Kayit';
+  if (tab === "record") {
+    return "Kayit";
   }
 
-  if (tab === 'reports') {
-    return 'Analiz';
+  if (tab === "reports") {
+    return "Analiz";
   }
 
-  if (tab === 'vehicles') {
-    return 'Arac';
+  if (tab === "vehicles") {
+    return "Arac";
   }
 
-  return 'Bugun';
+  return "Bugun";
 }
 
 function getTabTitle(tab: MainTab) {
-  if (tab === 'record') {
-    return 'Hizli islem';
+  if (tab === "record") {
+    return "Hizli islem";
   }
 
-  if (tab === 'reports') {
-    return 'Raporlar';
+  if (tab === "reports") {
+    return "Raporlar";
   }
 
-  if (tab === 'vehicles') {
-    return 'Arac profili';
+  if (tab === "vehicles") {
+    return "Arac profili";
   }
 
-  return 'Gercek net kar';
+  return "Gercek net kar";
 }
 
 async function getJson<TResponse>(url: string, accessToken?: string) {
   const response = await fetch(url, {
     headers: {
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
-    method: 'GET'
+    method: "GET",
   });
 
   const payload = await response.json().catch(() => undefined);
@@ -1313,15 +1625,38 @@ async function getJson<TResponse>(url: string, accessToken?: string) {
 async function postJson<TResponse>(
   url: string,
   body: Record<string, unknown>,
-  accessToken?: string
+  accessToken?: string,
 ) {
   const response = await fetch(url, {
     body: JSON.stringify(body),
     headers: {
-      'Content-Type': 'application/json',
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+      "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
-    method: 'POST'
+    method: "POST",
+  });
+
+  const payload = await response.json().catch(() => undefined);
+
+  if (!response.ok) {
+    throw new Error(formatApiError(payload));
+  }
+
+  return payload as TResponse;
+}
+
+async function patchJson<TResponse>(
+  url: string,
+  body: Record<string, unknown>,
+  accessToken?: string,
+) {
+  const response = await fetch(url, {
+    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    method: "PATCH",
   });
 
   const payload = await response.json().catch(() => undefined);
@@ -1337,10 +1672,10 @@ function formatApiError(payload: unknown) {
   const error = payload as ApiErrorResponse | undefined;
 
   if (Array.isArray(error?.message)) {
-    return error.message.join(' ');
+    return error.message.join(" ");
   }
 
-  return error?.message ?? 'Islem tamamlanamadi.';
+  return error?.message ?? "Islem tamamlanamadi.";
 }
 
 function getLocalDateInputValue() {
@@ -1351,7 +1686,7 @@ function getLocalDateInputValue() {
 }
 
 function normalizeDecimalInput(value: string) {
-  return value.trim().replace(',', '.');
+  return value.trim().replace(",", ".");
 }
 
 function toNumber(value: string | number | null | undefined) {
@@ -1361,18 +1696,34 @@ function toNumber(value: string | number | null | undefined) {
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat('tr-TR', {
-    currency: 'TRY',
+  return new Intl.NumberFormat("tr-TR", {
+    currency: "TRY",
     maximumFractionDigits: 0,
-    style: 'currency'
+    style: "currency",
   }).format(value);
 }
 
 function formatNumber(value: number) {
-  return new Intl.NumberFormat('tr-TR', {
+  return new Intl.NumberFormat("tr-TR", {
     maximumFractionDigits: 1,
-    minimumFractionDigits: 0
+    minimumFractionDigits: 0,
   }).format(value);
+}
+
+function formatDuration(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = Math.round(minutes % 60);
+
+  return `${hours}s ${remainingMinutes}d`;
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "2-digit",
+  }).format(new Date(value));
 }
 
 function getApiBaseUrl() {
@@ -1380,644 +1731,664 @@ function getApiBaseUrl() {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:3001/api/v1';
+  if (Platform.OS === "android") {
+    return "http://10.0.2.2:3001/api/v1";
   }
 
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
     return `http://${window.location.hostname}:3001/api/v1`;
   }
 
-  return 'http://localhost:3001/api/v1';
+  return "http://localhost:3001/api/v1";
 }
 
 function getDeviceName() {
-  if (Platform.OS === 'ios') {
-    return 'Expo iOS';
+  if (Platform.OS === "ios") {
+    return "Expo iOS";
   }
 
-  if (Platform.OS === 'android') {
-    return 'Expo Android';
+  if (Platform.OS === "android") {
+    return "Expo Android";
   }
 
-  return 'Expo Web';
+  return "Expo Web";
 }
 
 function formatVehicleName(vehicle: Vehicle) {
   const name = [vehicle.brand, vehicle.model, vehicle.modelYear]
     .filter(Boolean)
-    .join(' ');
+    .join(" ");
 
-  return name || 'Arac profili';
+  return name || "Arac profili";
 }
 
 function formatFuelType(fuelType: FuelType) {
   const option = fuelOptions.find((fuel) => fuel.value === fuelType);
 
-  return option?.label ?? 'Diger';
+  return option?.label ?? "Diger";
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f4f7f8'
+    backgroundColor: "#f4f7f8",
   },
   appShell: {
-    flex: 1
+    flex: 1,
   },
   flex: {
-    flex: 1
+    flex: 1,
   },
   loadingScreen: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
     gap: 12,
-    justifyContent: 'center',
-    padding: 24
+    justifyContent: "center",
+    padding: 24,
   },
   loadingText: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 13,
-    fontWeight: '700'
+    fontWeight: "700",
   },
   authContainer: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: 18,
-    paddingBottom: 32
+    paddingBottom: 32,
   },
   authHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    flexDirection: "row",
     gap: 10,
-    marginBottom: 28
+    marginBottom: 28,
   },
   brandMark: {
-    alignItems: 'center',
-    backgroundColor: '#115e59',
+    alignItems: "center",
+    backgroundColor: "#115e59",
     borderRadius: 8,
     height: 42,
-    justifyContent: 'center',
-    width: 42
+    justifyContent: "center",
+    width: 42,
   },
   brandMarkText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 16,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   brandName: {
-    color: '#152028',
+    color: "#152028",
     fontSize: 18,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   authIntro: {
-    marginBottom: 18
+    marginBottom: 18,
   },
   authTitle: {
-    color: '#152028',
+    color: "#152028",
     fontSize: 30,
-    fontWeight: '900',
-    marginTop: 6
+    fontWeight: "900",
+    marginTop: 6,
   },
   authDetail: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 15,
     lineHeight: 22,
-    marginTop: 10
+    marginTop: 10,
   },
   authCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d9e2e6',
+    backgroundColor: "#ffffff",
+    borderColor: "#d9e2e6",
     borderRadius: 8,
     borderWidth: 1,
-    padding: 16
+    padding: 16,
   },
   inputGroup: {
-    marginBottom: 14
+    marginBottom: 14,
   },
   inputLabel: {
-    color: '#34444f',
+    color: "#34444f",
     fontSize: 13,
-    fontWeight: '800',
-    marginBottom: 7
+    fontWeight: "800",
+    marginBottom: 7,
   },
   input: {
-    backgroundColor: '#f8fafb',
-    borderColor: '#cfd9de',
+    backgroundColor: "#f8fafb",
+    borderColor: "#cfd9de",
     borderRadius: 8,
     borderWidth: 1,
-    color: '#152028',
+    color: "#152028",
     fontSize: 16,
     minHeight: 50,
-    paddingHorizontal: 13
+    paddingHorizontal: 13,
   },
   textArea: {
     minHeight: 82,
     paddingTop: 12,
-    textAlignVertical: 'top'
+    textAlignVertical: "top",
   },
   formAlert: {
-    backgroundColor: '#fff1f1',
-    borderColor: '#fecaca',
+    backgroundColor: "#fff1f1",
+    borderColor: "#fecaca",
     borderRadius: 8,
     borderWidth: 1,
-    color: '#991b1b',
+    color: "#991b1b",
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     lineHeight: 19,
     marginBottom: 14,
-    padding: 10
+    padding: 10,
   },
   formSuccess: {
-    backgroundColor: '#e7f6f3',
-    borderColor: '#99d8cc',
-    color: '#115e59'
+    backgroundColor: "#e7f6f3",
+    borderColor: "#99d8cc",
+    color: "#115e59",
   },
   primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#115e59',
+    alignItems: "center",
+    backgroundColor: "#115e59",
     borderRadius: 8,
-    justifyContent: 'center',
+    justifyContent: "center",
     minHeight: 52,
-    paddingHorizontal: 16
+    paddingHorizontal: 16,
   },
   primaryButtonPressed: {
-    opacity: 0.82
+    opacity: 0.82,
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 15,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   authSwitchRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 6,
-    justifyContent: 'center',
-    marginTop: 18
+    justifyContent: "center",
+    marginTop: 18,
   },
   authSwitchText: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 14,
-    fontWeight: '700'
+    fontWeight: "700",
   },
   authSwitchAction: {
-    color: '#115e59',
+    color: "#115e59",
     fontSize: 14,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   container: {
     padding: 18,
-    paddingBottom: 32
+    paddingBottom: 32,
   },
   containerWithTabs: {
     padding: 18,
-    paddingBottom: 110
+    paddingBottom: 110,
   },
   header: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
+    alignItems: "flex-start",
+    flexDirection: "row",
     gap: 12,
-    justifyContent: 'space-between',
-    marginBottom: 16
+    justifyContent: "space-between",
+    marginBottom: 16,
   },
   headerTitleBlock: {
-    flex: 1
+    flex: 1,
   },
   eyebrow: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 0.6,
-    textTransform: 'uppercase'
+    textTransform: "uppercase",
   },
   title: {
-    color: '#152028',
+    color: "#152028",
     fontSize: 28,
-    fontWeight: '800',
-    marginTop: 4
+    fontWeight: "800",
+    marginTop: 4,
   },
   userLine: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 13,
-    fontWeight: '700',
-    marginTop: 6
+    fontWeight: "700",
+    marginTop: 6,
   },
   vehicleLine: {
-    color: '#115e59',
+    color: "#115e59",
     fontSize: 13,
-    fontWeight: '900',
-    marginTop: 6
+    fontWeight: "900",
+    marginTop: 6,
   },
   headerActions: {
-    alignItems: 'flex-end',
-    gap: 8
+    alignItems: "flex-end",
+    gap: 8,
   },
   bottomTabBar: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#d9e2e6',
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#d9e2e6",
     borderTopWidth: 1,
     bottom: 0,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 4,
-    justifyContent: 'space-around',
+    justifyContent: "space-around",
     left: 0,
     minHeight: 78,
     paddingBottom: 10,
     paddingHorizontal: 8,
     paddingTop: 8,
-    position: 'absolute',
-    right: 0
+    position: "absolute",
+    right: 0,
   },
   tabButton: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
     gap: 5,
-    justifyContent: 'center',
-    minHeight: 58
+    justifyContent: "center",
+    minHeight: 58,
   },
   tabIcon: {
-    alignItems: 'center',
-    backgroundColor: '#edf2f4',
+    alignItems: "center",
+    backgroundColor: "#edf2f4",
     borderRadius: 8,
     height: 32,
-    justifyContent: 'center',
-    width: 38
+    justifyContent: "center",
+    width: 38,
   },
   tabIconActive: {
-    backgroundColor: '#115e59'
+    backgroundColor: "#115e59",
   },
   tabIconText: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 13,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   tabIconTextActive: {
-    color: '#ffffff'
+    color: "#ffffff",
   },
   tabLabel: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 11,
-    fontWeight: '800'
+    fontWeight: "800",
   },
   tabLabelActive: {
-    color: '#115e59'
+    color: "#115e59",
   },
   logoutButton: {
-    backgroundColor: '#e7f6f3',
+    backgroundColor: "#e7f6f3",
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 9
+    paddingVertical: 9,
   },
   logoutButtonText: {
-    color: '#115e59',
+    color: "#115e59",
     fontSize: 12,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#e7f6f3',
+    alignSelf: "flex-start",
+    backgroundColor: "#e7f6f3",
     borderRadius: 8,
     marginBottom: 18,
     paddingHorizontal: 10,
-    paddingVertical: 7
+    paddingVertical: 7,
   },
   badgeText: {
-    color: '#115e59',
+    color: "#115e59",
     fontSize: 12,
-    fontWeight: '800'
+    fontWeight: "800",
   },
   heroCard: {
-    backgroundColor: '#101820',
+    backgroundColor: "#101820",
     borderRadius: 8,
     marginBottom: 14,
-    padding: 18
+    padding: 18,
   },
   heroLabel: {
-    color: '#b9d8d3',
+    color: "#b9d8d3",
     fontSize: 13,
-    fontWeight: '700'
+    fontWeight: "700",
   },
   heroValue: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 38,
-    fontWeight: '900',
-    marginTop: 8
+    fontWeight: "900",
+    marginTop: 8,
   },
   heroDetail: {
-    color: '#d8e5e8',
+    color: "#d8e5e8",
     fontSize: 13,
     lineHeight: 20,
-    marginTop: 10
+    marginTop: 10,
   },
   metricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
-    marginBottom: 14
+    marginBottom: 14,
   },
   metricCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d9e2e6',
+    backgroundColor: "#ffffff",
+    borderColor: "#d9e2e6",
     borderRadius: 8,
     borderWidth: 1,
-    flexBasis: '48%',
+    flexBasis: "48%",
     flexGrow: 1,
-    padding: 14
+    padding: 14,
   },
   metricLabel: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 12,
-    fontWeight: '700'
+    fontWeight: "700",
   },
   metricValue: {
-    color: '#152028',
+    color: "#152028",
     fontSize: 20,
-    fontWeight: '900',
-    marginTop: 8
+    fontWeight: "900",
+    marginTop: 8,
   },
   section: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d9e2e6',
+    backgroundColor: "#ffffff",
+    borderColor: "#d9e2e6",
     borderRadius: 8,
     borderWidth: 1,
     marginBottom: 14,
-    padding: 14
+    padding: 14,
   },
   sectionTitle: {
-    color: '#152028',
+    color: "#152028",
     fontSize: 18,
-    fontWeight: '900',
-    marginBottom: 12
+    fontWeight: "900",
+    marginBottom: 12,
   },
   sectionSubtitle: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     lineHeight: 19,
-    marginTop: -6
+    marginTop: -6,
   },
   sectionHeaderRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: 10,
-    marginBottom: 12
+    marginBottom: 12,
   },
   secondaryButton: {
-    backgroundColor: '#edf2f4',
+    backgroundColor: "#edf2f4",
     borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 8
+    paddingVertical: 8,
   },
   secondaryButtonText: {
-    color: '#115e59',
+    color: "#115e59",
     fontSize: 12,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   outlineButton: {
-    alignItems: 'center',
-    borderColor: '#b7c6cc',
+    alignItems: "center",
+    borderColor: "#b7c6cc",
     borderRadius: 8,
     borderWidth: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     marginTop: 12,
     minHeight: 48,
-    paddingHorizontal: 12
+    paddingHorizontal: 12,
   },
   outlineButtonText: {
-    color: '#115e59',
+    color: "#115e59",
     fontSize: 14,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   emptyText: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     lineHeight: 21,
-    marginTop: 8
+    marginTop: 8,
   },
   vehicleCard: {
-    alignItems: 'center',
-    backgroundColor: '#f8fafb',
-    borderColor: '#d9e2e6',
+    alignItems: "center",
+    backgroundColor: "#f8fafb",
+    borderColor: "#d9e2e6",
     borderRadius: 8,
     borderWidth: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginBottom: 10,
     minHeight: 78,
-    padding: 12
+    padding: 12,
   },
   vehicleCardActive: {
-    backgroundColor: '#e7f6f3',
-    borderColor: '#115e59'
+    backgroundColor: "#e7f6f3",
+    borderColor: "#115e59",
   },
   vehicleCardPressed: {
-    opacity: 0.82
+    opacity: 0.82,
   },
   vehiclePlate: {
-    alignItems: 'center',
-    backgroundColor: '#101820',
+    alignItems: "center",
+    backgroundColor: "#101820",
     borderRadius: 8,
-    justifyContent: 'center',
+    justifyContent: "center",
     minHeight: 44,
     minWidth: 86,
-    paddingHorizontal: 10
+    paddingHorizontal: 10,
   },
   vehiclePlateText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 14,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   vehicleInfo: {
-    flex: 1
+    flex: 1,
   },
   vehicleName: {
-    color: '#152028',
+    color: "#152028",
     fontSize: 15,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   vehicleMeta: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 12,
-    fontWeight: '700',
-    marginTop: 5
+    fontWeight: "700",
+    marginTop: 5,
   },
   activeTag: {
-    color: '#115e59',
+    color: "#115e59",
     fontSize: 12,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   formRow: {
-    flexDirection: 'row',
-    gap: 10
+    flexDirection: "row",
+    gap: 10,
   },
   formColumn: {
-    flex: 1
+    flex: 1,
   },
   optionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
-    marginBottom: 14
+    marginBottom: 14,
   },
   optionButton: {
-    alignItems: 'center',
-    backgroundColor: '#edf2f4',
-    borderColor: '#d9e2e6',
+    alignItems: "center",
+    backgroundColor: "#edf2f4",
+    borderColor: "#d9e2e6",
     borderRadius: 8,
     borderWidth: 1,
     minHeight: 42,
     minWidth: 86,
-    justifyContent: 'center',
-    paddingHorizontal: 10
+    justifyContent: "center",
+    paddingHorizontal: 10,
   },
   optionButtonActive: {
-    backgroundColor: '#115e59',
-    borderColor: '#115e59'
+    backgroundColor: "#115e59",
+    borderColor: "#115e59",
   },
   optionButtonText: {
-    color: '#34444f',
+    color: "#34444f",
     fontSize: 13,
-    fontWeight: '800'
+    fontWeight: "800",
   },
   optionButtonTextActive: {
-    color: '#ffffff'
+    color: "#ffffff",
   },
   quickTripPreview: {
-    alignItems: 'center',
-    backgroundColor: '#edf2f4',
+    alignItems: "center",
+    backgroundColor: "#edf2f4",
     borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 14,
     minHeight: 66,
-    padding: 12
+    padding: 12,
   },
   autoCalcBadge: {
-    backgroundColor: '#e7f6f3',
+    backgroundColor: "#e7f6f3",
     borderRadius: 8,
     maxWidth: 150,
     paddingHorizontal: 10,
-    paddingVertical: 8
+    paddingVertical: 8,
   },
   autoCalcBadgeText: {
-    color: '#115e59',
+    color: "#115e59",
     fontSize: 12,
-    fontWeight: '900',
-    textAlign: 'center'
+    fontWeight: "900",
+    textAlign: "center",
   },
   shiftPanel: {
-    alignItems: 'center',
-    backgroundColor: '#edf2f4',
+    alignItems: "center",
+    backgroundColor: "#edf2f4",
     borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     minHeight: 72,
-    padding: 12
+    padding: 12,
   },
   shiftLabel: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 12,
-    fontWeight: '800'
+    fontWeight: "800",
   },
   shiftValue: {
-    color: '#152028',
+    color: "#152028",
     fontSize: 20,
-    fontWeight: '900',
-    marginTop: 4
+    fontWeight: "900",
+    marginTop: 4,
+  },
+  shiftDetail: {
+    color: "#62717c",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 4,
   },
   shiftButton: {
-    alignItems: 'center',
-    backgroundColor: '#115e59',
+    alignItems: "center",
+    backgroundColor: "#115e59",
     borderRadius: 8,
-    justifyContent: 'center',
+    justifyContent: "center",
     minHeight: 44,
     minWidth: 94,
-    paddingHorizontal: 14
+    paddingHorizontal: 14,
   },
   shiftButtonText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 14,
-    fontWeight: '900'
+    fontWeight: "900",
+  },
+  shiftButtonWide: {
+    alignItems: "center",
+    backgroundColor: "#115e59",
+    borderRadius: 8,
+    justifyContent: "center",
+    minHeight: 50,
+    paddingHorizontal: 14,
+  },
+  dangerButton: {
+    backgroundColor: "#b91c1c",
+  },
+  shiftResultPanel: {
+    marginTop: 12,
   },
   reportRow: {
-    alignItems: 'center',
-    borderBottomColor: '#edf2f4',
+    alignItems: "center",
+    borderBottomColor: "#edf2f4",
     borderBottomWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    minHeight: 48
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 48,
   },
   reportLabel: {
-    color: '#62717c',
+    color: "#62717c",
     fontSize: 13,
-    fontWeight: '800'
+    fontWeight: "800",
   },
   reportValue: {
-    color: '#152028',
+    color: "#152028",
     fontSize: 15,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   trendBars: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
+    alignItems: "flex-end",
+    flexDirection: "row",
     gap: 10,
     height: 120,
-    justifyContent: 'space-between'
+    justifyContent: "space-between",
   },
   trendBarTrack: {
-    alignItems: 'center',
-    backgroundColor: '#edf2f4',
+    alignItems: "center",
+    backgroundColor: "#edf2f4",
     borderRadius: 8,
     flex: 1,
     height: 104,
-    justifyContent: 'flex-end',
-    overflow: 'hidden'
+    justifyContent: "flex-end",
+    overflow: "hidden",
   },
   trendBarFill: {
-    backgroundColor: '#115e59',
+    backgroundColor: "#115e59",
     borderRadius: 8,
-    width: '100%'
+    width: "100%",
   },
   actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
   },
   actionButton: {
-    alignItems: 'center',
-    backgroundColor: '#edf2f4',
+    alignItems: "center",
+    backgroundColor: "#edf2f4",
     borderRadius: 8,
-    flexBasis: '48%',
+    flexBasis: "48%",
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     minHeight: 54,
-    padding: 10
+    padding: 10,
   },
   actionText: {
-    color: '#115e59',
+    color: "#115e59",
     fontSize: 13,
-    fontWeight: '900'
+    fontWeight: "900",
   },
   expenseRow: {
-    alignItems: 'center',
-    backgroundColor: '#edf2f4',
+    alignItems: "center",
+    backgroundColor: "#edf2f4",
     borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 8,
-    padding: 12
+    padding: 12,
   },
   expenseName: {
-    color: '#62717c',
-    fontWeight: '700'
+    color: "#62717c",
+    fontWeight: "700",
   },
   expenseAmount: {
-    color: '#152028',
-    fontWeight: '900'
-  }
+    color: "#152028",
+    fontWeight: "900",
+  },
 });
