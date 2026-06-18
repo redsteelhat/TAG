@@ -1,15 +1,18 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma, Vehicle } from '@prisma/client';
 import { FuelCostService } from '../fuel-cost/fuel-cost.service';
+import { PackageAllocationService } from '../package-allocation/package-allocation.service';
 
 export interface TripIncomeCalculationInput {
   cancellationIncome?: string | Prisma.Decimal | null;
+  currentTripId?: string | null;
   deadheadKm?: string | Prisma.Decimal | null;
   durationMinutes?: number | null;
   endedAt?: Date | null;
   grossIncome: string | Prisma.Decimal;
   startedAt?: Date | null;
   tipAmount?: string | Prisma.Decimal | null;
+  tripDate?: string | Date | null;
   tripKm?: string | Prisma.Decimal | null;
 }
 
@@ -47,7 +50,10 @@ export interface TripProfitBreakdownSnapshot {
 export class IncomeCalculationService {
   readonly calculationVersion = 'income-calculation-v1';
 
-  constructor(private readonly fuelCostService: FuelCostService) {}
+  constructor(
+    private readonly fuelCostService: FuelCostService,
+    private readonly packageAllocationService: PackageAllocationService
+  ) {}
 
   async calculateTripIncome(
     userId: string,
@@ -72,7 +78,16 @@ export class IncomeCalculationService {
       vehicle,
       totalKm
     );
-    const allocatedPackageCost = zero;
+    const packageAllocation =
+      await this.packageAllocationService.calculateTripPackageCost({
+        currentTripId: input.currentTripId,
+        totalKm,
+        tripDate: this.resolveTripDate(input.tripDate, input.startedAt),
+        userId,
+        vehicleId: vehicle.id
+      });
+    const allocatedPackageCost =
+      packageAllocation.totalAllocatedPackageCost;
     const allocatedFixedCost = zero;
     const allocatedMaintenanceCost = zero;
     const allocatedDepreciationCost = zero;
@@ -118,7 +133,7 @@ export class IncomeCalculationService {
       method: {
         totalIncome: 'gross_plus_tip_plus_cancellation',
         fuel: 'latest_fuel_price_x_vehicle_average_consumption_x_total_km',
-        package: 'placeholder_zero_until_package_allocation_service',
+        package: 'active_tag_packages_allocated_by_package_method',
         fixedCost: 'placeholder_zero_until_fixed_cost_allocation_service',
         maintenance:
           'placeholder_zero_until_maintenance_reserve_allocation_service',
@@ -127,7 +142,6 @@ export class IncomeCalculationService {
           'placeholder_zero_until_variable_expense_allocation_service'
       },
       placeholderCosts: [
-        'packageCost',
         'fixedCost',
         'maintenanceCost',
         'depreciationCost',
@@ -169,6 +183,27 @@ export class IncomeCalculationService {
     );
 
     return fuelCost.estimatedFuelCost;
+  }
+
+  private resolveTripDate(
+    tripDate?: string | Date | null,
+    startedAt?: Date | null
+  ) {
+    if (tripDate instanceof Date) {
+      return tripDate;
+    }
+
+    if (tripDate) {
+      const date = new Date(tripDate);
+
+      if (Number.isNaN(date.getTime())) {
+        throw new BadRequestException('Invalid trip date value.');
+      }
+
+      return date;
+    }
+
+    return startedAt ?? new Date();
   }
 
   private toDecimal(value: string | Prisma.Decimal) {

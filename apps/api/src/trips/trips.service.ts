@@ -41,7 +41,8 @@ export class TripsService {
       {
         ...dto,
         startedAt,
-        endedAt
+        endedAt,
+        tripDate: dto.tripDate
       }
     );
 
@@ -150,6 +151,11 @@ export class TripsService {
         grossIncome: dto.grossIncome ?? currentTrip.gross_income,
         startedAt,
         tipAmount: dto.tipAmount ?? currentTrip.tip_amount,
+        currentTripId: currentTrip.id,
+        tripDate:
+          dto.tripDate !== undefined
+            ? dto.tripDate
+            : currentTrip.trip_date,
         tripKm: dto.tripKm ?? currentTrip.trip_km
       }
     );
