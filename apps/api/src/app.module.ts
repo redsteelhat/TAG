@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { ExpensesModule } from './expenses/expenses.module';
 import { HealthModule } from './health/health.module';
 import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { ProfileModule } from './profile/profile.module';
@@ -41,6 +42,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     VehiclesModule,
     ShiftsModule,
     TripsModule,
+    ExpensesModule,
     HealthModule
   ],
   providers: [
