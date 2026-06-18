@@ -130,6 +130,16 @@ interface QuickExpenseFormState {
   note: string;
 }
 
+interface QuickFuelFormState {
+  amount: string;
+  fuelType: FuelType;
+  fullTank: boolean;
+  liters: string;
+  odometerKm: string;
+  paymentMethod: PaymentMethod;
+  stationName: string;
+}
+
 interface ShiftFormState {
   startOdometerKm: string;
   endOdometerKm: string;
@@ -152,6 +162,17 @@ interface ExpenseEntry {
   allocationType: AllocationType;
   paymentMethod?: PaymentMethod | null;
   note?: string | null;
+}
+
+interface FuelEntry {
+  id: string;
+  amount: string;
+  fuelType: FuelType;
+  fullTank: boolean;
+  liters: string;
+  odometerKm?: string | null;
+  pricePerLiter: string;
+  stationName?: string | null;
 }
 
 interface Shift {
@@ -226,6 +247,16 @@ const initialQuickExpenseFormState: QuickExpenseFormState = {
   note: "",
   odometerKm: "",
   paymentMethod: "CARD",
+};
+
+const initialQuickFuelFormState: QuickFuelFormState = {
+  amount: "",
+  fuelType: "GASOLINE",
+  fullTank: false,
+  liters: "",
+  odometerKm: "",
+  paymentMethod: "CARD",
+  stationName: "",
 };
 
 const initialShiftFormState: ShiftFormState = {
@@ -1193,11 +1224,19 @@ function RecordTabContent({
   const [expenseForm, setExpenseForm] = useState<QuickExpenseFormState>(
     initialQuickExpenseFormState,
   );
+  const [fuelForm, setFuelForm] = useState<QuickFuelFormState>(() => ({
+    ...initialQuickFuelFormState,
+    fuelType: selectedVehicle.fuelType,
+    odometerKm: selectedVehicle.odometerKm ?? "",
+  }));
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expenseMessage, setExpenseMessage] = useState<string | null>(null);
   const [isExpenseSubmitting, setIsExpenseSubmitting] = useState(false);
   const [lastExpense, setLastExpense] = useState<ExpenseEntry | null>(null);
+  const [fuelMessage, setFuelMessage] = useState<string | null>(null);
+  const [isFuelSubmitting, setIsFuelSubmitting] = useState(false);
+  const [lastFuelEntry, setLastFuelEntry] = useState<FuelEntry | null>(null);
   const [tripDrafts, setTripDrafts] = useState<TripDraft[]>([]);
   const [isDraftLoading, setIsDraftLoading] = useState(true);
   const [isSyncingDrafts, setIsSyncingDrafts] = useState(false);
@@ -1219,7 +1258,13 @@ function RecordTabContent({
       ...initialShiftFormState,
       startOdometerKm: selectedVehicle.odometerKm ?? "",
     });
+    setFuelForm({
+      ...initialQuickFuelFormState,
+      fuelType: selectedVehicle.fuelType,
+      odometerKm: selectedVehicle.odometerKm ?? "",
+    });
     setLastCompletedShift(null);
+    setLastFuelEntry(null);
     loadTripDrafts().catch(() => setIsDraftLoading(false));
     loadActiveShift().catch((error) => {
       setShiftMessage(
@@ -1248,6 +1293,13 @@ function RecordTabContent({
       note: preset.note,
     }));
     setExpenseMessage(null);
+  }
+
+  function updateFuelField<Key extends keyof QuickFuelFormState>(
+    field: Key,
+    value: QuickFuelFormState[Key],
+  ) {
+    setFuelForm((current) => ({ ...current, [field]: value }));
   }
 
   function updateShiftField(field: keyof ShiftFormState, value: string) {
@@ -1436,6 +1488,11 @@ function RecordTabContent({
   const totalKmPreview =
     toNumber(normalizeDecimalInput(form.tripKm)) +
     toNumber(normalizeDecimalInput(form.deadheadKm));
+  const fuelPricePreview =
+    toNumber(normalizeDecimalInput(fuelForm.liters)) > 0
+      ? toNumber(normalizeDecimalInput(fuelForm.amount)) /
+        toNumber(normalizeDecimalInput(fuelForm.liters))
+      : 0;
 
   async function submitQuickExpense() {
     const amount = normalizeDecimalInput(expenseForm.amount);
@@ -1479,6 +1536,62 @@ function RecordTabContent({
       );
     } finally {
       setIsExpenseSubmitting(false);
+    }
+  }
+
+  async function submitQuickFuel() {
+    const amount = normalizeDecimalInput(fuelForm.amount);
+    const liters = normalizeDecimalInput(fuelForm.liters);
+    const odometerKm = normalizeDecimalInput(fuelForm.odometerKm);
+
+    if (!amount || Number(amount) <= 0) {
+      setFuelMessage("Yakit tutari 0 TL uzerinde olmali.");
+      return;
+    }
+
+    if (!liters || Number(liters) <= 0) {
+      setFuelMessage("Litre 0 uzerinde olmali.");
+      return;
+    }
+
+    if (odometerKm && Number(odometerKm) < 0) {
+      setFuelMessage("Km sayaci negatif olamaz.");
+      return;
+    }
+
+    setIsFuelSubmitting(true);
+    setFuelMessage(null);
+
+    try {
+      const response = await postJson<{ data: FuelEntry }>(
+        `${apiBaseUrl}/fuel-entries`,
+        {
+          amount,
+          fuelType: fuelForm.fuelType,
+          fullTank: fuelForm.fullTank,
+          liters,
+          odometerKm: odometerKm || undefined,
+          paymentMethod: fuelForm.paymentMethod,
+          stationName: fuelForm.stationName.trim() || undefined,
+          tankFillLevel: fuelForm.fullTank ? "FULL" : undefined,
+          vehicleId: selectedVehicle.id,
+        },
+        accessToken,
+      );
+
+      setLastFuelEntry(response.data);
+      setFuelForm({
+        ...initialQuickFuelFormState,
+        fuelType: selectedVehicle.fuelType,
+        odometerKm: response.data.odometerKm ?? fuelForm.odometerKm,
+      });
+      setFuelMessage("Yakit kaydi eklendi.");
+    } catch (error) {
+      setFuelMessage(
+        error instanceof Error ? error.message : "Yakit kaydedilemedi.",
+      );
+    } finally {
+      setIsFuelSubmitting(false);
     }
   }
 
@@ -1891,6 +2004,195 @@ function RecordTabContent({
       <View style={styles.section}>
         <View style={styles.sectionHeaderRow}>
           <View>
+            <Text style={styles.sectionTitle}>Yakit ekle</Text>
+            <Text style={styles.sectionSubtitle}>
+              Litre, tutar, km sayaci ve istasyon bilgisini hizli kaydet.
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.inputLabel}>Yakit tipi</Text>
+        <View style={styles.optionGrid}>
+          {fuelOptions.map((option) => {
+            const isActive = fuelForm.fuelType === option.value;
+
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => updateFuelField("fuelType", option.value)}
+                style={[
+                  styles.optionButton,
+                  isActive ? styles.optionButtonActive : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    isActive ? styles.optionButtonTextActive : null,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.formRow}>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Tutar"
+              onChangeText={(value) => updateFuelField("amount", value)}
+              placeholder="1500"
+              value={fuelForm.amount}
+            />
+          </View>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Litre"
+              onChangeText={(value) => updateFuelField("liters", value)}
+              placeholder="32.5"
+              value={fuelForm.liters}
+            />
+          </View>
+        </View>
+
+        <View style={styles.formRow}>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Km sayaci"
+              onChangeText={(value) => updateFuelField("odometerKm", value)}
+              placeholder="85120"
+              value={fuelForm.odometerKm}
+            />
+          </View>
+          <View style={styles.formColumn}>
+            <TextField
+              label="Istasyon"
+              onChangeText={(value) => updateFuelField("stationName", value)}
+              placeholder="Shell Kadikoy"
+              value={fuelForm.stationName}
+            />
+          </View>
+        </View>
+
+        <Text style={styles.inputLabel}>Odeme tipi</Text>
+        <View style={styles.optionGrid}>
+          {paymentMethodOptions.map((option) => {
+            const isActive = fuelForm.paymentMethod === option.value;
+
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => updateFuelField("paymentMethod", option.value)}
+                style={[
+                  styles.optionButton,
+                  isActive ? styles.optionButtonActive : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    isActive ? styles.optionButtonTextActive : null,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Pressable
+          onPress={() => updateFuelField("fullTank", !fuelForm.fullTank)}
+          style={[
+            styles.outlineButton,
+            fuelForm.fullTank ? styles.optionButtonActive : null,
+          ]}
+        >
+          <Text
+            style={[
+              styles.outlineButtonText,
+              fuelForm.fullTank ? styles.optionButtonTextActive : null,
+            ]}
+          >
+            {fuelForm.fullTank ? "Full depo secili" : "Full depo olarak isaretle"}
+          </Text>
+        </Pressable>
+
+        <View style={styles.quickTripPreview}>
+          <View>
+            <Text style={styles.shiftLabel}>Litre fiyati</Text>
+            <Text style={styles.shiftValue}>
+              {fuelPricePreview > 0 ? formatMoney(fuelPricePreview) : "-"}
+            </Text>
+          </View>
+          <View style={styles.autoCalcBadge}>
+            <Text style={styles.autoCalcBadgeText}>
+              {formatFuelType(fuelForm.fuelType)}
+            </Text>
+          </View>
+        </View>
+
+        {fuelMessage ? (
+          <Text
+            style={[
+              styles.formAlert,
+              isSuccessMessage(fuelMessage) ? styles.formSuccess : null,
+            ]}
+          >
+            {fuelMessage}
+          </Text>
+        ) : null}
+
+        <Pressable
+          disabled={isFuelSubmitting}
+          onPress={submitQuickFuel}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            (pressed || isFuelSubmitting) && styles.primaryButtonPressed,
+          ]}
+        >
+          {isFuelSubmitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Yakit Kaydet</Text>
+          )}
+        </Pressable>
+
+        {lastFuelEntry ? (
+          <View style={styles.shiftResultPanel}>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Son yakit</Text>
+              <Text style={styles.expenseAmount}>
+                {formatMoney(toNumber(lastFuelEntry.amount))}
+              </Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Litre</Text>
+              <Text style={styles.expenseAmount}>
+                {formatNumber(toNumber(lastFuelEntry.liters))} lt
+              </Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Litre fiyati</Text>
+              <Text style={styles.expenseAmount}>
+                {formatMoney(toNumber(lastFuelEntry.pricePerLiter))}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <View>
             <Text style={styles.sectionTitle}>Offline taslaklar</Text>
             <Text style={styles.sectionSubtitle}>
               Baglanti yokken seferleri cihazda sakla, sonra API'ye gonder.
@@ -1978,7 +2280,7 @@ function RecordTabContent({
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Diger hizli kayitlar</Text>
         <View style={styles.actionGrid}>
-          {["Yakit Ekle", "Paket Ekle", "Bakim Ekle"].map(
+          {["Paket Ekle", "Bakim Ekle"].map(
             (action) => (
               <Pressable key={action} style={styles.actionButton}>
                 <Text style={styles.actionText}>{action}</Text>
