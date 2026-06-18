@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
+import { FuelCostModule } from '../fuel-cost/fuel-cost.module';
 import { IncomeCalculationService } from './income-calculation.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [FuelCostModule],
   providers: [IncomeCalculationService],
   exports: [IncomeCalculationService]
 })

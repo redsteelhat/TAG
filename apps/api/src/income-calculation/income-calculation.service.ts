@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma, Vehicle } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { FuelCostService } from '../fuel-cost/fuel-cost.service';
 
 export interface TripIncomeCalculationInput {
   cancellationIncome?: string | Prisma.Decimal | null;
@@ -47,7 +47,7 @@ export interface TripProfitBreakdownSnapshot {
 export class IncomeCalculationService {
   readonly calculationVersion = 'income-calculation-v1';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly fuelCostService: FuelCostService) {}
 
   async calculateTripIncome(
     userId: string,
@@ -162,30 +162,13 @@ export class IncomeCalculationService {
     vehicle: Vehicle,
     totalKm: Prisma.Decimal
   ) {
-    if (totalKm.isZero()) {
-      return new Prisma.Decimal(0);
-    }
+    const fuelCost = await this.fuelCostService.calculateTripFuelCost(
+      userId,
+      vehicle,
+      totalKm
+    );
 
-    const latestFuelEntry = await this.prisma.fuelEntry.findFirst({
-      where: {
-        user_id: userId,
-        vehicle_id: vehicle.id,
-        deleted_at: null
-      },
-      orderBy: {
-        created_at: 'desc'
-      }
-    });
-
-    if (!latestFuelEntry) {
-      return new Prisma.Decimal(0);
-    }
-
-    return totalKm
-      .mul(vehicle.average_consumption_l_per_100km)
-      .div(100)
-      .mul(latestFuelEntry.price_per_liter)
-      .toDecimalPlaces(2);
+    return fuelCost.estimatedFuelCost;
   }
 
   private toDecimal(value: string | Prisma.Decimal) {

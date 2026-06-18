@@ -10,11 +10,9 @@ const vehicle = {
 describe('IncomeCalculationService', () => {
   it('calculates trip income, km, duration and fuel cost', async () => {
     const service = new IncomeCalculationService({
-      fuelEntry: {
-        findFirst: jest.fn().mockResolvedValue({
-          price_per_liter: new Prisma.Decimal('40')
-        })
-      }
+      calculateTripFuelCost: jest.fn().mockResolvedValue({
+        estimatedFuelCost: new Prisma.Decimal('66')
+      })
     } as never);
 
     const result = await service.calculateTripIncome('user_1', vehicle, {
@@ -37,9 +35,9 @@ describe('IncomeCalculationService', () => {
 
   it('returns zero fuel cost when vehicle has no fuel entry', async () => {
     const service = new IncomeCalculationService({
-      fuelEntry: {
-        findFirst: jest.fn().mockResolvedValue(null)
-      }
+      calculateTripFuelCost: jest.fn().mockResolvedValue({
+        estimatedFuelCost: new Prisma.Decimal(0)
+      })
     } as never);
 
     const result = await service.calculateEstimatedFuelCost(
