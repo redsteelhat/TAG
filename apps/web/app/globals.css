@@ -718,6 +718,135 @@ h2 {
   gap: 24px;
 }
 
+.fuel-trend-panel {
+  overflow: hidden;
+}
+
+.fuel-trend-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.fuel-trend-summary div {
+  display: grid;
+  gap: 6px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 12px;
+}
+
+.fuel-trend-summary span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fuel-trend-chart {
+  position: relative;
+  min-height: 260px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 18px 14px 12px;
+}
+
+.fuel-trend-bars {
+  display: grid;
+  grid-template-columns: repeat(30, minmax(18px, 1fr));
+  gap: 8px;
+  min-width: 720px;
+  height: 210px;
+  align-items: end;
+}
+
+.fuel-trend-day {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 18px;
+  gap: 8px;
+  min-width: 0;
+  height: 100%;
+}
+
+.fuel-trend-bar-slot {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  min-height: 0;
+}
+
+.fuel-trend-bar {
+  display: block;
+  width: 100%;
+  max-width: 24px;
+  min-height: 0;
+  border-radius: 8px 8px 0 0;
+  background: var(--accent);
+}
+
+.fuel-trend-day small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  min-height: 12px;
+  text-align: center;
+}
+
+.fuel-trend-line {
+  pointer-events: none;
+  position: absolute;
+  inset: 18px 14px 30px;
+  min-width: 720px;
+  width: calc(100% - 28px);
+  height: calc(100% - 48px);
+}
+
+.fuel-trend-line polyline {
+  fill: none;
+  stroke: #2563eb;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.fuel-trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fuel-trend-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legend-swatch.fuel-cost {
+  background: var(--accent);
+}
+
+.legend-swatch.fuel-price {
+  background: #2563eb;
+}
+
+.inline-icon {
+  width: 14px;
+  height: 14px;
+}
+
 .report-filter-grid {
   display: grid;
   grid-template-columns: minmax(180px, 0.75fr) minmax(220px, 1fr) auto;
@@ -1385,6 +1514,7 @@ h2 {
   .fixed-cost-entry-grid,
   .quick-expense-bottom-row,
   .expense-distribution-chart,
+  .fuel-trend-summary,
   .report-filter-grid,
   .report-formula-grid,
   .list-toolbar,

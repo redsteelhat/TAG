@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Download, Plus } from 'lucide-react';
 import { AppShell } from '../../components/app-shell';
 import { DailyReport } from '../../components/daily-report';
+import { FuelTrendChart } from '../../components/fuel-trend-chart';
 import { MonthlyReport } from '../../components/monthly-report';
 import { WeeklyReport } from '../../components/weekly-report';
 
@@ -24,6 +25,7 @@ export default function ReportsPage() {
       title="Raporlar"
     >
       <div className="reports-page-stack">
+        <FuelTrendChart />
         <DailyReport />
         <WeeklyReport />
         <MonthlyReport />
