@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 export const storageKeys = {
   accessToken: 'tag.accessToken',
+  dailyNetProfitGoal: 'tag.dailyNetProfitGoal',
   refreshToken: 'tag.refreshToken',
   selectedVehicle: 'tag.selectedVehicle',
   tripDrafts: 'tag.offline.tripDrafts',

@@ -1205,10 +1205,14 @@ function TodayTabContent({
   selectedVehicle: Vehicle;
 }) {
   const [overview, setOverview] = useState<ReportOverview | null>(null);
+  const [dailyGoal, setDailyGoal] = useState(1500);
+  const [goalInput, setGoalInput] = useState("1500");
+  const [goalMessage, setGoalMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    loadDailyGoal().catch(() => undefined);
     loadTodayOverview().catch((error) => {
       setMessage(
         error instanceof Error ? error.message : "Bugun ekrani yuklenemedi.",
@@ -1233,6 +1237,32 @@ function TodayTabContent({
 
     setOverview(response.data);
     setIsLoading(false);
+  }
+
+  async function loadDailyGoal() {
+    const storedGoal = await getStoredString(storageKeys.dailyNetProfitGoal);
+    const parsedGoal = toNumber(storedGoal);
+    const nextGoal = parsedGoal > 0 ? parsedGoal : 1500;
+
+    setDailyGoal(nextGoal);
+    setGoalInput(String(Math.round(nextGoal)));
+  }
+
+  async function saveDailyGoal() {
+    const normalizedGoal = toNumber(normalizeDecimalInput(goalInput));
+
+    if (normalizedGoal <= 0) {
+      setGoalMessage("Hedef 0'dan buyuk olmali.");
+      return;
+    }
+
+    await setStoredString(
+      storageKeys.dailyNetProfitGoal,
+      normalizedGoal.toFixed(2),
+    );
+    setDailyGoal(normalizedGoal);
+    setGoalInput(String(Math.round(normalizedGoal)));
+    setGoalMessage("Gunluk hedef kaydedildi.");
   }
 
   const daily = overview?.dailyProfit;
@@ -1285,6 +1315,15 @@ function TodayTabContent({
     periodLabel: "Bugun",
     report: daily,
   });
+  const goalProgress =
+    dailyGoal > 0 ? Math.min(Math.max((netProfit / dailyGoal) * 100, 0), 100) : 0;
+  const remainingGoal = Math.max(dailyGoal - netProfit, 0);
+  const goalStatus =
+    dailyGoal <= 0
+      ? "Hedef bekliyor"
+      : netProfit >= dailyGoal
+        ? "Hedef asildi"
+        : "Hedefe ilerliyor";
 
   return (
     <>
@@ -1322,6 +1361,57 @@ function TodayTabContent({
             <Text style={styles.metricValue}>{isLoading ? "..." : value}</Text>
           </View>
         ))}
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Hedefe ilerleme</Text>
+          <Text style={styles.activeTag}>{isLoading ? "..." : goalStatus}</Text>
+        </View>
+        <View style={styles.goalProgressSummary}>
+          <Text style={styles.goalProgressValue}>
+            {isLoading ? "..." : `%${formatNumber(goalProgress)}`}
+          </Text>
+          <Text style={styles.goalProgressDetail}>
+            {isLoading
+              ? "Bugunku net kar bekleniyor."
+              : `${formatMoney(netProfit)} / ${formatMoney(dailyGoal)} gunluk net kar hedefi`}
+          </Text>
+        </View>
+        <View style={styles.todayProgressTrack}>
+          <View
+            style={[
+              styles.todayProgressFill,
+              { width: `${isLoading ? 0 : goalProgress}%` },
+            ]}
+          />
+        </View>
+        <View style={styles.expenseRow}>
+          <Text style={styles.expenseName}>Kalan hedef</Text>
+          <Text style={styles.expenseAmount}>
+            {isLoading ? "..." : formatMoney(remainingGoal)}
+          </Text>
+        </View>
+        <TextField
+          inputMode="decimal"
+          label="Gunluk net kar hedefi"
+          onChangeText={setGoalInput}
+          placeholder="1500"
+          value={goalInput}
+        />
+        {goalMessage ? (
+          <Text
+            style={[
+              styles.formAlert,
+              goalMessage.includes("kaydedildi") ? styles.formSuccess : null,
+            ]}
+          >
+            {goalMessage}
+          </Text>
+        ) : null}
+        <Pressable onPress={saveDailyGoal} style={styles.secondaryButton}>
+          <Text style={styles.secondaryButtonText}>Hedefi Kaydet</Text>
+        </Pressable>
       </View>
 
       <View style={styles.section}>
@@ -4266,6 +4356,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#115e59",
     borderRadius: 999,
     height: "100%",
+  },
+  goalProgressSummary: {
+    marginBottom: 12,
+  },
+  goalProgressValue: {
+    color: "#152028",
+    fontSize: 30,
+    fontWeight: "900",
+  },
+  goalProgressDetail: {
+    color: "#62717c",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 19,
+    marginTop: 4,
   },
   outlineButton: {
     alignItems: "center",
