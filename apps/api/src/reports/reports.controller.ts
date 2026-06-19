@@ -7,6 +7,7 @@ import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
 import { HourlyProfitQueryDto } from './dto/hourly-profit-query.dto';
 import { KmProfitQueryDto } from './dto/km-profit-query.dto';
 import { MonthlyProfitQueryDto } from './dto/monthly-profit-query.dto';
+import { ReportOverviewQueryDto } from './dto/report-overview-query.dto';
 import { WeeklyProfitQueryDto } from './dto/weekly-profit-query.dto';
 import { ReportsService } from './reports.service';
 
@@ -83,6 +84,17 @@ export class ReportsController {
   ) {
     return {
       data: await this.reportsService.calculateBreakEven(user.id, query)
+    };
+  }
+
+  @Get('overview')
+  @ApiOperation({ summary: 'Get report overview for dashboard and reports' })
+  async getOverview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ReportOverviewQueryDto
+  ) {
+    return {
+      data: await this.reportsService.getReportOverview(user.id, query)
     };
   }
 }

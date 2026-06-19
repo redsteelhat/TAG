@@ -20,6 +20,7 @@ import {
 } from './dto/hourly-profit-query.dto';
 import { KmProfitPeriod, KmProfitQueryDto } from './dto/km-profit-query.dto';
 import { MonthlyProfitQueryDto } from './dto/monthly-profit-query.dto';
+import { ReportOverviewQueryDto } from './dto/report-overview-query.dto';
 import { WeeklyProfitQueryDto } from './dto/weekly-profit-query.dto';
 
 type ProfitPeriod = 'daily' | 'weekly' | 'monthly';
@@ -240,6 +241,61 @@ export class ReportsService {
         surplusRevenue: 'max(grossIncome - breakEvenRevenue, 0)'
       },
       calculationVersion: profit.calculationVersion
+    };
+  }
+
+  async getReportOverview(userId: string, query: ReportOverviewQueryDto) {
+    const [dailyProfit, weeklyProfit, monthlyProfit, kmProfitability, hourlyProfitability, breakEven] =
+      await Promise.all([
+        this.calculateDailyProfit(userId, {
+          date: query.date,
+          vehicleId: query.vehicleId
+        }),
+        this.calculateWeeklyProfit(userId, {
+          date: query.date,
+          vehicleId: query.vehicleId,
+          weekStart: query.weekStart
+        }),
+        this.calculateMonthlyProfit(userId, {
+          date: query.date,
+          month: query.month,
+          vehicleId: query.vehicleId
+        }),
+        this.calculateKmProfitability(userId, {
+          date: query.date,
+          period: KmProfitPeriod.DAILY,
+          vehicleId: query.vehicleId
+        }),
+        this.calculateHourlyProfitability(userId, {
+          date: query.date,
+          period: HourlyProfitPeriod.DAILY,
+          vehicleId: query.vehicleId
+        }),
+        this.calculateBreakEven(userId, {
+          date: query.date,
+          period: BreakEvenPeriod.DAILY,
+          vehicleId: query.vehicleId
+        })
+      ]);
+
+    return {
+      generatedAt: new Date().toISOString(),
+      vehicleId: query.vehicleId ?? null,
+      dailyProfit,
+      weeklyProfit,
+      monthlyProfit,
+      kmProfitability,
+      hourlyProfitability,
+      breakEven,
+      availableReports: [
+        'dailyProfit',
+        'weeklyProfit',
+        'monthlyProfit',
+        'kmProfitability',
+        'hourlyProfitability',
+        'breakEven'
+      ],
+      calculationVersion: this.calculationVersion
     };
   }
 

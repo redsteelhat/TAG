@@ -595,4 +595,57 @@ describe('ReportsService', () => {
     expect(result.costBreakdown.tagPackageCost).toBe('250.00');
     expect(result.costBreakdown.fixedExpenses).toBe('100.00');
   });
+
+  it('builds report overview from report APIs', async () => {
+    const service = new ReportsService({} as never);
+    const dailyProfit = { period: 'daily', netProfit: '100.00' };
+    const weeklyProfit = { period: 'weekly', netProfit: '700.00' };
+    const monthlyProfit = { period: 'monthly', netProfit: '3000.00' };
+    const kmProfitability = { netProfitPerKm: '5.00' };
+    const hourlyProfitability = { netProfitPerHour: '120.00' };
+    const breakEven = { breakEvenRevenue: '500.00' };
+
+    jest
+      .spyOn(service, 'calculateDailyProfit')
+      .mockResolvedValue(dailyProfit as never);
+    jest
+      .spyOn(service, 'calculateWeeklyProfit')
+      .mockResolvedValue(weeklyProfit as never);
+    jest
+      .spyOn(service, 'calculateMonthlyProfit')
+      .mockResolvedValue(monthlyProfit as never);
+    jest
+      .spyOn(service, 'calculateKmProfitability')
+      .mockResolvedValue(kmProfitability as never);
+    jest
+      .spyOn(service, 'calculateHourlyProfitability')
+      .mockResolvedValue(hourlyProfitability as never);
+    jest.spyOn(service, 'calculateBreakEven').mockResolvedValue(breakEven as never);
+
+    const result = await service.getReportOverview('user_1', {
+      date: '2026-06-18',
+      month: '2026-06',
+      vehicleId: 'vehicle_1',
+      weekStart: '2026-06-15'
+    });
+
+    expect(result.dailyProfit).toBe(dailyProfit);
+    expect(result.weeklyProfit).toBe(weeklyProfit);
+    expect(result.monthlyProfit).toBe(monthlyProfit);
+    expect(result.kmProfitability).toBe(kmProfitability);
+    expect(result.hourlyProfitability).toBe(hourlyProfitability);
+    expect(result.breakEven).toBe(breakEven);
+    expect(result.availableReports).toContain('breakEven');
+    expect(result.vehicleId).toBe('vehicle_1');
+    expect(service.calculateWeeklyProfit).toHaveBeenCalledWith('user_1', {
+      date: '2026-06-18',
+      vehicleId: 'vehicle_1',
+      weekStart: '2026-06-15'
+    });
+    expect(service.calculateMonthlyProfit).toHaveBeenCalledWith('user_1', {
+      date: '2026-06-18',
+      month: '2026-06',
+      vehicleId: 'vehicle_1'
+    });
+  });
 });
