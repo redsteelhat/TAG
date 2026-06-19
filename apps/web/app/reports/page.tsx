@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Download, Plus } from 'lucide-react';
 import { AppShell } from '../../components/app-shell';
 import { DailyReport } from '../../components/daily-report';
+import { MonthlyReport } from '../../components/monthly-report';
 import { WeeklyReport } from '../../components/weekly-report';
 
 export default function ReportsPage() {
@@ -25,6 +26,7 @@ export default function ReportsPage() {
       <div className="reports-page-stack">
         <DailyReport />
         <WeeklyReport />
+        <MonthlyReport />
       </div>
     </AppShell>
   );
