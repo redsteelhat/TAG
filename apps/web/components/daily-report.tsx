@@ -13,6 +13,7 @@ import {
   WalletCards
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { ExpenseDistributionChart } from './expense-distribution-chart';
 import { getJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
@@ -141,7 +142,7 @@ export function DailyReport() {
     ];
   }, [report]);
 
-  const costRows = useMemo(() => {
+  const costRows = useMemo<Array<[string, string]>>(() => {
     if (!report) {
       return [];
     }
@@ -156,7 +157,10 @@ export function DailyReport() {
     ];
   }, [report]);
 
-  const maxCost = Math.max(...costRows.map(([, amount]) => toNumber(amount)), 1);
+  const maxCost = Math.max(
+    ...costRows.map(([, amount]) => toNumber(amount)),
+    1
+  );
 
   async function loadVehicles(token: string) {
     try {
@@ -174,23 +178,32 @@ export function DailyReport() {
     }
   }
 
-  async function loadReport(token: string, nextDate: string, nextVehicleId: string) {
+  async function loadReport(
+    token: string,
+    nextDate: string,
+    nextVehicleId: string
+  ) {
     setIsLoading(true);
     setMessage(null);
 
     try {
-      const response = await getJson<DailyProfitResponse>('/reports/daily-profit', {
-        accessToken: token,
-        query: {
-          date: nextDate,
-          vehicleId: nextVehicleId || undefined
+      const response = await getJson<DailyProfitResponse>(
+        '/reports/daily-profit',
+        {
+          accessToken: token,
+          query: {
+            date: nextDate,
+            vehicleId: nextVehicleId || undefined
+          }
         }
-      });
+      );
 
       setReport(response.data);
     } catch (error) {
       setReport(null);
-      setMessage(error instanceof Error ? error.message : 'Gunluk rapor alinamadi.');
+      setMessage(
+        error instanceof Error ? error.message : 'Gunluk rapor alinamadi.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -285,6 +298,7 @@ export function DailyReport() {
                   </div>
                   <ReceiptText aria-hidden="true" className="panel-icon" />
                 </div>
+                <ExpenseDistributionChart rows={costRows} />
                 <div className="cost-stack">
                   {costRows.map(([name, amount]) => (
                     <div className="cost-row" key={name}>
@@ -313,10 +327,20 @@ export function DailyReport() {
                   <WalletCards aria-hidden="true" className="panel-icon" />
                 </div>
                 <div className="break-even-list">
-                  <ReportRow label="Sefer geliri" value={report.tripGrossIncome} />
+                  <ReportRow
+                    label="Sefer geliri"
+                    value={report.tripGrossIncome}
+                  />
                   <ReportRow label="Bahsis / ekstra" value={report.tipAmount} />
-                  <ReportRow label="Iptal geliri" value={report.cancellationIncome} />
-                  <ReportRow label="Toplam brut gelir" value={report.grossIncome} strong />
+                  <ReportRow
+                    label="Iptal geliri"
+                    value={report.cancellationIncome}
+                  />
+                  <ReportRow
+                    label="Toplam brut gelir"
+                    value={report.grossIncome}
+                    strong
+                  />
                 </div>
               </section>
             </div>
@@ -355,7 +379,10 @@ export function DailyReport() {
                   <Fuel aria-hidden="true" className="panel-icon" />
                 </div>
                 <div className="break-even-list">
-                  <ReportRow label="Tahmini sefer yakiti" value={report.fuelCost} />
+                  <ReportRow
+                    label="Tahmini sefer yakiti"
+                    value={report.fuelCost}
+                  />
                   <ReportRow
                     label="Fiili yakit alimi"
                     value={report.actualFuelPurchaseCost}
@@ -366,7 +393,9 @@ export function DailyReport() {
                   </div>
                   <div className="expense-row">
                     <span>Litre</span>
-                    <strong>{formatNumber(toNumber(report.actualFuelLiters), 3)} L</strong>
+                    <strong>
+                      {formatNumber(toNumber(report.actualFuelLiters), 3)} L
+                    </strong>
                   </div>
                 </div>
               </section>
@@ -420,7 +449,8 @@ export function DailyReport() {
               <div>
                 <span>Gider kaydi</span>
                 <strong>
-                  {report.directExpenseCount} direkt, {report.recurringExpenseCount} sabit
+                  {report.directExpenseCount} direkt,{' '}
+                  {report.recurringExpenseCount} sabit
                 </strong>
               </div>
               <div>
@@ -436,8 +466,8 @@ export function DailyReport() {
             <p className="eyebrow">Gunluk rapor</p>
             <h2>{isLoading ? 'Rapor hesaplaniyor' : 'Rapor bekleniyor'}</h2>
             <p>
-              Tarih ve arac filtresini secip gunluk net kar, maliyet ve verimlilik
-              metriklerini tek ekranda gorebilirsin.
+              Tarih ve arac filtresini secip gunluk net kar, maliyet ve
+              verimlilik metriklerini tek ekranda gorebilirsin.
             </p>
           </div>
         </section>
@@ -458,7 +488,11 @@ function ReportRow({
   return (
     <div className="expense-row">
       <span>{label}</span>
-      {strong ? <strong>{formatMoneyValue(value)}</strong> : <b>{formatMoneyValue(value)}</b>}
+      {strong ? (
+        <strong>{formatMoneyValue(value)}</strong>
+      ) : (
+        <b>{formatMoneyValue(value)}</b>
+      )}
     </div>
   );
 }

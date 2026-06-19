@@ -13,6 +13,7 @@ import {
   WalletCards
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { ExpenseDistributionChart } from './expense-distribution-chart';
 import { getJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
@@ -141,7 +142,7 @@ export function MonthlyReport() {
     ];
   }, [report]);
 
-  const costRows = useMemo(() => {
+  const costRows = useMemo<Array<[string, string]>>(() => {
     if (!report) {
       return [];
     }
@@ -156,7 +157,10 @@ export function MonthlyReport() {
     ];
   }, [report]);
 
-  const maxCost = Math.max(...costRows.map(([, amount]) => toNumber(amount)), 1);
+  const maxCost = Math.max(
+    ...costRows.map(([, amount]) => toNumber(amount)),
+    1
+  );
 
   async function loadVehicles(token: string) {
     try {
@@ -174,23 +178,32 @@ export function MonthlyReport() {
     }
   }
 
-  async function loadReport(token: string, nextMonth: string, nextVehicleId: string) {
+  async function loadReport(
+    token: string,
+    nextMonth: string,
+    nextVehicleId: string
+  ) {
     setIsLoading(true);
     setMessage(null);
 
     try {
-      const response = await getJson<MonthlyProfitResponse>('/reports/monthly-profit', {
-        accessToken: token,
-        query: {
-          month: nextMonth,
-          vehicleId: nextVehicleId || undefined
+      const response = await getJson<MonthlyProfitResponse>(
+        '/reports/monthly-profit',
+        {
+          accessToken: token,
+          query: {
+            month: nextMonth,
+            vehicleId: nextVehicleId || undefined
+          }
         }
-      });
+      );
 
       setReport(response.data);
     } catch (error) {
       setReport(null);
-      setMessage(error instanceof Error ? error.message : 'Aylik rapor alinamadi.');
+      setMessage(
+        error instanceof Error ? error.message : 'Aylik rapor alinamadi.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -287,6 +300,7 @@ export function MonthlyReport() {
                   </div>
                   <ReceiptText aria-hidden="true" className="panel-icon" />
                 </div>
+                <ExpenseDistributionChart rows={costRows} />
                 <div className="cost-stack">
                   {costRows.map(([name, amount]) => (
                     <div className="cost-row" key={name}>
@@ -315,10 +329,20 @@ export function MonthlyReport() {
                   <WalletCards aria-hidden="true" className="panel-icon" />
                 </div>
                 <div className="break-even-list">
-                  <ReportRow label="Sefer geliri" value={report.tripGrossIncome} />
+                  <ReportRow
+                    label="Sefer geliri"
+                    value={report.tripGrossIncome}
+                  />
                   <ReportRow label="Bahsis / ekstra" value={report.tipAmount} />
-                  <ReportRow label="Iptal geliri" value={report.cancellationIncome} />
-                  <ReportRow label="Toplam brut gelir" value={report.grossIncome} strong />
+                  <ReportRow
+                    label="Iptal geliri"
+                    value={report.cancellationIncome}
+                  />
+                  <ReportRow
+                    label="Toplam brut gelir"
+                    value={report.grossIncome}
+                    strong
+                  />
                 </div>
               </section>
             </div>
@@ -357,7 +381,10 @@ export function MonthlyReport() {
                   <Fuel aria-hidden="true" className="panel-icon" />
                 </div>
                 <div className="break-even-list">
-                  <ReportRow label="Tahmini sefer yakiti" value={report.fuelCost} />
+                  <ReportRow
+                    label="Tahmini sefer yakiti"
+                    value={report.fuelCost}
+                  />
                   <ReportRow
                     label="Fiili yakit alimi"
                     value={report.actualFuelPurchaseCost}
@@ -368,7 +395,9 @@ export function MonthlyReport() {
                   </div>
                   <div className="expense-row">
                     <span>Litre</span>
-                    <strong>{formatNumber(toNumber(report.actualFuelLiters), 3)} L</strong>
+                    <strong>
+                      {formatNumber(toNumber(report.actualFuelLiters), 3)} L
+                    </strong>
                   </div>
                 </div>
               </section>
@@ -422,7 +451,8 @@ export function MonthlyReport() {
               <div>
                 <span>Gider kaydi</span>
                 <strong>
-                  {report.directExpenseCount} direkt, {report.recurringExpenseCount} sabit
+                  {report.directExpenseCount} direkt,{' '}
+                  {report.recurringExpenseCount} sabit
                 </strong>
               </div>
               <div>
@@ -460,7 +490,11 @@ function ReportRow({
   return (
     <div className="expense-row">
       <span>{label}</span>
-      {strong ? <strong>{formatMoneyValue(value)}</strong> : <b>{formatMoneyValue(value)}</b>}
+      {strong ? (
+        <strong>{formatMoneyValue(value)}</strong>
+      ) : (
+        <b>{formatMoneyValue(value)}</b>
+      )}
     </div>
   );
 }

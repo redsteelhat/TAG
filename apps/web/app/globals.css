@@ -26,7 +26,12 @@ body {
   background: var(--background);
   color: var(--text);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
     sans-serif;
   letter-spacing: 0;
 }
@@ -384,6 +389,95 @@ h2 {
 .cost-stack {
   display: grid;
   gap: 8px;
+}
+
+.expense-distribution-chart {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.expense-distribution-chart.empty {
+  grid-template-columns: 72px minmax(0, 1fr);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 12px;
+}
+
+.expense-distribution-chart.empty span,
+.expense-distribution-legend small {
+  color: var(--muted);
+}
+
+.expense-donut {
+  display: grid;
+  place-items: center;
+  width: min(100%, 220px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  position: relative;
+}
+
+.expense-donut::after {
+  content: '';
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.expense-donut.empty {
+  width: 72px;
+  background: var(--line);
+}
+
+.expense-donut > div {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  text-align: center;
+}
+
+.expense-donut span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.expense-donut strong {
+  font-size: 18px;
+}
+
+.expense-distribution-legend {
+  display: grid;
+  gap: 8px;
+}
+
+.expense-distribution-item {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 10px;
+}
+
+.expense-distribution-item > span {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  margin-top: 3px;
+}
+
+.expense-distribution-item div {
+  display: grid;
+  gap: 3px;
 }
 
 .text-link {
@@ -1227,7 +1321,7 @@ h2 {
   min-width: 0;
   background:
     linear-gradient(rgba(16, 24, 32, 0.72), rgba(16, 24, 32, 0.78)),
-    url("https://images.unsplash.com/photo-1485463611174-f302f6a5c1c9?auto=format&fit=crop&w=1600&q=80");
+    url('https://images.unsplash.com/photo-1485463611174-f302f6a5c1c9?auto=format&fit=crop&w=1600&q=80');
   background-position: center;
   background-size: cover;
   color: #ffffff;
@@ -1290,6 +1384,7 @@ h2 {
   .package-entry-grid,
   .fixed-cost-entry-grid,
   .quick-expense-bottom-row,
+  .expense-distribution-chart,
   .report-filter-grid,
   .report-formula-grid,
   .list-toolbar,
