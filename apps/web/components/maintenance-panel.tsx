@@ -1,0 +1,904 @@
+'use client';
+
+import {
+  ChevronLeft,
+  ChevronRight,
+  ListFilter,
+  RefreshCw,
+  Save,
+  Search
+} from 'lucide-react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { getJson, postJson } from '../lib/api-client';
+import { getAccessToken } from '../lib/auth-storage';
+
+type AllocationType = 'IMMEDIATE' | 'DAILY' | 'MONTHLY' | 'YEARLY' | 'PER_KM';
+type MaintenanceSortBy =
+  | 'amount'
+  | 'costPerKm'
+  | 'createdAt'
+  | 'maintenanceDate'
+  | 'odometerKm';
+type SortDirection = 'asc' | 'desc';
+
+interface MaintenanceEntry {
+  id: string;
+  vehicleId: string;
+  category: string;
+  title: string;
+  amount: string;
+  maintenanceDate: string;
+  odometerKm?: string | null;
+  expectedIntervalKm?: string | null;
+  costPerKm?: string | null;
+  serviceName?: string | null;
+  allocationType: AllocationType;
+  note?: string | null;
+}
+
+interface Vehicle {
+  id: string;
+  plateNumber: string;
+  brand?: string | null;
+  model?: string | null;
+  isActive: boolean;
+}
+
+interface MaintenanceEntriesResponse {
+  data: MaintenanceEntry[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+interface VehiclesResponse {
+  data: Vehicle[];
+}
+
+interface MaintenanceEntryResponse {
+  data: MaintenanceEntry;
+}
+
+interface MaintenanceFormState {
+  allocationType: AllocationType;
+  amount: string;
+  category: string;
+  expectedIntervalKm: string;
+  maintenanceDate: string;
+  note: string;
+  odometerKm: string;
+  serviceName: string;
+  title: string;
+  vehicleId: string;
+}
+
+interface MaintenanceFilterValues {
+  allocationType: string;
+  category: string;
+  endDate: string;
+  maxAmount: string;
+  maxOdometerKm: string;
+  minAmount: string;
+  minOdometerKm: string;
+  q: string;
+  sortBy: MaintenanceSortBy;
+  sortDirection: SortDirection;
+  startDate: string;
+  vehicleId: string;
+}
+
+const today = new Date().toISOString().slice(0, 10);
+
+const emptyMaintenanceForm: MaintenanceFormState = {
+  allocationType: 'PER_KM',
+  amount: '',
+  category: 'Periyodik bakim',
+  expectedIntervalKm: '10000',
+  maintenanceDate: today,
+  note: '',
+  odometerKm: '',
+  serviceName: '',
+  title: 'Yag, filtre ve iscilik',
+  vehicleId: ''
+};
+
+const categoryPresets = [
+  'Periyodik bakim',
+  'Mekanik',
+  'Elektrik',
+  'Lastik',
+  'Klima',
+  'Kaporta',
+  'Temizlik'
+];
+
+const allocationTypeLabels: Record<AllocationType, string> = {
+  DAILY: 'Gunluk',
+  IMMEDIATE: 'Tek sefer',
+  MONTHLY: 'Aylik',
+  PER_KM: 'Km bazli',
+  YEARLY: 'Yillik'
+};
+
+const sortOptions: Array<{ label: string; value: MaintenanceSortBy }> = [
+  { label: 'Bakim tarihi', value: 'maintenanceDate' },
+  { label: 'Tutar', value: 'amount' },
+  { label: 'Km basi maliyet', value: 'costPerKm' },
+  { label: 'Km sayaci', value: 'odometerKm' },
+  { label: 'Olusturma tarihi', value: 'createdAt' }
+];
+
+export function MaintenancePanel() {
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [entries, setEntries] = useState<MaintenanceEntry[]>([]);
+  const [meta, setMeta] = useState<MaintenanceEntriesResponse['meta'] | null>(
+    null
+  );
+  const [form, setForm] = useState<MaintenanceFormState>(emptyMaintenanceForm);
+  const [vehicleId, setVehicleId] = useState('');
+  const [category, setCategory] = useState('');
+  const [allocationType, setAllocationType] = useState('');
+  const [q, setQ] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+  const [minOdometerKm, setMinOdometerKm] = useState('');
+  const [maxOdometerKm, setMaxOdometerKm] = useState('');
+  const [sortBy, setSortBy] = useState<MaintenanceSortBy>('maintenanceDate');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [page, setPage] = useState(1);
+  const [message, setMessage] = useState<string | null>(null);
+  const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const pageMetrics = useMemo(() => {
+    return entries.reduce(
+      (totals, item) => ({
+        averageCostPerKm:
+          totals.averageCostPerKm + toNumber(item.costPerKm ?? '0'),
+        reserveKm: totals.reserveKm + toNumber(item.expectedIntervalKm ?? '0'),
+        totalAmount: totals.totalAmount + toNumber(item.amount)
+      }),
+      {
+        averageCostPerKm: 0,
+        reserveKm: 0,
+        totalAmount: 0
+      }
+    );
+  }, [entries]);
+
+  const averageCostPerKm =
+    entries.length > 0 ? pageMetrics.averageCostPerKm / entries.length : 0;
+
+  useEffect(() => {
+    setAccessToken(getAccessToken());
+  }, []);
+
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    void fetchVehicles(accessToken);
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    void fetchEntries(accessToken);
+  }, [accessToken, page, sortBy, sortDirection]);
+
+  useEffect(() => {
+    if (form.vehicleId || vehicles.length === 0) {
+      return;
+    }
+
+    const activeVehicle = vehicles.find((vehicle) => vehicle.isActive);
+
+    setForm((currentForm) => ({
+      ...currentForm,
+      vehicleId: activeVehicle?.id ?? vehicles[0].id
+    }));
+  }, [form.vehicleId, vehicles]);
+
+  async function fetchVehicles(token = accessToken) {
+    if (!token) {
+      return;
+    }
+
+    try {
+      const response = await getJson<VehiclesResponse>('/vehicles', {
+        accessToken: token
+      });
+
+      setVehicles(response.data);
+    } catch (error) {
+      setFormMessage(
+        error instanceof Error ? error.message : 'Araclar yuklenemedi.'
+      );
+    }
+  }
+
+  async function fetchEntries(
+    token = accessToken,
+    pageToLoad = page,
+    filters: MaintenanceFilterValues = {
+      allocationType,
+      category,
+      endDate,
+      maxAmount,
+      maxOdometerKm,
+      minAmount,
+      minOdometerKm,
+      q,
+      sortBy,
+      sortDirection,
+      startDate,
+      vehicleId
+    }
+  ) {
+    if (!token) {
+      setMessage('Bakim kayitlarini gormek icin once giris yapmalisin.');
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await getJson<MaintenanceEntriesResponse>(
+        '/maintenance-entries',
+        {
+          accessToken: token,
+          query: {
+            allocationType: filters.allocationType || undefined,
+            category: filters.category || undefined,
+            endDate: filters.endDate,
+            maxAmount: normalizeDecimal(filters.maxAmount),
+            maxOdometerKm: normalizeDecimal(filters.maxOdometerKm),
+            minAmount: normalizeDecimal(filters.minAmount),
+            minOdometerKm: normalizeDecimal(filters.minOdometerKm),
+            page: pageToLoad,
+            pageSize: 10,
+            q: filters.q.trim() || undefined,
+            sortBy: filters.sortBy,
+            sortDirection: filters.sortDirection,
+            startDate: filters.startDate,
+            vehicleId: filters.vehicleId || undefined
+          }
+        }
+      );
+
+      setEntries(response.data);
+      setMeta(response.meta);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Bakim kayitlari yuklenemedi.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!accessToken) {
+      setFormMessage('Bakim kaydi eklemek icin once giris yapmalisin.');
+      return;
+    }
+
+    setIsSaving(true);
+    setFormMessage(null);
+
+    try {
+      const response = await postJson<MaintenanceEntryResponse>(
+        '/maintenance-entries',
+        {
+          allocationType: form.allocationType,
+          amount: normalizeDecimal(form.amount),
+          category: form.category.trim(),
+          expectedIntervalKm: normalizeDecimal(form.expectedIntervalKm),
+          maintenanceDate: form.maintenanceDate,
+          note: form.note.trim() || undefined,
+          odometerKm: normalizeDecimal(form.odometerKm),
+          serviceName: form.serviceName.trim() || undefined,
+          title: form.title.trim(),
+          vehicleId: form.vehicleId
+        },
+        {
+          accessToken
+        }
+      );
+
+      setEntries((currentEntries) => [response.data, ...currentEntries].slice(0, 10));
+      setForm((currentForm) => ({
+        ...emptyMaintenanceForm,
+        vehicleId: currentForm.vehicleId
+      }));
+      setFormMessage('Bakim kaydi eklendi.');
+      setPage(1);
+      await fetchEntries(accessToken, 1);
+    } catch (error) {
+      setFormMessage(
+        error instanceof Error ? error.message : 'Bakim kaydi eklenemedi.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const filters = {
+      allocationType,
+      category,
+      endDate,
+      maxAmount,
+      maxOdometerKm,
+      minAmount,
+      minOdometerKm,
+      q,
+      sortBy,
+      sortDirection,
+      startDate,
+      vehicleId
+    };
+
+    setPage(1);
+    void fetchEntries(accessToken, 1, filters);
+  }
+
+  function resetFilters() {
+    setVehicleId('');
+    setCategory('');
+    setAllocationType('');
+    setQ('');
+    setStartDate('');
+    setEndDate('');
+    setMinAmount('');
+    setMaxAmount('');
+    setMinOdometerKm('');
+    setMaxOdometerKm('');
+    setSortBy('maintenanceDate');
+    setSortDirection('desc');
+    setPage(1);
+    void fetchEntries(accessToken, 1, {
+      allocationType: '',
+      category: '',
+      endDate: '',
+      maxAmount: '',
+      maxOdometerKm: '',
+      minAmount: '',
+      minOdometerKm: '',
+      q: '',
+      sortBy: 'maintenanceDate',
+      sortDirection: 'desc',
+      startDate: '',
+      vehicleId: ''
+    });
+  }
+
+  return (
+    <div className="maintenance-page">
+      <section className="metric-grid maintenance-metrics">
+        <article className="metric-card">
+          <span>Sayfadaki toplam bakim</span>
+          <strong>{formatMoney(pageMetrics.totalAmount)}</strong>
+        </article>
+        <article className="metric-card">
+          <span>Ortalama km basi maliyet</span>
+          <strong>{formatMoney(averageCostPerKm)}</strong>
+        </article>
+        <article className="metric-card">
+          <span>Takip edilen bakim araligi</span>
+          <strong>{formatKm(pageMetrics.reserveKm)}</strong>
+        </article>
+        <article className="metric-card">
+          <span>Kayit sayisi</span>
+          <strong>{meta?.total ?? entries.length}</strong>
+        </article>
+      </section>
+
+      <section className="panel quick-expense-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Servis ve yipranma</p>
+            <h2>Bakim ekle</h2>
+          </div>
+          <span className="status-pill">Km bazli rezerv</span>
+        </div>
+
+        <div className="quick-expense-presets" aria-label="Bakim kategorileri">
+          {categoryPresets.map((preset) => (
+            <button
+              className="quick-expense-preset"
+              key={preset}
+              onClick={() =>
+                setForm((currentForm) => ({
+                  ...currentForm,
+                  category: preset,
+                  title:
+                    preset === 'Lastik'
+                      ? 'Lastik, balans ve rot'
+                      : preset === 'Temizlik'
+                        ? 'Ic dis yikama'
+                        : currentForm.title
+                }))
+              }
+              type="button"
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+
+        <form className="quick-expense-form data-form" onSubmit={handleSubmit}>
+          <div className="maintenance-entry-grid">
+            <label>
+              Arac
+              <select
+                required
+                value={form.vehicleId}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    vehicleId: event.target.value
+                  }))
+                }
+              >
+                <option value="">Arac sec</option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.plateNumber} {vehicle.brand ?? ''} {vehicle.model ?? ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Kategori
+              <input
+                required
+                value={form.category}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    category: event.target.value
+                  }))
+                }
+              />
+            </label>
+
+            <label>
+              Baslik
+              <input
+                required
+                value={form.title}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    title: event.target.value
+                  }))
+                }
+              />
+            </label>
+
+            <label>
+              Tutar
+              <input
+                inputMode="decimal"
+                placeholder="8000.00"
+                required
+                value={form.amount}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    amount: event.target.value
+                  }))
+                }
+              />
+            </label>
+
+            <label>
+              Bakim tarihi
+              <input
+                required
+                type="date"
+                value={form.maintenanceDate}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    maintenanceDate: event.target.value
+                  }))
+                }
+              />
+            </label>
+
+            <label>
+              Km sayaci
+              <input
+                inputMode="decimal"
+                placeholder="85120.5"
+                value={form.odometerKm}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    odometerKm: event.target.value
+                  }))
+                }
+              />
+            </label>
+
+            <label>
+              Bakim araligi km
+              <input
+                inputMode="decimal"
+                placeholder="10000"
+                value={form.expectedIntervalKm}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    expectedIntervalKm: event.target.value
+                  }))
+                }
+              />
+            </label>
+
+            <label>
+              Dagitim
+              <select
+                value={form.allocationType}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    allocationType: event.target.value as AllocationType
+                  }))
+                }
+              >
+                {Object.entries(allocationTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Servis
+              <input
+                placeholder="Yetkili servis"
+                value={form.serviceName}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    serviceName: event.target.value
+                  }))
+                }
+              />
+            </label>
+          </div>
+
+          <div className="quick-expense-bottom-row">
+            <label>
+              Not
+              <textarea
+                value={form.note}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    note: event.target.value
+                  }))
+                }
+              />
+            </label>
+
+            <button className="primary-button" disabled={isSaving} type="submit">
+              <Save aria-hidden="true" className="inline-icon" />
+              {isSaving ? 'Kaydediliyor' : 'Bakim kaydet'}
+            </button>
+          </div>
+
+          {formMessage ? <p className="form-message">{formMessage}</p> : null}
+        </form>
+      </section>
+
+      <section className="panel income-table-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Bakim gecmisi</p>
+            <h2>Servis kayitlari</h2>
+          </div>
+          <button
+            className="secondary-button"
+            disabled={isLoading}
+            onClick={() => fetchEntries()}
+            type="button"
+          >
+            <RefreshCw aria-hidden="true" className="inline-icon" />
+            Yenile
+          </button>
+        </div>
+
+        <form className="maintenance-list-toolbar" onSubmit={handleFilterSubmit}>
+          <label className="toolbar-search">
+            Ara
+            <Search aria-hidden="true" />
+            <input
+              placeholder="filtre, lastik, servis..."
+              value={q}
+              onChange={(event) => setQ(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Arac
+            <select
+              value={vehicleId}
+              onChange={(event) => setVehicleId(event.target.value)}
+            >
+              <option value="">Tum araclar</option>
+              {vehicles.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {vehicle.plateNumber}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Kategori
+            <input
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Dagitim
+            <select
+              value={allocationType}
+              onChange={(event) => setAllocationType(event.target.value)}
+            >
+              <option value="">Tumu</option>
+              {Object.entries(allocationTypeLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Baslangic
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Bitis
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Min tutar
+            <input
+              inputMode="decimal"
+              value={minAmount}
+              onChange={(event) => setMinAmount(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Max tutar
+            <input
+              inputMode="decimal"
+              value={maxAmount}
+              onChange={(event) => setMaxAmount(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Min km
+            <input
+              inputMode="decimal"
+              value={minOdometerKm}
+              onChange={(event) => setMinOdometerKm(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Max km
+            <input
+              inputMode="decimal"
+              value={maxOdometerKm}
+              onChange={(event) => setMaxOdometerKm(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Sirala
+            <select
+              value={sortBy}
+              onChange={(event) =>
+                setSortBy(event.target.value as MaintenanceSortBy)
+              }
+            >
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Yon
+            <select
+              value={sortDirection}
+              onChange={(event) =>
+                setSortDirection(event.target.value as SortDirection)
+              }
+            >
+              <option value="desc">Azalan</option>
+              <option value="asc">Artan</option>
+            </select>
+          </label>
+
+          <div className="toolbar-actions">
+            <button className="secondary-button" type="submit">
+              <ListFilter aria-hidden="true" className="inline-icon" />
+              Filtrele
+            </button>
+            <button
+              className="secondary-button"
+              onClick={resetFilters}
+              type="button"
+            >
+              Temizle
+            </button>
+          </div>
+        </form>
+
+        {message ? <p className="form-message">{message}</p> : null}
+
+        <div className="data-table" role="table">
+          <div
+            className="data-table-row data-table-head maintenance-table-row"
+            role="row"
+          >
+            <span>Tarih</span>
+            <span>Bakim</span>
+            <span>Arac</span>
+            <span>Tutar</span>
+            <span>Km</span>
+            <span>Km basi</span>
+            <span>Sonraki</span>
+            <span>Dagitim</span>
+          </div>
+
+          {isLoading ? (
+            <div className="data-table-empty">Bakim kayitlari yukleniyor.</div>
+          ) : entries.length === 0 ? (
+            <div className="data-table-empty">Bakim kaydi bulunamadi.</div>
+          ) : (
+            entries.map((item) => (
+              <div
+                className="data-table-row maintenance-table-row"
+                key={item.id}
+                role="row"
+              >
+                <span>{formatDate(item.maintenanceDate)}</span>
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>
+                    {item.category}
+                    {item.serviceName ? ` - ${item.serviceName}` : ''}
+                  </small>
+                </span>
+                <span>{vehicleLabel(vehicles, item.vehicleId)}</span>
+                <span>{formatMoney(toNumber(item.amount))}</span>
+                <span>{item.odometerKm ? formatKm(toNumber(item.odometerKm)) : '-'}</span>
+                <span>
+                  {item.costPerKm ? formatMoney(toNumber(item.costPerKm)) : '-'}
+                </span>
+                <span>{nextMaintenanceKm(item)}</span>
+                <span>{allocationTypeLabels[item.allocationType] ?? item.allocationType}</span>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="pagination-row">
+          <button
+            className="secondary-button"
+            disabled={!meta?.hasPreviousPage}
+            onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+            type="button"
+          >
+            <ChevronLeft aria-hidden="true" className="inline-icon" />
+            Onceki
+          </button>
+          <span>
+            Sayfa {meta?.page ?? page} / {meta?.totalPages ?? 1}
+          </span>
+          <button
+            className="secondary-button"
+            disabled={!meta?.hasNextPage}
+            onClick={() => setPage((currentPage) => currentPage + 1)}
+            type="button"
+          >
+            Sonraki
+            <ChevronRight aria-hidden="true" className="inline-icon" />
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function normalizeDecimal(value: string) {
+  const trimmedValue = value.trim().replace(',', '.');
+
+  return trimmedValue || undefined;
+}
+
+function toNumber(value: string) {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('tr-TR', {
+    currency: 'TRY',
+    maximumFractionDigits: 2,
+    style: 'currency'
+  }).format(value);
+}
+
+function formatKm(value: number) {
+  return `${new Intl.NumberFormat('tr-TR', {
+    maximumFractionDigits: 1
+  }).format(value)} km`;
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('tr-TR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(new Date(value));
+}
+
+function vehicleLabel(vehicles: Vehicle[], vehicleId: string) {
+  const vehicle = vehicles.find((item) => item.id === vehicleId);
+
+  return vehicle?.plateNumber ?? 'Arac';
+}
+
+function nextMaintenanceKm(item: MaintenanceEntry) {
+  if (!item.odometerKm || !item.expectedIntervalKm) {
+    return '-';
+  }
+
+  return formatKm(toNumber(item.odometerKm) + toNumber(item.expectedIntervalKm));
+}

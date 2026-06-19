@@ -1,12 +1,10 @@
-import { ModulePlaceholder } from '../../components/module-placeholder';
+import { AppShell } from '../../components/app-shell';
+import { MaintenancePanel } from '../../components/maintenance-panel';
 
 export default function MaintenancePage() {
   return (
-    <ModulePlaceholder
-      description="Bakim, servis, lastik ve km bazli maliyet dagitimi bu ekranda kurgulanacak."
-      eyebrow="Servis takibi"
-      primaryActionLabel="Bakim Ekle"
-      title="Bakim"
-    />
+    <AppShell eyebrow="Servis takibi" title="Bakim">
+      <MaintenancePanel />
+    </AppShell>
   );
 }
