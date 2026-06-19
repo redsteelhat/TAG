@@ -300,6 +300,12 @@ interface MonthlyProfitResponse {
   };
 }
 
+interface ProfitLossAlert {
+  detail: string;
+  title: string;
+  tone: "danger" | "success" | "warning";
+}
+
 interface DailyExpenseSummary {
   activePackageCount: number;
   fuelCost: number;
@@ -1274,6 +1280,11 @@ function TodayTabContent({
     ["Sure", formatDuration(activeMinutes)],
     ["Kalan break-even", formatMoney(toNumber(breakEven?.remainingRevenue))],
   ];
+  const todayAlerts = buildProfitLossAlerts({
+    breakEven,
+    periodLabel: "Bugun",
+    report: daily,
+  });
 
   return (
     <>
@@ -1295,6 +1306,7 @@ function TodayTabContent({
       </View>
 
       {message ? <Text style={styles.formAlert}>{message}</Text> : null}
+      {!isLoading ? <ProfitLossAlerts alerts={todayAlerts} /> : null}
 
       <View style={styles.sectionHeaderRow}>
         <Text style={styles.sectionTitle}>Bugun ozeti</Text>
@@ -3139,6 +3151,14 @@ function ReportsTabContent({
     ["Bakim", formatMoney(toNumber(monthlyReport?.maintenanceReserve))],
     ["Amortisman", formatMoney(toNumber(monthlyReport?.depreciation))],
   ];
+  const weeklyAlerts = buildProfitLossAlerts({
+    periodLabel: "Bu hafta",
+    report: weeklyReport,
+  });
+  const monthlyAlerts = buildProfitLossAlerts({
+    periodLabel: "Bu ay",
+    report: monthlyReport,
+  });
 
   return (
     <>
@@ -3168,6 +3188,7 @@ function ReportsTabContent({
       </View>
 
       {message ? <Text style={styles.formAlert}>{message}</Text> : null}
+      {!isWeeklyLoading ? <ProfitLossAlerts alerts={weeklyAlerts} /> : null}
 
       <View style={styles.sectionHeaderRow}>
         <Text style={styles.sectionTitle}>Haftalik ozet</Text>
@@ -3236,6 +3257,8 @@ function ReportsTabContent({
         </Text>
       </View>
 
+      {!isMonthlyLoading ? <ProfitLossAlerts alerts={monthlyAlerts} /> : null}
+
       <View style={styles.sectionHeaderRow}>
         <Text style={styles.sectionTitle}>Aylik ozet</Text>
         <Pressable onPress={loadMonthlySummary} style={styles.secondaryButton}>
@@ -3278,6 +3301,38 @@ function ReportsTabContent({
         ))}
       </View>
     </>
+  );
+}
+
+function ProfitLossAlerts({ alerts }: { alerts: ProfitLossAlert[] }) {
+  if (alerts.length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={styles.profitAlertList}>
+      {alerts.map((alert) => (
+        <View
+          key={`${alert.tone}-${alert.title}`}
+          style={[
+            styles.profitAlert,
+            alert.tone === "danger" ? styles.profitAlertDanger : null,
+            alert.tone === "success" ? styles.profitAlertSuccess : null,
+          ]}
+        >
+          <Text
+            style={[
+              styles.profitAlertTitle,
+              alert.tone === "danger" ? styles.profitAlertTitleDanger : null,
+              alert.tone === "success" ? styles.profitAlertTitleSuccess : null,
+            ]}
+          >
+            {alert.title}
+          </Text>
+          <Text style={styles.profitAlertDetail}>{alert.detail}</Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -3537,6 +3592,86 @@ function addDays(dateValue: string, days: number) {
   date.setUTCDate(date.getUTCDate() + days);
 
   return date.toISOString().slice(0, 10);
+}
+
+function buildProfitLossAlerts({
+  breakEven,
+  periodLabel,
+  report,
+}: {
+  breakEven?: BreakEvenReport | null;
+  periodLabel: string;
+  report?: ProfitReport | null;
+}): ProfitLossAlert[] {
+  if (!report || report.tripCount === 0) {
+    return [
+      {
+        detail: `${periodLabel} icin henuz sefer kaydi yok. Net kar ve gider uyarilari kayit geldikten sonra netlesir.`,
+        title: "Kayit bekleniyor",
+        tone: "warning",
+      },
+    ];
+  }
+
+  const alerts: ProfitLossAlert[] = [];
+  const grossIncome = toNumber(report.grossIncome);
+  const netProfit = toNumber(report.netProfit);
+  const totalCost = toNumber(report.totalCost);
+  const totalKm = toNumber(report.totalKm);
+  const fuelCost = toNumber(report.fuelCost);
+  const netProfitPerKm = totalKm > 0 ? netProfit / totalKm : 0;
+  const costRatio = grossIncome > 0 ? totalCost / grossIncome : 0;
+  const fuelRatio = grossIncome > 0 ? fuelCost / grossIncome : 0;
+
+  if (netProfit < 0) {
+    alerts.push({
+      detail: `${periodLabel} ${formatMoney(Math.abs(netProfit))} zarar yaziyor. Yakit, paket ve sabit gider payini kontrol et.`,
+      title: "Zarar uyarisi",
+      tone: "danger",
+    });
+  }
+
+  if (breakEven && !breakEven.isBreakEvenReached) {
+    alerts.push({
+      detail: `Kara gecmek icin yaklasik ${formatMoney(toNumber(breakEven.remainingRevenue))} gelir daha gerekiyor.`,
+      title: "Break-even asilamadi",
+      tone: "warning",
+    });
+  }
+
+  if (costRatio >= 0.8) {
+    alerts.push({
+      detail: `Toplam gider brut gelirin %${formatNumber(costRatio * 100)} seviyesinde. Marj cok dar.`,
+      title: "Gider orani yuksek",
+      tone: "warning",
+    });
+  }
+
+  if (fuelRatio >= 0.35) {
+    alerts.push({
+      detail: `Yakit maliyeti brut gelirin %${formatNumber(fuelRatio * 100)} seviyesinde. Bos km ve rota verimini gozden gecir.`,
+      title: "Yakit kari eritiyor",
+      tone: "warning",
+    });
+  }
+
+  if (totalKm > 0 && netProfitPerKm <= 0) {
+    alerts.push({
+      detail: `Km basi net kar ${formatMoney(netProfitPerKm)}. Bu tempo arac yipranmasini karsilamiyor.`,
+      title: "Km basi kar negatif",
+      tone: "danger",
+    });
+  }
+
+  if (alerts.length === 0) {
+    alerts.push({
+      detail: `${periodLabel} ${formatMoney(netProfit)} net kar uretti. Km basi kar ${formatMoney(netProfitPerKm)} seviyesinde.`,
+      title: "Karli gorunuyor",
+      tone: "success",
+    });
+  }
+
+  return alerts.slice(0, 3);
 }
 
 function getCurrentWeekStartInputValue() {
@@ -3835,6 +3970,43 @@ const styles = StyleSheet.create({
     backgroundColor: "#e7f6f3",
     borderColor: "#99d8cc",
     color: "#115e59",
+  },
+  profitAlertList: {
+    gap: 8,
+    marginBottom: 14,
+  },
+  profitAlert: {
+    backgroundColor: "#fff7ed",
+    borderColor: "#fed7aa",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+  },
+  profitAlertDanger: {
+    backgroundColor: "#fff1f1",
+    borderColor: "#fecaca",
+  },
+  profitAlertSuccess: {
+    backgroundColor: "#e7f6f3",
+    borderColor: "#99d8cc",
+  },
+  profitAlertTitle: {
+    color: "#9a3412",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  profitAlertTitleDanger: {
+    color: "#991b1b",
+  },
+  profitAlertTitleSuccess: {
+    color: "#115e59",
+  },
+  profitAlertDetail: {
+    color: "#34444f",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 19,
+    marginTop: 5,
   },
   primaryButton: {
     alignItems: "center",
