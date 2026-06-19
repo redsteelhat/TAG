@@ -1,12 +1,27 @@
-import { ModulePlaceholder } from '../../components/module-placeholder';
+import Link from 'next/link';
+import { Download, Plus } from 'lucide-react';
+import { AppShell } from '../../components/app-shell';
+import { DailyReport } from '../../components/daily-report';
 
 export default function ReportsPage() {
   return (
-    <ModulePlaceholder
-      description="Gunluk, haftalik, aylik net kar, km basi kar, saatlik kar ve gider dagilim raporlari burada yer alacak."
+    <AppShell
+      actions={
+        <>
+          <Link className="secondary-button button-link" href="/exports">
+            <Download aria-hidden="true" className="button-icon" />
+            Disa Aktar
+          </Link>
+          <Link className="primary-button button-link" href="/income">
+            <Plus aria-hidden="true" className="button-icon" />
+            Sefer Ekle
+          </Link>
+        </>
+      }
       eyebrow="Finans analizi"
-      primaryActionLabel="Rapor Olustur"
-      title="Raporlar"
-    />
+      title="Gunluk rapor"
+    >
+      <DailyReport />
+    </AppShell>
   );
 }

@@ -614,6 +614,42 @@ h2 {
   align-items: end;
 }
 
+.daily-report-page {
+  display: grid;
+  gap: 16px;
+}
+
+.report-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.75fr) minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.report-formula-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.4fr) repeat(3, minmax(180px, 0.8fr));
+  gap: 10px;
+}
+
+.report-formula-grid div {
+  display: grid;
+  gap: 8px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 12px;
+}
+
+.report-formula-grid span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.report-formula-grid strong {
+  line-height: 1.35;
+}
+
 .trip-editor-panel {
   gap: 16px;
 }
@@ -1249,6 +1285,8 @@ h2 {
   .package-entry-grid,
   .fixed-cost-entry-grid,
   .quick-expense-bottom-row,
+  .report-filter-grid,
+  .report-formula-grid,
   .list-toolbar,
   .expense-list-toolbar,
   .fuel-list-toolbar,
