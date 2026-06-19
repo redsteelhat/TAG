@@ -506,4 +506,93 @@ describe('ReportsService', () => {
     expect(result.fuelCostPerHour).toBe('50.00');
     expect(result.variableExpensePerHour).toBe('30.00');
   });
+
+  it('calculates break-even target and remaining revenue', async () => {
+    const prisma = {
+      $transaction: jest.fn((queries: Array<Promise<unknown>>) =>
+        Promise.all(queries)
+      ),
+      trip: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 3
+          },
+          _sum: {
+            allocated_depreciation_cost: new Prisma.Decimal('0'),
+            allocated_fixed_cost: new Prisma.Decimal('0'),
+            allocated_maintenance_cost: new Prisma.Decimal('0'),
+            allocated_other_variable_cost: new Prisma.Decimal('0'),
+            allocated_package_cost: new Prisma.Decimal('0'),
+            cash_net_profit: new Prisma.Decimal('450'),
+            cancellation_income: new Prisma.Decimal('0'),
+            deadhead_km: new Prisma.Decimal('20'),
+            duration_minutes: 180,
+            estimated_fuel_cost: new Prisma.Decimal('150'),
+            gross_income: new Prisma.Decimal('600'),
+            tip_amount: new Prisma.Decimal('0'),
+            total_income: new Prisma.Decimal('600'),
+            total_km: new Prisma.Decimal('120'),
+            true_net_profit: new Prisma.Decimal('450'),
+            trip_km: new Prisma.Decimal('100')
+          }
+        })
+      },
+      shift: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 1
+          },
+          _sum: {
+            active_minutes: 180
+          }
+        })
+      },
+      expenseEntry: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            amount: new Prisma.Decimal('250'),
+            expense_type: ExpenseType.PLATFORM_PACKAGE
+          },
+          {
+            amount: new Prisma.Decimal('100'),
+            expense_type: ExpenseType.FIXED
+          }
+        ])
+      },
+      fuelEntry: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 0
+          },
+          _sum: {
+            amount: null,
+            liters: null
+          }
+        })
+      },
+      recurringExpense: {
+        findMany: jest.fn().mockResolvedValue([])
+      },
+      tagPackage: {
+        findMany: jest.fn().mockResolvedValue([])
+      }
+    };
+    const service = new ReportsService(prisma as never);
+
+    const result = await service.calculateBreakEven('user_1', {
+      date: '2026-06-18',
+      vehicleId: 'vehicle_1'
+    });
+
+    expect(result.period).toBe('daily');
+    expect(result.grossIncome).toBe('600.00');
+    expect(result.breakEvenRevenue).toBe('500.00');
+    expect(result.remainingRevenue).toBe('0.00');
+    expect(result.surplusRevenue).toBe('100.00');
+    expect(result.breakEvenProgressPercent).toBe('120.00');
+    expect(result.isBreakEvenReached).toBe(true);
+    expect(result.costBreakdown.fuelCost).toBe('150.00');
+    expect(result.costBreakdown.tagPackageCost).toBe('250.00');
+    expect(result.costBreakdown.fixedExpenses).toBe('100.00');
+  });
 });

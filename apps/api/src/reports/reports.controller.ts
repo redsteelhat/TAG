@@ -2,6 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { BreakEvenQueryDto } from './dto/break-even-query.dto';
 import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
 import { HourlyProfitQueryDto } from './dto/hourly-profit-query.dto';
 import { KmProfitQueryDto } from './dto/km-profit-query.dto';
@@ -71,6 +72,17 @@ export class ReportsController {
         user.id,
         query
       )
+    };
+  }
+
+  @Get('break-even')
+  @ApiOperation({ summary: 'Calculate break-even revenue target' })
+  async getBreakEven(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: BreakEvenQueryDto
+  ) {
+    return {
+      data: await this.reportsService.calculateBreakEven(user.id, query)
     };
   }
 }

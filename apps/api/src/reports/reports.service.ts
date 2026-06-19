@@ -9,6 +9,10 @@ import {
   TagPackage
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  BreakEvenPeriod,
+  BreakEvenQueryDto
+} from './dto/break-even-query.dto';
 import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
 import {
   HourlyProfitPeriod,
@@ -180,6 +184,60 @@ export class ReportsService {
         grossIncomePerHour: 'grossIncome / activeHours',
         costPerHour: 'totalCost / activeHours',
         netProfitPerHour: 'netProfit / activeHours'
+      },
+      calculationVersion: profit.calculationVersion
+    };
+  }
+
+  async calculateBreakEven(userId: string, query: BreakEvenQueryDto) {
+    const periodRange = this.resolveBreakEvenPeriodRange(query);
+    const profit = await this.calculateProfitForPeriod(
+      userId,
+      periodRange,
+      query.vehicleId
+    );
+    const grossIncome = this.decimal(profit.grossIncome);
+    const breakEvenRevenue = this.decimal(profit.totalCost);
+    const remainingRevenue = this.positiveDifference(
+      breakEvenRevenue,
+      grossIncome
+    );
+    const surplusRevenue = this.positiveDifference(
+      grossIncome,
+      breakEvenRevenue
+    );
+    const breakEvenProgressPercent = breakEvenRevenue.gt(0)
+      ? grossIncome.mul(100).div(breakEvenRevenue)
+      : new Prisma.Decimal(100);
+
+    return {
+      date: profit.date,
+      endDate: profit.endDate,
+      period: profit.period,
+      startDate: profit.startDate,
+      vehicleId: profit.vehicleId,
+      grossIncome: profit.grossIncome,
+      breakEvenRevenue: this.money(breakEvenRevenue),
+      remainingRevenue: this.money(remainingRevenue),
+      surplusRevenue: this.money(surplusRevenue),
+      breakEvenProgressPercent: breakEvenProgressPercent
+        .toDecimalPlaces(2)
+        .toFixed(2),
+      isBreakEvenReached: grossIncome.gte(breakEvenRevenue),
+      netProfit: profit.netProfit,
+      costBreakdown: {
+        fuelCost: profit.fuelCost,
+        tagPackageCost: profit.tagPackageCost,
+        variableExpenses: profit.variableExpenses,
+        fixedExpenses: profit.fixedExpenses,
+        maintenanceReserve: profit.maintenanceReserve,
+        depreciation: profit.depreciation
+      },
+      formula: {
+        breakEvenRevenue:
+          'fuelCost + tagPackageCost + variableExpenses + fixedExpenses + maintenanceReserve + depreciation',
+        remainingRevenue: 'max(breakEvenRevenue - grossIncome, 0)',
+        surplusRevenue: 'max(grossIncome - breakEvenRevenue, 0)'
       },
       calculationVersion: profit.calculationVersion
     };
@@ -740,6 +798,28 @@ export class ReportsService {
     return this.resolveDayRange(query.date);
   }
 
+  private resolveBreakEvenPeriodRange(query: BreakEvenQueryDto): PeriodRange {
+    const period =
+      query.period ??
+      (query.month
+        ? BreakEvenPeriod.MONTHLY
+        : query.weekStart
+          ? BreakEvenPeriod.WEEKLY
+          : BreakEvenPeriod.DAILY);
+
+    if (period === BreakEvenPeriod.MONTHLY) {
+      return this.resolveMonthRange(query.month ?? query.date);
+    }
+
+    if (period === BreakEvenPeriod.WEEKLY) {
+      return query.weekStart
+        ? this.resolveWeekRange(query.weekStart, false)
+        : this.resolveWeekRange(query.date);
+    }
+
+    return this.resolveDayRange(query.date);
+  }
+
   private parseDate(dateValue?: string) {
     const date = dateValue ? new Date(dateValue) : new Date();
 
@@ -825,6 +905,15 @@ export class ReportsService {
     }
 
     return numerator.div(denominator);
+  }
+
+  private positiveDifference(
+    minuend: Prisma.Decimal,
+    subtrahend: Prisma.Decimal
+  ) {
+    const difference = minuend.minus(subtrahend);
+
+    return difference.gt(0) ? difference : new Prisma.Decimal(0);
   }
 
   private daysInMonth(date: Date) {
