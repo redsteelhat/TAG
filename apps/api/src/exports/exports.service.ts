@@ -4,7 +4,13 @@ import {
   InternalServerErrorException,
   NotFoundException
 } from '@nestjs/common';
-import { ExportFormat, ExportJob, ExportStatus, Prisma } from '@prisma/client';
+import {
+  ExportFormat,
+  ExportJob,
+  ExportStatus,
+  NotificationType,
+  Prisma
+} from '@prisma/client';
 import { createReadStream } from 'node:fs';
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -12,6 +18,7 @@ import {
   buildPaginationMeta,
   getPaginationParams
 } from '../common/pagination/pagination';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportsService } from '../reports/reports.service';
 import {
@@ -41,6 +48,7 @@ export class ExportsService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
     private readonly reportsService: ReportsService
   ) {}
 
@@ -99,6 +107,18 @@ export class ExportsService {
           status: ExportStatus.COMPLETED,
           storage_key: storageKey
         }
+      });
+
+      await this.notificationsService.createImmediate({
+        body: `${periodRange.startDate} - ${periodRange.endDate} donemi ${format} raporun hazir.`,
+        metadata: {
+          exportJobId: completedJob.id,
+          fileUrl: completedJob.file_url,
+          format
+        },
+        title: 'Raporun hazir',
+        type: NotificationType.EXPORT_READY,
+        userId
       });
 
       return this.toExportJobResponse(completedJob);
