@@ -250,6 +250,49 @@ interface DailyIncomeSummary {
   tripCount: number;
 }
 
+interface ProfitReport {
+  activeMinutes: number;
+  depreciation: string;
+  fixedExpenses: string;
+  fuelCost: string;
+  grossIncome: string;
+  hourlyProfit: string;
+  kmProfit: string;
+  maintenanceReserve: string;
+  netProfit: string;
+  tagPackageCost: string;
+  totalCost: string;
+  totalKm: string;
+  tripCount: number;
+  variableExpenses: string;
+}
+
+interface KmProfitabilityReport {
+  netProfitPerKm: string;
+}
+
+interface HourlyProfitabilityReport {
+  netProfitPerHour: string;
+}
+
+interface BreakEvenReport {
+  breakEvenProgressPercent: string;
+  breakEvenRevenue: string;
+  isBreakEvenReached: boolean;
+  remainingRevenue: string;
+}
+
+interface ReportOverview {
+  breakEven: BreakEvenReport;
+  dailyProfit: ProfitReport;
+  hourlyProfitability: HourlyProfitabilityReport;
+  kmProfitability: KmProfitabilityReport;
+}
+
+interface ReportOverviewResponse {
+  data: ReportOverview;
+}
+
 interface DailyExpenseSummary {
   activePackageCount: number;
   fuelCost: number;
@@ -1142,88 +1185,81 @@ function TodayTabContent({
   apiBaseUrl: string;
   selectedVehicle: Vehicle;
 }) {
-  const [summary, setSummary] = useState<DailyIncomeSummary>({
-    activeMinutes: 0,
-    estimatedFuelCost: 0,
-    grossIncome: 0,
-    netProfit: 0,
-    totalKm: 0,
-    tripCount: 0,
-  });
+  const [overview, setOverview] = useState<ReportOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    loadDailySummary().catch((error) => {
+    loadTodayOverview().catch((error) => {
       setMessage(
-        error instanceof Error ? error.message : "Gunluk gelir yuklenemedi.",
+        error instanceof Error ? error.message : "Bugun ekrani yuklenemedi.",
       );
       setIsLoading(false);
     });
   }, [selectedVehicle.id]);
 
-  async function loadDailySummary() {
+  async function loadTodayOverview() {
     setIsLoading(true);
     setMessage(null);
 
     const today = getLocalDateInputValue();
-    const [tripsResponse, shiftsResponse] = await Promise.all([
-      getJson<TripsResponse>(
-        `${apiBaseUrl}/trips${buildQueryString({
-          endDate: today,
-          page: 1,
-          pageSize: 100,
-          sortBy: "tripDate",
-          sortDirection: "desc",
-          startDate: today,
-          vehicleId: selectedVehicle.id,
-        })}`,
-        accessToken,
-      ),
-      getJson<ShiftsResponse>(
-        `${apiBaseUrl}/shifts${buildQueryString({
-          endDate: today,
-          page: 1,
-          pageSize: 50,
-          sortBy: "startedAt",
-          sortDirection: "desc",
-          startDate: today,
-          vehicleId: selectedVehicle.id,
-        })}`,
-        accessToken,
-      ),
-    ]);
+    const response = await getJson<ReportOverviewResponse>(
+      `${apiBaseUrl}/reports/overview${buildQueryString({
+        date: today,
+        month: today.slice(0, 7),
+        vehicleId: selectedVehicle.id,
+      })}`,
+      accessToken,
+    );
 
-    setSummary(calculateDailyIncomeSummary(tripsResponse, shiftsResponse));
+    setOverview(response.data);
     setIsLoading(false);
   }
 
-  const netPerKm =
-    summary.totalKm > 0 ? summary.netProfit / summary.totalKm : 0;
-  const hourlyNet =
-    summary.activeMinutes > 0
-      ? summary.netProfit / (summary.activeMinutes / 60)
-      : 0;
-  const allocatedCost = Math.max(
-    summary.grossIncome - summary.netProfit - summary.estimatedFuelCost,
-    0,
+  const daily = overview?.dailyProfit;
+  const breakEven = overview?.breakEven;
+  const netProfit = toNumber(daily?.netProfit);
+  const grossIncome = toNumber(daily?.grossIncome);
+  const totalCost = toNumber(daily?.totalCost);
+  const totalKm = toNumber(daily?.totalKm);
+  const activeMinutes = daily?.activeMinutes ?? 0;
+  const breakEvenProgress = Math.min(
+    Math.max(toNumber(breakEven?.breakEvenProgressPercent), 0),
+    100,
   );
   const breakEvenStatus =
-    summary.tripCount === 0
+    !daily || daily.tripCount === 0
       ? "Kayit bekliyor"
-      : summary.netProfit >= 0
-        ? "Karda"
-        : "Zararda";
+      : breakEven?.isBreakEvenReached
+        ? "Paket cikti"
+        : netProfit >= 0
+          ? "Karda"
+          : "Zararda";
   const metricRows = [
-    ["Bugunku brut gelir", formatMoney(summary.grossIncome)],
-    ["Sefer sayisi", String(summary.tripCount)],
-    ["Km basi net", `${formatNumber(netPerKm)} TL`],
-    ["Saatlik net", formatMoney(hourlyNet)],
+    ["Bugunku brut gelir", formatMoney(grossIncome)],
+    ["Toplam gider", formatMoney(totalCost)],
+    [
+      "Km basi net",
+      `${formatNumber(toNumber(overview?.kmProfitability.netProfitPerKm))} TL`,
+    ],
+    [
+      "Saatlik net",
+      formatMoney(toNumber(overview?.hourlyProfitability.netProfitPerHour)),
+    ],
   ];
   const expenseRows = [
-    ["Tahmini yakit", formatMoney(summary.estimatedFuelCost)],
-    ["Paket/sabit gider payi", formatMoney(allocatedCost)],
-    ["Toplam km", `${formatNumber(summary.totalKm)} km`],
+    ["Yakit maliyeti", formatMoney(toNumber(daily?.fuelCost))],
+    ["Paket / kullanim payi", formatMoney(toNumber(daily?.tagPackageCost))],
+    ["Degisken gider", formatMoney(toNumber(daily?.variableExpenses))],
+    ["Sabit gider", formatMoney(toNumber(daily?.fixedExpenses))],
+    ["Bakim rezervi", formatMoney(toNumber(daily?.maintenanceReserve))],
+    ["Amortisman", formatMoney(toNumber(daily?.depreciation))],
+  ];
+  const operationRows = [
+    ["Sefer", String(daily?.tripCount ?? 0)],
+    ["Toplam km", `${formatNumber(totalKm)} km`],
+    ["Sure", formatDuration(activeMinutes)],
+    ["Kalan break-even", formatMoney(toNumber(breakEven?.remainingRevenue))],
   ];
 
   return (
@@ -1234,22 +1270,22 @@ function TodayTabContent({
         </View>
         <Text style={styles.heroLabel}>Net kar</Text>
         <Text style={styles.heroValue}>
-          {isLoading ? "..." : formatMoney(summary.netProfit)}
+          {isLoading ? "..." : formatMoney(netProfit)}
         </Text>
         <Text style={styles.heroDetail}>
           {isLoading
-            ? "Bugunun sefer ve vardiya kayitlari yukleniyor."
-            : `${formatMoney(summary.grossIncome)} brut gelir, ${formatMoney(
-                summary.estimatedFuelCost,
-              )} tahmini yakit maliyeti ile hesaplandi.`}
+            ? "Finans motoru bugunun raporunu hazirliyor."
+            : `${formatMoney(grossIncome)} brut gelirden ${formatMoney(
+                totalCost,
+              )} yakit, paket ve dagitilmis gider dusuldu.`}
         </Text>
       </View>
 
       {message ? <Text style={styles.formAlert}>{message}</Text> : null}
 
       <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>Gunluk gelir ozeti</Text>
-        <Pressable onPress={loadDailySummary} style={styles.secondaryButton}>
+        <Text style={styles.sectionTitle}>Bugun ozeti</Text>
+        <Pressable onPress={loadTodayOverview} style={styles.secondaryButton}>
           <Text style={styles.secondaryButtonText}>Yenile</Text>
         </Pressable>
       </View>
@@ -1261,6 +1297,30 @@ function TodayTabContent({
             <Text style={styles.metricValue}>{isLoading ? "..." : value}</Text>
           </View>
         ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Break-even</Text>
+        <View style={styles.todayProgressTrack}>
+          <View
+            style={[
+              styles.todayProgressFill,
+              { width: `${isLoading ? 0 : breakEvenProgress}%` },
+            ]}
+          />
+        </View>
+        <View style={styles.expenseRow}>
+          <Text style={styles.expenseName}>Gerekli gelir</Text>
+          <Text style={styles.expenseAmount}>
+            {isLoading ? "..." : formatMoney(toNumber(breakEven?.breakEvenRevenue))}
+          </Text>
+        </View>
+        <View style={styles.expenseRow}>
+          <Text style={styles.expenseName}>Ilerleme</Text>
+          <Text style={styles.expenseAmount}>
+            {isLoading ? "..." : `%${formatNumber(breakEvenProgress)}`}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -1277,18 +1337,14 @@ function TodayTabContent({
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Aktif calisma</Text>
-        <View style={styles.expenseRow}>
-          <Text style={styles.expenseName}>Sure</Text>
-          <Text style={styles.expenseAmount}>
-            {isLoading ? "..." : formatDuration(summary.activeMinutes)}
-          </Text>
-        </View>
-        <View style={styles.expenseRow}>
-          <Text style={styles.expenseName}>Arac</Text>
-          <Text style={styles.expenseAmount}>
-            {selectedVehicle.plateNumber}
-          </Text>
-        </View>
+        {operationRows.map(([name, value]) => (
+          <View key={name} style={styles.expenseRow}>
+            <Text style={styles.expenseName}>{name}</Text>
+            <Text style={styles.expenseAmount}>
+              {isLoading ? "..." : value}
+            </Text>
+          </View>
+        ))}
       </View>
     </>
   );
@@ -3760,6 +3816,18 @@ const styles = StyleSheet.create({
     color: "#115e59",
     fontSize: 12,
     fontWeight: "900",
+  },
+  todayProgressTrack: {
+    backgroundColor: "#edf2f4",
+    borderRadius: 999,
+    height: 12,
+    marginBottom: 10,
+    overflow: "hidden",
+  },
+  todayProgressFill: {
+    backgroundColor: "#115e59",
+    borderRadius: 999,
+    height: "100%",
   },
   outlineButton: {
     alignItems: "center",
