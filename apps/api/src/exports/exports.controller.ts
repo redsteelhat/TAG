@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Header,
   Param,
   Post,
   Query,
@@ -42,6 +41,22 @@ export class ExportsController {
     };
   }
 
+  @Post('pdf')
+  @ApiOperation({ summary: 'Create a PDF report export' })
+  @AuditLog({
+    action: 'export.pdf.create',
+    entityType: 'export_job',
+    entityIdPath: 'data.id'
+  })
+  async createPdfExport(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateExcelExportDto
+  ) {
+    return {
+      data: await this.exportsService.createPdfExport(user.id, dto)
+    };
+  }
+
   @Get()
   @ApiOperation({ summary: 'List export jobs for the current user' })
   async findAll(
@@ -60,10 +75,6 @@ export class ExportsController {
   }
 
   @Get(':id/download')
-  @Header(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  )
   @ApiOperation({ summary: 'Download an export file' })
   async download(
     @CurrentUser() user: AuthenticatedUser,
@@ -72,6 +83,7 @@ export class ExportsController {
   ) {
     const file = await this.exportsService.getDownloadStream(user.id, id);
 
+    response.setHeader('Content-Type', file.mimeType);
     response.setHeader(
       'Content-Disposition',
       `attachment; filename="${file.fileName}"`

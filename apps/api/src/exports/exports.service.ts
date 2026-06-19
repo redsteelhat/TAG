@@ -19,6 +19,7 @@ import {
   ExcelExportPeriod
 } from './dto/create-excel-export.dto';
 import { ListExportJobsQueryDto } from './dto/list-export-jobs-query.dto';
+import { PdfReportBuilder, PdfReportSection } from './pdf-report.builder';
 import {
   WorkbookCell,
   WorkbookSheet,
@@ -35,6 +36,7 @@ interface ExportPeriodRange {
 
 @Injectable()
 export class ExportsService {
+  private readonly pdfBuilder = new PdfReportBuilder();
   private readonly xlsxBuilder = new XlsxWorkbookBuilder();
 
   constructor(
@@ -43,11 +45,23 @@ export class ExportsService {
   ) {}
 
   async createExcelExport(userId: string, dto: CreateExcelExportDto) {
+    return this.createReportExport(userId, dto, ExportFormat.XLSX);
+  }
+
+  async createPdfExport(userId: string, dto: CreateExcelExportDto) {
+    return this.createReportExport(userId, dto, ExportFormat.PDF);
+  }
+
+  private async createReportExport(
+    userId: string,
+    dto: CreateExcelExportDto,
+    format: ExportFormat
+  ) {
     const period = dto.period ?? ExcelExportPeriod.MONTHLY;
     const periodRange = this.resolvePeriodRange(period, dto);
     const exportJob = await this.prisma.exportJob.create({
       data: {
-        format: ExportFormat.XLSX,
+        format,
         period_end: periodRange.end,
         period_start: periodRange.start,
         status: ExportStatus.PENDING,
@@ -65,17 +79,15 @@ export class ExportsService {
         }
       });
 
-      const workbook = await this.buildExcelWorkbook(
-        userId,
-        period,
-        periodRange,
-        dto
-      );
-      const storageKey = this.buildStorageKey(userId, exportJob.id);
+      const file =
+        format === ExportFormat.PDF
+          ? await this.buildPdfReport(userId, period, periodRange, dto)
+          : await this.buildExcelWorkbook(userId, period, periodRange, dto);
+      const storageKey = this.buildStorageKey(userId, exportJob.id, format);
       const absolutePath = this.resolveStoragePath(storageKey);
 
       await mkdir(path.dirname(absolutePath), { recursive: true });
-      await writeFile(absolutePath, workbook);
+      await writeFile(absolutePath, file);
 
       const completedJob = await this.prisma.exportJob.update({
         where: {
@@ -97,12 +109,12 @@ export class ExportsService {
         },
         data: {
           error_message:
-            error instanceof Error ? error.message : 'Excel export failed.',
+            error instanceof Error ? error.message : 'Report export failed.',
           status: ExportStatus.FAILED
         }
       });
 
-      throw new InternalServerErrorException('Excel export failed.');
+      throw new InternalServerErrorException('Report export failed.');
     }
   }
 
@@ -165,7 +177,8 @@ export class ExportsService {
     }
 
     return {
-      fileName: `tag-finans-${exportJob.period_start.toISOString().slice(0, 10)}-${exportJob.period_end.toISOString().slice(0, 10)}.xlsx`,
+      fileName: `tag-finans-${exportJob.period_start.toISOString().slice(0, 10)}-${exportJob.period_end.toISOString().slice(0, 10)}.${this.extensionForFormat(exportJob.format)}`,
+      mimeType: this.mimeTypeForFormat(exportJob.format),
       stream: createReadStream(absolutePath)
     };
   }
@@ -214,6 +227,47 @@ export class ExportsService {
     }
 
     return this.xlsxBuilder.build(sheets);
+  }
+
+  private async buildPdfReport(
+    userId: string,
+    period: ExcelExportPeriod,
+    periodRange: ExportPeriodRange,
+    dto: CreateExcelExportDto
+  ) {
+    const report = await this.calculateReport(userId, period, dto);
+    const sections: PdfReportSection[] = [
+      {
+        title: 'Finans Ozeti',
+        rows: this.buildPdfSummaryRows(report)
+      },
+      {
+        title: 'Maliyet Kirilimi',
+        rows: this.buildPdfCostRows(report)
+      },
+      {
+        title: 'Operasyon Metrikleri',
+        rows: this.buildPdfOperationRows(report)
+      }
+    ];
+
+    if (dto.includeRawData ?? true) {
+      const trips = await this.findTrips(userId, periodRange, dto.vehicleId);
+
+      sections.push({
+        title: 'Son Seferler',
+        rows: trips.slice(0, 20).map((trip) => [
+          trip.trip_date.toISOString().slice(0, 10),
+          `${trip.total_income.toFixed(2)} TL / ${trip.total_km.toFixed(2)} km / net ${trip.true_net_profit.toFixed(2)} TL`
+        ])
+      });
+    }
+
+    return this.pdfBuilder.build({
+      sections,
+      subtitle: `${periodRange.startDate} - ${periodRange.endDate}`,
+      title: 'TAG Surucu Finans Raporu'
+    });
   }
 
   private calculateReport(
@@ -272,6 +326,37 @@ export class ExportsService {
       ['Vardiya sayisi', this.toCell(report.shiftCount)],
       ['Hesaplama versiyonu', this.toCell(report.calculationVersion)]
     ];
+  }
+
+  private buildPdfSummaryRows(report: Record<string, unknown>) {
+    return [
+      ['Brut gelir', this.toCell(report.grossIncome)],
+      ['Toplam maliyet', this.toCell(report.totalCost)],
+      ['Net kar', this.toCell(report.netProfit)],
+      ['Km basi kar', this.toCell(report.kmProfit)],
+      ['Saatlik kar', this.toCell(report.hourlyProfit)]
+    ] as PdfReportSection['rows'];
+  }
+
+  private buildPdfCostRows(report: Record<string, unknown>) {
+    return [
+      ['Yakit maliyeti', this.toCell(report.fuelCost)],
+      ['Paket maliyeti', this.toCell(report.tagPackageCost)],
+      ['Degisken giderler', this.toCell(report.variableExpenses)],
+      ['Sabit giderler', this.toCell(report.fixedExpenses)],
+      ['Bakim rezervi', this.toCell(report.maintenanceReserve)],
+      ['Amortisman', this.toCell(report.depreciation)]
+    ] as PdfReportSection['rows'];
+  }
+
+  private buildPdfOperationRows(report: Record<string, unknown>) {
+    return [
+      ['Toplam km', this.toCell(report.totalKm)],
+      ['Aktif dakika', this.toCell(report.activeMinutes)],
+      ['Sefer sayisi', this.toCell(report.tripCount)],
+      ['Vardiya sayisi', this.toCell(report.shiftCount)],
+      ['Hesaplama versiyonu', this.toCell(report.calculationVersion)]
+    ] as PdfReportSection['rows'];
   }
 
   private buildTripRows(trips: Awaited<ReturnType<ExportsService['findTrips']>>) {
@@ -602,8 +687,26 @@ export class ExportsService {
     return String(value);
   }
 
-  private buildStorageKey(userId: string, exportJobId: string) {
-    return path.posix.join('exports', userId, `${exportJobId}.xlsx`);
+  private buildStorageKey(
+    userId: string,
+    exportJobId: string,
+    format: ExportFormat
+  ) {
+    return path.posix.join(
+      'exports',
+      userId,
+      `${exportJobId}.${this.extensionForFormat(format)}`
+    );
+  }
+
+  private extensionForFormat(format: ExportFormat) {
+    return format === ExportFormat.PDF ? 'pdf' : 'xlsx';
+  }
+
+  private mimeTypeForFormat(format: ExportFormat) {
+    return format === ExportFormat.PDF
+      ? 'application/pdf'
+      : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   }
 
   private resolveStoragePath(storageKey: string) {
