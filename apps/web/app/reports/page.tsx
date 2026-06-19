@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Download, Plus } from 'lucide-react';
 import { AppShell } from '../../components/app-shell';
 import { DailyReport } from '../../components/daily-report';
+import { WeeklyReport } from '../../components/weekly-report';
 
 export default function ReportsPage() {
   return (
@@ -19,9 +20,12 @@ export default function ReportsPage() {
         </>
       }
       eyebrow="Finans analizi"
-      title="Gunluk rapor"
+      title="Raporlar"
     >
-      <DailyReport />
+      <div className="reports-page-stack">
+        <DailyReport />
+        <WeeklyReport />
+      </div>
     </AppShell>
   );
 }
