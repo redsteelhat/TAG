@@ -785,6 +785,10 @@ h2 {
   background: var(--accent);
 }
 
+.fuel-trend-bar.negative {
+  background: #dc2626;
+}
+
 .fuel-trend-day small {
   color: var(--muted);
   font-size: 11px;
@@ -809,6 +813,10 @@ h2 {
   stroke-linejoin: round;
   stroke-width: 3;
   vector-effect: non-scaling-stroke;
+}
+
+.fuel-trend-line.km-profit-line polyline {
+  stroke: #7c3aed;
 }
 
 .fuel-trend-legend {
@@ -840,6 +848,10 @@ h2 {
 
 .legend-swatch.fuel-price {
   background: #2563eb;
+}
+
+.legend-swatch.km-profit {
+  background: #7c3aed;
 }
 
 .inline-icon {

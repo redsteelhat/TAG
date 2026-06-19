@@ -3,6 +3,7 @@ import { Download, Plus } from 'lucide-react';
 import { AppShell } from '../../components/app-shell';
 import { DailyReport } from '../../components/daily-report';
 import { FuelTrendChart } from '../../components/fuel-trend-chart';
+import { KmProfitTrendChart } from '../../components/km-profit-trend-chart';
 import { MonthlyReport } from '../../components/monthly-report';
 import { WeeklyReport } from '../../components/weekly-report';
 
@@ -26,6 +27,7 @@ export default function ReportsPage() {
     >
       <div className="reports-page-stack">
         <FuelTrendChart />
+        <KmProfitTrendChart />
         <DailyReport />
         <WeeklyReport />
         <MonthlyReport />
