@@ -30,13 +30,6 @@ import {
   TripDraftPayload,
 } from "./src/storage/offline-drafts";
 
-const reportRows = [
-  ["Gunluk net kar", "1.460 TL"],
-  ["Haftalik net kar", "8.920 TL"],
-  ["Aylik net kar", "34.700 TL"],
-  ["Paket break-even", "Asildi"],
-];
-
 const mainTabs: Array<{ key: MainTab; label: string; icon: string }> = [
   { key: "today", label: "Bugun", icon: "B" },
   { key: "record", label: "Kayit", icon: "K" },
@@ -291,6 +284,13 @@ interface ReportOverview {
 
 interface ReportOverviewResponse {
   data: ReportOverview;
+}
+
+interface WeeklyProfitResponse {
+  data: ProfitReport & {
+    endDate: string;
+    startDate: string;
+  };
 }
 
 interface DailyExpenseSummary {
@@ -1125,7 +1125,13 @@ function DashboardScreen({
               selectedVehicle={selectedVehicle}
             />
           ) : null}
-          {activeTab === "reports" ? <ReportsTabContent /> : null}
+          {activeTab === "reports" ? (
+            <ReportsTabContent
+              accessToken={accessToken}
+              apiBaseUrl={getApiBaseUrl()}
+              selectedVehicle={selectedVehicle}
+            />
+          ) : null}
           {activeTab === "vehicles" ? (
             <VehiclesTabContent
               onChangeVehicle={onChangeVehicle}
@@ -3001,28 +3007,133 @@ function RecordTabContent({
   );
 }
 
-function ReportsTabContent() {
+function ReportsTabContent({
+  accessToken,
+  apiBaseUrl,
+  selectedVehicle,
+}: {
+  accessToken: string;
+  apiBaseUrl: string;
+  selectedVehicle: Vehicle;
+}) {
+  const [weeklyReport, setWeeklyReport] = useState<
+    WeeklyProfitResponse["data"] | null
+  >(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadWeeklySummary().catch((error) => {
+      setMessage(
+        error instanceof Error ? error.message : "Haftalik ozet yuklenemedi.",
+      );
+      setIsLoading(false);
+    });
+  }, [selectedVehicle.id]);
+
+  async function loadWeeklySummary() {
+    setIsLoading(true);
+    setMessage(null);
+
+    const response = await getJson<WeeklyProfitResponse>(
+      `${apiBaseUrl}/reports/weekly-profit${buildQueryString({
+        vehicleId: selectedVehicle.id,
+        weekStart: getCurrentWeekStartInputValue(),
+      })}`,
+      accessToken,
+    );
+
+    setWeeklyReport(response.data);
+    setIsLoading(false);
+  }
+
+  const metricRows = [
+    ["Haftalik brut gelir", formatMoney(toNumber(weeklyReport?.grossIncome))],
+    ["Toplam gider", formatMoney(toNumber(weeklyReport?.totalCost))],
+    ["Km basi net", `${formatNumber(toNumber(weeklyReport?.kmProfit))} TL`],
+    ["Saatlik net", formatMoney(toNumber(weeklyReport?.hourlyProfit))],
+  ];
+  const summaryRows = [
+    ["Sefer", String(weeklyReport?.tripCount ?? 0)],
+    ["Toplam km", `${formatNumber(toNumber(weeklyReport?.totalKm))} km`],
+    ["Sure", formatDuration(weeklyReport?.activeMinutes ?? 0)],
+    [
+      "Hafta",
+      weeklyReport
+        ? `${weeklyReport.startDate} / ${weeklyReport.endDate}`
+        : getCurrentWeekStartInputValue(),
+    ],
+  ];
+  const costRows = [
+    ["Yakit", formatMoney(toNumber(weeklyReport?.fuelCost))],
+    ["Paket", formatMoney(toNumber(weeklyReport?.tagPackageCost))],
+    ["Degisken", formatMoney(toNumber(weeklyReport?.variableExpenses))],
+    ["Sabit", formatMoney(toNumber(weeklyReport?.fixedExpenses))],
+    ["Bakim", formatMoney(toNumber(weeklyReport?.maintenanceReserve))],
+    ["Amortisman", formatMoney(toNumber(weeklyReport?.depreciation))],
+  ];
+
   return (
     <>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Rapor ozeti</Text>
-        {reportRows.map(([label, value]) => (
-          <View key={label} style={styles.reportRow}>
-            <Text style={styles.reportLabel}>{label}</Text>
-            <Text style={styles.reportValue}>{value}</Text>
+      <View style={styles.heroCard}>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>
+            {!weeklyReport
+              ? "Rapor bekliyor"
+              : toNumber(weeklyReport.netProfit) >= 0
+                ? "Hafta karda"
+                : "Hafta zararda"}
+          </Text>
+        </View>
+        <Text style={styles.heroLabel}>Haftalik net kar</Text>
+        <Text style={styles.heroValue}>
+          {isLoading ? "..." : formatMoney(toNumber(weeklyReport?.netProfit))}
+        </Text>
+        <Text style={styles.heroDetail}>
+          {isLoading
+            ? "Bu haftanin finans raporu hazirlaniyor."
+            : `${formatMoney(toNumber(weeklyReport?.grossIncome))} brut gelirden ${formatMoney(
+                toNumber(weeklyReport?.totalCost),
+              )} toplam gider dusuldu.`}
+        </Text>
+      </View>
+
+      {message ? <Text style={styles.formAlert}>{message}</Text> : null}
+
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Haftalik ozet</Text>
+        <Pressable onPress={loadWeeklySummary} style={styles.secondaryButton}>
+          <Text style={styles.secondaryButtonText}>Yenile</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.metricGrid}>
+        {metricRows.map(([label, value]) => (
+          <View key={label} style={styles.metricCard}>
+            <Text style={styles.metricLabel}>{label}</Text>
+            <Text style={styles.metricValue}>{isLoading ? "..." : value}</Text>
           </View>
         ))}
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Karlilik trendi</Text>
-        <View style={styles.trendBars}>
-          {[44, 72, 58, 86, 64, 92, 76].map((height, index) => (
-            <View key={index} style={styles.trendBarTrack}>
-              <View style={[styles.trendBarFill, { height }]} />
-            </View>
-          ))}
-        </View>
+        <Text style={styles.sectionTitle}>Hafta kapsami</Text>
+        {summaryRows.map(([label, value]) => (
+          <View key={label} style={styles.reportRow}>
+            <Text style={styles.reportLabel}>{label}</Text>
+            <Text style={styles.reportValue}>{isLoading ? "..." : value}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Haftalik gider kirilimi</Text>
+        {costRows.map(([label, value]) => (
+          <View key={label} style={styles.expenseRow}>
+            <Text style={styles.expenseName}>{label}</Text>
+            <Text style={styles.expenseAmount}>{isLoading ? "..." : value}</Text>
+          </View>
+        ))}
       </View>
     </>
   );
@@ -3284,6 +3395,15 @@ function addDays(dateValue: string, days: number) {
   date.setUTCDate(date.getUTCDate() + days);
 
   return date.toISOString().slice(0, 10);
+}
+
+function getCurrentWeekStartInputValue() {
+  const today = getLocalDateInputValue();
+  const date = new Date(`${today}T00:00:00.000Z`);
+  const day = date.getUTCDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+
+  return addDays(today, diffToMonday);
 }
 
 function calculateDateRangeDays(startValue: string, endValue: string) {
