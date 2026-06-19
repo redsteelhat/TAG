@@ -10,9 +10,10 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
+import { MonthlyProfitQueryDto } from './dto/monthly-profit-query.dto';
 import { WeeklyProfitQueryDto } from './dto/weekly-profit-query.dto';
 
-type ProfitPeriod = 'daily' | 'weekly';
+type ProfitPeriod = 'daily' | 'weekly' | 'monthly';
 
 interface PeriodRange {
   date: string;
@@ -51,6 +52,14 @@ export class ReportsService {
       query.weekStart
         ? this.resolveWeekRange(query.weekStart, false)
         : this.resolveWeekRange(query.date),
+      query.vehicleId
+    );
+  }
+
+  async calculateMonthlyProfit(userId: string, query: MonthlyProfitQueryDto) {
+    return this.calculateProfitForPeriod(
+      userId,
+      this.resolveMonthRange(query.month ?? query.date),
       query.vehicleId
     );
   }
@@ -535,6 +544,30 @@ export class ReportsService {
       endDate: end.toISOString().slice(0, 10),
       nextStart,
       period: 'weekly',
+      start,
+      startDate: start.toISOString().slice(0, 10)
+    };
+  }
+
+  private resolveMonthRange(dateValue?: string): PeriodRange {
+    const date = dateValue?.match(/^\d{4}-\d{2}$/)
+      ? this.parseDate(`${dateValue}-01`)
+      : this.parseDate(dateValue);
+    const start = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)
+    );
+    const nextStart = new Date(
+      Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1)
+    );
+    const end = new Date(nextStart);
+
+    end.setUTCDate(end.getUTCDate() - 1);
+
+    return {
+      date: start.toISOString().slice(0, 7),
+      endDate: end.toISOString().slice(0, 10),
+      nextStart,
+      period: 'monthly',
       start,
       startDate: start.toISOString().slice(0, 10)
     };
