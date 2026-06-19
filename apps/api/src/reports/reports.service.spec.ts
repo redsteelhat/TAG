@@ -4,6 +4,7 @@ import {
   PackageAllocationMethod,
   Prisma
 } from '@prisma/client';
+import { ReportCacheService } from './report-cache.service';
 import { ReportsService } from './reports.service';
 
 describe('ReportsService', () => {
@@ -106,7 +107,10 @@ describe('ReportsService', () => {
         ])
       }
     };
-    const service = new ReportsService(prisma as never);
+    const service = new ReportsService(
+      prisma as never,
+      new ReportCacheService()
+    );
 
     const result = await service.calculateDailyProfit('user_1', {
       date: '2026-06-18',
@@ -215,7 +219,10 @@ describe('ReportsService', () => {
         ])
       }
     };
-    const service = new ReportsService(prisma as never);
+    const service = new ReportsService(
+      prisma as never,
+      new ReportCacheService()
+    );
 
     const result = await service.calculateWeeklyProfit('user_1', {
       date: '2026-06-18',
@@ -320,7 +327,10 @@ describe('ReportsService', () => {
         ])
       }
     };
-    const service = new ReportsService(prisma as never);
+    const service = new ReportsService(
+      prisma as never,
+      new ReportCacheService()
+    );
 
     const result = await service.calculateMonthlyProfit('user_1', {
       month: '2026-06',
@@ -408,7 +418,10 @@ describe('ReportsService', () => {
         findMany: jest.fn().mockResolvedValue([])
       }
     };
-    const service = new ReportsService(prisma as never);
+    const service = new ReportsService(
+      prisma as never,
+      new ReportCacheService()
+    );
 
     const result = await service.calculateKmProfitability('user_1', {
       date: '2026-06-18',
@@ -490,7 +503,10 @@ describe('ReportsService', () => {
         findMany: jest.fn().mockResolvedValue([])
       }
     };
-    const service = new ReportsService(prisma as never);
+    const service = new ReportsService(
+      prisma as never,
+      new ReportCacheService()
+    );
 
     const result = await service.calculateHourlyProfitability('user_1', {
       date: '2026-06-18',
@@ -577,7 +593,10 @@ describe('ReportsService', () => {
         findMany: jest.fn().mockResolvedValue([])
       }
     };
-    const service = new ReportsService(prisma as never);
+    const service = new ReportsService(
+      prisma as never,
+      new ReportCacheService()
+    );
 
     const result = await service.calculateBreakEven('user_1', {
       date: '2026-06-18',
@@ -597,7 +616,7 @@ describe('ReportsService', () => {
   });
 
   it('builds report overview from report APIs', async () => {
-    const service = new ReportsService({} as never);
+    const service = new ReportsService({} as never, new ReportCacheService());
     const dailyProfit = { period: 'daily', netProfit: '100.00' };
     const weeklyProfit = { period: 'weekly', netProfit: '700.00' };
     const monthlyProfit = { period: 'monthly', netProfit: '3000.00' };
@@ -620,7 +639,9 @@ describe('ReportsService', () => {
     jest
       .spyOn(service, 'calculateHourlyProfitability')
       .mockResolvedValue(hourlyProfitability as never);
-    jest.spyOn(service, 'calculateBreakEven').mockResolvedValue(breakEven as never);
+    jest
+      .spyOn(service, 'calculateBreakEven')
+      .mockResolvedValue(breakEven as never);
 
     const result = await service.getReportOverview('user_1', {
       date: '2026-06-18',

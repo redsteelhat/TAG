@@ -9,10 +9,7 @@ import {
   TagPackage
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  BreakEvenPeriod,
-  BreakEvenQueryDto
-} from './dto/break-even-query.dto';
+import { BreakEvenPeriod, BreakEvenQueryDto } from './dto/break-even-query.dto';
 import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
 import {
   HourlyProfitPeriod,
@@ -22,6 +19,7 @@ import { KmProfitPeriod, KmProfitQueryDto } from './dto/km-profit-query.dto';
 import { MonthlyProfitQueryDto } from './dto/monthly-profit-query.dto';
 import { ReportOverviewQueryDto } from './dto/report-overview-query.dto';
 import { WeeklyProfitQueryDto } from './dto/weekly-profit-query.dto';
+import { ReportCacheService } from './report-cache.service';
 
 type ProfitPeriod = 'daily' | 'weekly' | 'monthly';
 
@@ -45,258 +43,334 @@ interface CostBuckets {
 @Injectable()
 export class ReportsService {
   readonly calculationVersion = 'profit-period-v1';
+  private readonly realtimeReportCacheTtlMs = 30_000;
+  private readonly periodReportCacheTtlMs = 120_000;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reportCache: ReportCacheService
+  ) {}
 
   async calculateDailyProfit(userId: string, query: DailyProfitQueryDto) {
-    return this.calculateProfitForPeriod(
-      userId,
-      this.resolveDayRange(query.date),
-      query.vehicleId
+    return this.reportCache.getOrSet(
+      this.buildReportCacheKey(userId, 'daily-profit', query),
+      this.realtimeReportCacheTtlMs,
+      () =>
+        this.calculateProfitForPeriod(
+          userId,
+          this.resolveDayRange(query.date),
+          query.vehicleId
+        )
     );
   }
 
   async calculateWeeklyProfit(userId: string, query: WeeklyProfitQueryDto) {
-    return this.calculateProfitForPeriod(
-      userId,
-      query.weekStart
-        ? this.resolveWeekRange(query.weekStart, false)
-        : this.resolveWeekRange(query.date),
-      query.vehicleId
+    return this.reportCache.getOrSet(
+      this.buildReportCacheKey(userId, 'weekly-profit', query),
+      this.periodReportCacheTtlMs,
+      () =>
+        this.calculateProfitForPeriod(
+          userId,
+          query.weekStart
+            ? this.resolveWeekRange(query.weekStart, false)
+            : this.resolveWeekRange(query.date),
+          query.vehicleId
+        )
     );
   }
 
   async calculateMonthlyProfit(userId: string, query: MonthlyProfitQueryDto) {
-    return this.calculateProfitForPeriod(
-      userId,
-      this.resolveMonthRange(query.month ?? query.date),
-      query.vehicleId
+    return this.reportCache.getOrSet(
+      this.buildReportCacheKey(userId, 'monthly-profit', query),
+      this.periodReportCacheTtlMs,
+      () =>
+        this.calculateProfitForPeriod(
+          userId,
+          this.resolveMonthRange(query.month ?? query.date),
+          query.vehicleId
+        )
     );
   }
 
   async calculateKmProfitability(userId: string, query: KmProfitQueryDto) {
-    const periodRange = this.resolveKmProfitPeriodRange(query);
-    const profit = await this.calculateProfitForPeriod(
-      userId,
-      periodRange,
-      query.vehicleId
-    );
-    const totalKm = this.decimal(profit.totalKm);
-    const grossIncome = this.decimal(profit.grossIncome);
-    const totalCost = this.decimal(profit.totalCost);
-    const netProfit = this.decimal(profit.netProfit);
+    return this.reportCache.getOrSet(
+      this.buildReportCacheKey(userId, 'km-profitability', query),
+      this.realtimeReportCacheTtlMs,
+      async () => {
+        const periodRange = this.resolveKmProfitPeriodRange(query);
+        const profit = await this.calculateProfitForPeriod(
+          userId,
+          periodRange,
+          query.vehicleId
+        );
+        const totalKm = this.decimal(profit.totalKm);
+        const grossIncome = this.decimal(profit.grossIncome);
+        const totalCost = this.decimal(profit.totalCost);
+        const netProfit = this.decimal(profit.netProfit);
 
-    return {
-      date: profit.date,
-      endDate: profit.endDate,
-      period: profit.period,
-      startDate: profit.startDate,
-      vehicleId: profit.vehicleId,
-      totalKm: profit.totalKm,
-      grossIncome: profit.grossIncome,
-      totalCost: profit.totalCost,
-      netProfit: profit.netProfit,
-      grossIncomePerKm: this.money(this.divideOrZero(grossIncome, totalKm)),
-      costPerKm: this.money(this.divideOrZero(totalCost, totalKm)),
-      netProfitPerKm: this.money(this.divideOrZero(netProfit, totalKm)),
-      fuelCostPerKm: this.money(
-        this.divideOrZero(this.decimal(profit.fuelCost), totalKm)
-      ),
-      packageCostPerKm: this.money(
-        this.divideOrZero(this.decimal(profit.tagPackageCost), totalKm)
-      ),
-      variableExpensePerKm: this.money(
-        this.divideOrZero(this.decimal(profit.variableExpenses), totalKm)
-      ),
-      fixedExpensePerKm: this.money(
-        this.divideOrZero(this.decimal(profit.fixedExpenses), totalKm)
-      ),
-      maintenanceReservePerKm: this.money(
-        this.divideOrZero(this.decimal(profit.maintenanceReserve), totalKm)
-      ),
-      depreciationPerKm: this.money(
-        this.divideOrZero(this.decimal(profit.depreciation), totalKm)
-      ),
-      tripCount: profit.tripCount,
-      formula: {
-        grossIncomePerKm: 'grossIncome / totalKm',
-        costPerKm: 'totalCost / totalKm',
-        netProfitPerKm: 'netProfit / totalKm'
-      },
-      calculationVersion: profit.calculationVersion
-    };
+        return {
+          date: profit.date,
+          endDate: profit.endDate,
+          period: profit.period,
+          startDate: profit.startDate,
+          vehicleId: profit.vehicleId,
+          totalKm: profit.totalKm,
+          grossIncome: profit.grossIncome,
+          totalCost: profit.totalCost,
+          netProfit: profit.netProfit,
+          grossIncomePerKm: this.money(this.divideOrZero(grossIncome, totalKm)),
+          costPerKm: this.money(this.divideOrZero(totalCost, totalKm)),
+          netProfitPerKm: this.money(this.divideOrZero(netProfit, totalKm)),
+          fuelCostPerKm: this.money(
+            this.divideOrZero(this.decimal(profit.fuelCost), totalKm)
+          ),
+          packageCostPerKm: this.money(
+            this.divideOrZero(this.decimal(profit.tagPackageCost), totalKm)
+          ),
+          variableExpensePerKm: this.money(
+            this.divideOrZero(this.decimal(profit.variableExpenses), totalKm)
+          ),
+          fixedExpensePerKm: this.money(
+            this.divideOrZero(this.decimal(profit.fixedExpenses), totalKm)
+          ),
+          maintenanceReservePerKm: this.money(
+            this.divideOrZero(this.decimal(profit.maintenanceReserve), totalKm)
+          ),
+          depreciationPerKm: this.money(
+            this.divideOrZero(this.decimal(profit.depreciation), totalKm)
+          ),
+          tripCount: profit.tripCount,
+          formula: {
+            grossIncomePerKm: 'grossIncome / totalKm',
+            costPerKm: 'totalCost / totalKm',
+            netProfitPerKm: 'netProfit / totalKm'
+          },
+          calculationVersion: profit.calculationVersion
+        };
+      }
+    );
   }
 
   async calculateHourlyProfitability(
     userId: string,
     query: HourlyProfitQueryDto
   ) {
-    const periodRange = this.resolveHourlyProfitPeriodRange(query);
-    const profit = await this.calculateProfitForPeriod(
-      userId,
-      periodRange,
-      query.vehicleId
-    );
-    const activeHours =
-      profit.activeMinutes > 0
-        ? new Prisma.Decimal(profit.activeMinutes).div(60)
-        : new Prisma.Decimal(0);
-    const grossIncome = this.decimal(profit.grossIncome);
-    const totalCost = this.decimal(profit.totalCost);
-    const netProfit = this.decimal(profit.netProfit);
+    return this.reportCache.getOrSet(
+      this.buildReportCacheKey(userId, 'hourly-profitability', query),
+      this.realtimeReportCacheTtlMs,
+      async () => {
+        const periodRange = this.resolveHourlyProfitPeriodRange(query);
+        const profit = await this.calculateProfitForPeriod(
+          userId,
+          periodRange,
+          query.vehicleId
+        );
+        const activeHours =
+          profit.activeMinutes > 0
+            ? new Prisma.Decimal(profit.activeMinutes).div(60)
+            : new Prisma.Decimal(0);
+        const grossIncome = this.decimal(profit.grossIncome);
+        const totalCost = this.decimal(profit.totalCost);
+        const netProfit = this.decimal(profit.netProfit);
 
-    return {
-      date: profit.date,
-      endDate: profit.endDate,
-      period: profit.period,
-      startDate: profit.startDate,
-      vehicleId: profit.vehicleId,
-      activeMinutes: profit.activeMinutes,
-      activeHours: activeHours.toDecimalPlaces(2).toFixed(2),
-      grossIncome: profit.grossIncome,
-      totalCost: profit.totalCost,
-      netProfit: profit.netProfit,
-      grossIncomePerHour: this.money(
-        this.divideOrZero(grossIncome, activeHours)
-      ),
-      costPerHour: this.money(this.divideOrZero(totalCost, activeHours)),
-      netProfitPerHour: this.money(this.divideOrZero(netProfit, activeHours)),
-      fuelCostPerHour: this.money(
-        this.divideOrZero(this.decimal(profit.fuelCost), activeHours)
-      ),
-      packageCostPerHour: this.money(
-        this.divideOrZero(this.decimal(profit.tagPackageCost), activeHours)
-      ),
-      variableExpensePerHour: this.money(
-        this.divideOrZero(this.decimal(profit.variableExpenses), activeHours)
-      ),
-      fixedExpensePerHour: this.money(
-        this.divideOrZero(this.decimal(profit.fixedExpenses), activeHours)
-      ),
-      maintenanceReservePerHour: this.money(
-        this.divideOrZero(this.decimal(profit.maintenanceReserve), activeHours)
-      ),
-      depreciationPerHour: this.money(
-        this.divideOrZero(this.decimal(profit.depreciation), activeHours)
-      ),
-      tripCount: profit.tripCount,
-      shiftCount: profit.shiftCount,
-      formula: {
-        grossIncomePerHour: 'grossIncome / activeHours',
-        costPerHour: 'totalCost / activeHours',
-        netProfitPerHour: 'netProfit / activeHours'
-      },
-      calculationVersion: profit.calculationVersion
-    };
+        return {
+          date: profit.date,
+          endDate: profit.endDate,
+          period: profit.period,
+          startDate: profit.startDate,
+          vehicleId: profit.vehicleId,
+          activeMinutes: profit.activeMinutes,
+          activeHours: activeHours.toDecimalPlaces(2).toFixed(2),
+          grossIncome: profit.grossIncome,
+          totalCost: profit.totalCost,
+          netProfit: profit.netProfit,
+          grossIncomePerHour: this.money(
+            this.divideOrZero(grossIncome, activeHours)
+          ),
+          costPerHour: this.money(this.divideOrZero(totalCost, activeHours)),
+          netProfitPerHour: this.money(
+            this.divideOrZero(netProfit, activeHours)
+          ),
+          fuelCostPerHour: this.money(
+            this.divideOrZero(this.decimal(profit.fuelCost), activeHours)
+          ),
+          packageCostPerHour: this.money(
+            this.divideOrZero(this.decimal(profit.tagPackageCost), activeHours)
+          ),
+          variableExpensePerHour: this.money(
+            this.divideOrZero(
+              this.decimal(profit.variableExpenses),
+              activeHours
+            )
+          ),
+          fixedExpensePerHour: this.money(
+            this.divideOrZero(this.decimal(profit.fixedExpenses), activeHours)
+          ),
+          maintenanceReservePerHour: this.money(
+            this.divideOrZero(
+              this.decimal(profit.maintenanceReserve),
+              activeHours
+            )
+          ),
+          depreciationPerHour: this.money(
+            this.divideOrZero(this.decimal(profit.depreciation), activeHours)
+          ),
+          tripCount: profit.tripCount,
+          shiftCount: profit.shiftCount,
+          formula: {
+            grossIncomePerHour: 'grossIncome / activeHours',
+            costPerHour: 'totalCost / activeHours',
+            netProfitPerHour: 'netProfit / activeHours'
+          },
+          calculationVersion: profit.calculationVersion
+        };
+      }
+    );
   }
 
   async calculateBreakEven(userId: string, query: BreakEvenQueryDto) {
-    const periodRange = this.resolveBreakEvenPeriodRange(query);
-    const profit = await this.calculateProfitForPeriod(
-      userId,
-      periodRange,
-      query.vehicleId
-    );
-    const grossIncome = this.decimal(profit.grossIncome);
-    const breakEvenRevenue = this.decimal(profit.totalCost);
-    const remainingRevenue = this.positiveDifference(
-      breakEvenRevenue,
-      grossIncome
-    );
-    const surplusRevenue = this.positiveDifference(
-      grossIncome,
-      breakEvenRevenue
-    );
-    const breakEvenProgressPercent = breakEvenRevenue.gt(0)
-      ? grossIncome.mul(100).div(breakEvenRevenue)
-      : new Prisma.Decimal(100);
+    return this.reportCache.getOrSet(
+      this.buildReportCacheKey(userId, 'break-even', query),
+      this.realtimeReportCacheTtlMs,
+      async () => {
+        const periodRange = this.resolveBreakEvenPeriodRange(query);
+        const profit = await this.calculateProfitForPeriod(
+          userId,
+          periodRange,
+          query.vehicleId
+        );
+        const grossIncome = this.decimal(profit.grossIncome);
+        const breakEvenRevenue = this.decimal(profit.totalCost);
+        const remainingRevenue = this.positiveDifference(
+          breakEvenRevenue,
+          grossIncome
+        );
+        const surplusRevenue = this.positiveDifference(
+          grossIncome,
+          breakEvenRevenue
+        );
+        const breakEvenProgressPercent = breakEvenRevenue.gt(0)
+          ? grossIncome.mul(100).div(breakEvenRevenue)
+          : new Prisma.Decimal(100);
 
-    return {
-      date: profit.date,
-      endDate: profit.endDate,
-      period: profit.period,
-      startDate: profit.startDate,
-      vehicleId: profit.vehicleId,
-      grossIncome: profit.grossIncome,
-      breakEvenRevenue: this.money(breakEvenRevenue),
-      remainingRevenue: this.money(remainingRevenue),
-      surplusRevenue: this.money(surplusRevenue),
-      breakEvenProgressPercent: breakEvenProgressPercent
-        .toDecimalPlaces(2)
-        .toFixed(2),
-      isBreakEvenReached: grossIncome.gte(breakEvenRevenue),
-      netProfit: profit.netProfit,
-      costBreakdown: {
-        fuelCost: profit.fuelCost,
-        tagPackageCost: profit.tagPackageCost,
-        variableExpenses: profit.variableExpenses,
-        fixedExpenses: profit.fixedExpenses,
-        maintenanceReserve: profit.maintenanceReserve,
-        depreciation: profit.depreciation
-      },
-      formula: {
-        breakEvenRevenue:
-          'fuelCost + tagPackageCost + variableExpenses + fixedExpenses + maintenanceReserve + depreciation',
-        remainingRevenue: 'max(breakEvenRevenue - grossIncome, 0)',
-        surplusRevenue: 'max(grossIncome - breakEvenRevenue, 0)'
-      },
-      calculationVersion: profit.calculationVersion
-    };
+        return {
+          date: profit.date,
+          endDate: profit.endDate,
+          period: profit.period,
+          startDate: profit.startDate,
+          vehicleId: profit.vehicleId,
+          grossIncome: profit.grossIncome,
+          breakEvenRevenue: this.money(breakEvenRevenue),
+          remainingRevenue: this.money(remainingRevenue),
+          surplusRevenue: this.money(surplusRevenue),
+          breakEvenProgressPercent: breakEvenProgressPercent
+            .toDecimalPlaces(2)
+            .toFixed(2),
+          isBreakEvenReached: grossIncome.gte(breakEvenRevenue),
+          netProfit: profit.netProfit,
+          costBreakdown: {
+            fuelCost: profit.fuelCost,
+            tagPackageCost: profit.tagPackageCost,
+            variableExpenses: profit.variableExpenses,
+            fixedExpenses: profit.fixedExpenses,
+            maintenanceReserve: profit.maintenanceReserve,
+            depreciation: profit.depreciation
+          },
+          formula: {
+            breakEvenRevenue:
+              'fuelCost + tagPackageCost + variableExpenses + fixedExpenses + maintenanceReserve + depreciation',
+            remainingRevenue: 'max(breakEvenRevenue - grossIncome, 0)',
+            surplusRevenue: 'max(grossIncome - breakEvenRevenue, 0)'
+          },
+          calculationVersion: profit.calculationVersion
+        };
+      }
+    );
   }
 
   async getReportOverview(userId: string, query: ReportOverviewQueryDto) {
-    const [dailyProfit, weeklyProfit, monthlyProfit, kmProfitability, hourlyProfitability, breakEven] =
-      await Promise.all([
-        this.calculateDailyProfit(userId, {
-          date: query.date,
-          vehicleId: query.vehicleId
-        }),
-        this.calculateWeeklyProfit(userId, {
-          date: query.date,
-          vehicleId: query.vehicleId,
-          weekStart: query.weekStart
-        }),
-        this.calculateMonthlyProfit(userId, {
-          date: query.date,
-          month: query.month,
-          vehicleId: query.vehicleId
-        }),
-        this.calculateKmProfitability(userId, {
-          date: query.date,
-          period: KmProfitPeriod.DAILY,
-          vehicleId: query.vehicleId
-        }),
-        this.calculateHourlyProfitability(userId, {
-          date: query.date,
-          period: HourlyProfitPeriod.DAILY,
-          vehicleId: query.vehicleId
-        }),
-        this.calculateBreakEven(userId, {
-          date: query.date,
-          period: BreakEvenPeriod.DAILY,
-          vehicleId: query.vehicleId
-        })
-      ]);
+    return this.reportCache.getOrSet(
+      this.buildReportCacheKey(userId, 'overview', query),
+      this.realtimeReportCacheTtlMs,
+      async () => {
+        const [
+          dailyProfit,
+          weeklyProfit,
+          monthlyProfit,
+          kmProfitability,
+          hourlyProfitability,
+          breakEven
+        ] = await Promise.all([
+          this.calculateDailyProfit(userId, {
+            date: query.date,
+            vehicleId: query.vehicleId
+          }),
+          this.calculateWeeklyProfit(userId, {
+            date: query.date,
+            vehicleId: query.vehicleId,
+            weekStart: query.weekStart
+          }),
+          this.calculateMonthlyProfit(userId, {
+            date: query.date,
+            month: query.month,
+            vehicleId: query.vehicleId
+          }),
+          this.calculateKmProfitability(userId, {
+            date: query.date,
+            period: KmProfitPeriod.DAILY,
+            vehicleId: query.vehicleId
+          }),
+          this.calculateHourlyProfitability(userId, {
+            date: query.date,
+            period: HourlyProfitPeriod.DAILY,
+            vehicleId: query.vehicleId
+          }),
+          this.calculateBreakEven(userId, {
+            date: query.date,
+            period: BreakEvenPeriod.DAILY,
+            vehicleId: query.vehicleId
+          })
+        ]);
 
-    return {
-      generatedAt: new Date().toISOString(),
-      vehicleId: query.vehicleId ?? null,
-      dailyProfit,
-      weeklyProfit,
-      monthlyProfit,
-      kmProfitability,
-      hourlyProfitability,
-      breakEven,
-      availableReports: [
-        'dailyProfit',
-        'weeklyProfit',
-        'monthlyProfit',
-        'kmProfitability',
-        'hourlyProfitability',
-        'breakEven'
-      ],
-      calculationVersion: this.calculationVersion
-    };
+        return {
+          generatedAt: new Date().toISOString(),
+          vehicleId: query.vehicleId ?? null,
+          dailyProfit,
+          weeklyProfit,
+          monthlyProfit,
+          kmProfitability,
+          hourlyProfitability,
+          breakEven,
+          availableReports: [
+            'dailyProfit',
+            'weeklyProfit',
+            'monthlyProfit',
+            'kmProfitability',
+            'hourlyProfitability',
+            'breakEven'
+          ],
+          calculationVersion: this.calculationVersion
+        };
+      }
+    );
+  }
+
+  private buildReportCacheKey(
+    userId: string,
+    reportType: string,
+    query: object
+  ) {
+    const normalizedQuery = Object.entries(query)
+      .filter(([, value]) => value !== undefined && value !== '')
+      .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+
+    return [
+      'reports',
+      this.calculationVersion,
+      userId,
+      reportType,
+      JSON.stringify(normalizedQuery)
+    ].join(':');
   }
 
   private async calculateProfitForPeriod(
@@ -512,7 +586,9 @@ export class ReportsService {
       directExpenseCount: directExpenses.length,
       recurringExpenseCount: recurringExpenses.length,
       activePackageCount: activePackages.length,
-      actualFuelPurchaseCost: this.money(this.decimal(fuelAggregate._sum.amount)),
+      actualFuelPurchaseCost: this.money(
+        this.decimal(fuelAggregate._sum.amount)
+      ),
       actualFuelLiters: this.decimal(fuelAggregate._sum.liters).toFixed(3),
       actualFuelEntryCount: fuelAggregate._count._all,
       sourceBreakdown: {
@@ -540,9 +616,7 @@ export class ReportsService {
     };
   }
 
-  private calculateDirectExpenseBuckets(
-    expenses: ExpenseEntry[]
-  ): CostBuckets {
+  private calculateDirectExpenseBuckets(expenses: ExpenseEntry[]): CostBuckets {
     return expenses.reduce(
       (buckets, expense) =>
         this.addExpenseToBuckets(buckets, expense.expense_type, expense.amount),
@@ -758,7 +832,10 @@ export class ReportsService {
     };
   }
 
-  private resolveWeekRange(dateValue?: string, snapToMonday = true): PeriodRange {
+  private resolveWeekRange(
+    dateValue?: string,
+    snapToMonday = true
+  ): PeriodRange {
     const date = this.startOfUtcDay(this.parseDate(dateValue));
     const start = new Date(date);
 
@@ -993,9 +1070,7 @@ export class ReportsService {
       return new Prisma.Decimal(0);
     }
 
-    return value instanceof Prisma.Decimal
-      ? value
-      : new Prisma.Decimal(value);
+    return value instanceof Prisma.Decimal ? value : new Prisma.Decimal(value);
   }
 
   private money(value: Prisma.Decimal) {
