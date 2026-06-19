@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
+import { KmProfitPeriod, KmProfitQueryDto } from './dto/km-profit-query.dto';
 import { MonthlyProfitQueryDto } from './dto/monthly-profit-query.dto';
 import { WeeklyProfitQueryDto } from './dto/weekly-profit-query.dto';
 
@@ -62,6 +63,59 @@ export class ReportsService {
       this.resolveMonthRange(query.month ?? query.date),
       query.vehicleId
     );
+  }
+
+  async calculateKmProfitability(userId: string, query: KmProfitQueryDto) {
+    const periodRange = this.resolveKmProfitPeriodRange(query);
+    const profit = await this.calculateProfitForPeriod(
+      userId,
+      periodRange,
+      query.vehicleId
+    );
+    const totalKm = this.decimal(profit.totalKm);
+    const grossIncome = this.decimal(profit.grossIncome);
+    const totalCost = this.decimal(profit.totalCost);
+    const netProfit = this.decimal(profit.netProfit);
+
+    return {
+      date: profit.date,
+      endDate: profit.endDate,
+      period: profit.period,
+      startDate: profit.startDate,
+      vehicleId: profit.vehicleId,
+      totalKm: profit.totalKm,
+      grossIncome: profit.grossIncome,
+      totalCost: profit.totalCost,
+      netProfit: profit.netProfit,
+      grossIncomePerKm: this.money(this.divideOrZero(grossIncome, totalKm)),
+      costPerKm: this.money(this.divideOrZero(totalCost, totalKm)),
+      netProfitPerKm: this.money(this.divideOrZero(netProfit, totalKm)),
+      fuelCostPerKm: this.money(
+        this.divideOrZero(this.decimal(profit.fuelCost), totalKm)
+      ),
+      packageCostPerKm: this.money(
+        this.divideOrZero(this.decimal(profit.tagPackageCost), totalKm)
+      ),
+      variableExpensePerKm: this.money(
+        this.divideOrZero(this.decimal(profit.variableExpenses), totalKm)
+      ),
+      fixedExpensePerKm: this.money(
+        this.divideOrZero(this.decimal(profit.fixedExpenses), totalKm)
+      ),
+      maintenanceReservePerKm: this.money(
+        this.divideOrZero(this.decimal(profit.maintenanceReserve), totalKm)
+      ),
+      depreciationPerKm: this.money(
+        this.divideOrZero(this.decimal(profit.depreciation), totalKm)
+      ),
+      tripCount: profit.tripCount,
+      formula: {
+        grossIncomePerKm: 'grossIncome / totalKm',
+        costPerKm: 'totalCost / totalKm',
+        netProfitPerKm: 'netProfit / totalKm'
+      },
+      calculationVersion: profit.calculationVersion
+    };
   }
 
   private async calculateProfitForPeriod(
@@ -571,6 +625,28 @@ export class ReportsService {
       start,
       startDate: start.toISOString().slice(0, 10)
     };
+  }
+
+  private resolveKmProfitPeriodRange(query: KmProfitQueryDto): PeriodRange {
+    const period =
+      query.period ??
+      (query.month
+        ? KmProfitPeriod.MONTHLY
+        : query.weekStart
+          ? KmProfitPeriod.WEEKLY
+          : KmProfitPeriod.DAILY);
+
+    if (period === KmProfitPeriod.MONTHLY) {
+      return this.resolveMonthRange(query.month ?? query.date);
+    }
+
+    if (period === KmProfitPeriod.WEEKLY) {
+      return query.weekStart
+        ? this.resolveWeekRange(query.weekStart, false)
+        : this.resolveWeekRange(query.date);
+    }
+
+    return this.resolveDayRange(query.date);
   }
 
   private parseDate(dateValue?: string) {
