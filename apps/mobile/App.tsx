@@ -293,6 +293,13 @@ interface WeeklyProfitResponse {
   };
 }
 
+interface MonthlyProfitResponse {
+  data: ProfitReport & {
+    endDate: string;
+    startDate: string;
+  };
+}
+
 interface DailyExpenseSummary {
   activePackageCount: number;
   fuelCost: number;
@@ -3019,41 +3026,76 @@ function ReportsTabContent({
   const [weeklyReport, setWeeklyReport] = useState<
     WeeklyProfitResponse["data"] | null
   >(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [monthlyReport, setMonthlyReport] = useState<
+    MonthlyProfitResponse["data"] | null
+  >(null);
+  const [isWeeklyLoading, setIsWeeklyLoading] = useState(true);
+  const [isMonthlyLoading, setIsMonthlyLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    loadWeeklySummary().catch((error) => {
+    void refreshReports();
+  }, [selectedVehicle.id]);
+
+  async function refreshReports() {
+    await Promise.all([loadWeeklySummary(), loadMonthlySummary()]);
+  }
+
+  async function loadWeeklySummary() {
+    setIsWeeklyLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await getJson<WeeklyProfitResponse>(
+        `${apiBaseUrl}/reports/weekly-profit${buildQueryString({
+          vehicleId: selectedVehicle.id,
+          weekStart: getCurrentWeekStartInputValue(),
+        })}`,
+        accessToken,
+      );
+
+      setWeeklyReport(response.data);
+    } catch (error) {
+      setWeeklyReport(null);
       setMessage(
         error instanceof Error ? error.message : "Haftalik ozet yuklenemedi.",
       );
-      setIsLoading(false);
-    });
-  }, [selectedVehicle.id]);
-
-  async function loadWeeklySummary() {
-    setIsLoading(true);
-    setMessage(null);
-
-    const response = await getJson<WeeklyProfitResponse>(
-      `${apiBaseUrl}/reports/weekly-profit${buildQueryString({
-        vehicleId: selectedVehicle.id,
-        weekStart: getCurrentWeekStartInputValue(),
-      })}`,
-      accessToken,
-    );
-
-    setWeeklyReport(response.data);
-    setIsLoading(false);
+    } finally {
+      setIsWeeklyLoading(false);
+    }
   }
 
-  const metricRows = [
+  async function loadMonthlySummary() {
+    setIsMonthlyLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await getJson<MonthlyProfitResponse>(
+        `${apiBaseUrl}/reports/monthly-profit${buildQueryString({
+          month: getCurrentMonthInputValue(),
+          vehicleId: selectedVehicle.id,
+        })}`,
+        accessToken,
+      );
+
+      setMonthlyReport(response.data);
+    } catch (error) {
+      setMonthlyReport(null);
+      setMessage(
+        error instanceof Error ? error.message : "Aylik ozet yuklenemedi.",
+      );
+    } finally {
+      setIsMonthlyLoading(false);
+    }
+  }
+
+  const weeklyMetricRows = [
     ["Haftalik brut gelir", formatMoney(toNumber(weeklyReport?.grossIncome))],
     ["Toplam gider", formatMoney(toNumber(weeklyReport?.totalCost))],
     ["Km basi net", `${formatNumber(toNumber(weeklyReport?.kmProfit))} TL`],
     ["Saatlik net", formatMoney(toNumber(weeklyReport?.hourlyProfit))],
   ];
-  const summaryRows = [
+  const weeklySummaryRows = [
     ["Sefer", String(weeklyReport?.tripCount ?? 0)],
     ["Toplam km", `${formatNumber(toNumber(weeklyReport?.totalKm))} km`],
     ["Sure", formatDuration(weeklyReport?.activeMinutes ?? 0)],
@@ -3064,13 +3106,38 @@ function ReportsTabContent({
         : getCurrentWeekStartInputValue(),
     ],
   ];
-  const costRows = [
+  const weeklyCostRows = [
     ["Yakit", formatMoney(toNumber(weeklyReport?.fuelCost))],
     ["Paket", formatMoney(toNumber(weeklyReport?.tagPackageCost))],
     ["Degisken", formatMoney(toNumber(weeklyReport?.variableExpenses))],
     ["Sabit", formatMoney(toNumber(weeklyReport?.fixedExpenses))],
     ["Bakim", formatMoney(toNumber(weeklyReport?.maintenanceReserve))],
     ["Amortisman", formatMoney(toNumber(weeklyReport?.depreciation))],
+  ];
+  const monthlyMetricRows = [
+    ["Aylik brut gelir", formatMoney(toNumber(monthlyReport?.grossIncome))],
+    ["Toplam gider", formatMoney(toNumber(monthlyReport?.totalCost))],
+    ["Km basi net", `${formatNumber(toNumber(monthlyReport?.kmProfit))} TL`],
+    ["Saatlik net", formatMoney(toNumber(monthlyReport?.hourlyProfit))],
+  ];
+  const monthlySummaryRows = [
+    ["Sefer", String(monthlyReport?.tripCount ?? 0)],
+    ["Toplam km", `${formatNumber(toNumber(monthlyReport?.totalKm))} km`],
+    ["Sure", formatDuration(monthlyReport?.activeMinutes ?? 0)],
+    [
+      "Ay",
+      monthlyReport
+        ? `${monthlyReport.startDate} / ${monthlyReport.endDate}`
+        : getCurrentMonthInputValue(),
+    ],
+  ];
+  const monthlyCostRows = [
+    ["Yakit", formatMoney(toNumber(monthlyReport?.fuelCost))],
+    ["Paket", formatMoney(toNumber(monthlyReport?.tagPackageCost))],
+    ["Degisken", formatMoney(toNumber(monthlyReport?.variableExpenses))],
+    ["Sabit", formatMoney(toNumber(monthlyReport?.fixedExpenses))],
+    ["Bakim", formatMoney(toNumber(monthlyReport?.maintenanceReserve))],
+    ["Amortisman", formatMoney(toNumber(monthlyReport?.depreciation))],
   ];
 
   return (
@@ -3087,10 +3154,12 @@ function ReportsTabContent({
         </View>
         <Text style={styles.heroLabel}>Haftalik net kar</Text>
         <Text style={styles.heroValue}>
-          {isLoading ? "..." : formatMoney(toNumber(weeklyReport?.netProfit))}
+          {isWeeklyLoading
+            ? "..."
+            : formatMoney(toNumber(weeklyReport?.netProfit))}
         </Text>
         <Text style={styles.heroDetail}>
-          {isLoading
+          {isWeeklyLoading
             ? "Bu haftanin finans raporu hazirlaniyor."
             : `${formatMoney(toNumber(weeklyReport?.grossIncome))} brut gelirden ${formatMoney(
                 toNumber(weeklyReport?.totalCost),
@@ -3108,30 +3177,103 @@ function ReportsTabContent({
       </View>
 
       <View style={styles.metricGrid}>
-        {metricRows.map(([label, value]) => (
+        {weeklyMetricRows.map(([label, value]) => (
           <View key={label} style={styles.metricCard}>
             <Text style={styles.metricLabel}>{label}</Text>
-            <Text style={styles.metricValue}>{isLoading ? "..." : value}</Text>
+            <Text style={styles.metricValue}>
+              {isWeeklyLoading ? "..." : value}
+            </Text>
           </View>
         ))}
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Hafta kapsami</Text>
-        {summaryRows.map(([label, value]) => (
+        {weeklySummaryRows.map(([label, value]) => (
           <View key={label} style={styles.reportRow}>
             <Text style={styles.reportLabel}>{label}</Text>
-            <Text style={styles.reportValue}>{isLoading ? "..." : value}</Text>
+            <Text style={styles.reportValue}>
+              {isWeeklyLoading ? "..." : value}
+            </Text>
           </View>
         ))}
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Haftalik gider kirilimi</Text>
-        {costRows.map(([label, value]) => (
+        {weeklyCostRows.map(([label, value]) => (
           <View key={label} style={styles.expenseRow}>
             <Text style={styles.expenseName}>{label}</Text>
-            <Text style={styles.expenseAmount}>{isLoading ? "..." : value}</Text>
+            <Text style={styles.expenseAmount}>
+              {isWeeklyLoading ? "..." : value}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.heroCard}>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>
+            {!monthlyReport
+              ? "Rapor bekliyor"
+              : toNumber(monthlyReport.netProfit) >= 0
+                ? "Ay karda"
+                : "Ay zararda"}
+          </Text>
+        </View>
+        <Text style={styles.heroLabel}>Aylik net kar</Text>
+        <Text style={styles.heroValue}>
+          {isMonthlyLoading
+            ? "..."
+            : formatMoney(toNumber(monthlyReport?.netProfit))}
+        </Text>
+        <Text style={styles.heroDetail}>
+          {isMonthlyLoading
+            ? "Bu ayin finans raporu hazirlaniyor."
+            : `${formatMoney(toNumber(monthlyReport?.grossIncome))} brut gelirden ${formatMoney(
+                toNumber(monthlyReport?.totalCost),
+              )} toplam gider dusuldu.`}
+        </Text>
+      </View>
+
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Aylik ozet</Text>
+        <Pressable onPress={loadMonthlySummary} style={styles.secondaryButton}>
+          <Text style={styles.secondaryButtonText}>Yenile</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.metricGrid}>
+        {monthlyMetricRows.map(([label, value]) => (
+          <View key={label} style={styles.metricCard}>
+            <Text style={styles.metricLabel}>{label}</Text>
+            <Text style={styles.metricValue}>
+              {isMonthlyLoading ? "..." : value}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Ay kapsami</Text>
+        {monthlySummaryRows.map(([label, value]) => (
+          <View key={label} style={styles.reportRow}>
+            <Text style={styles.reportLabel}>{label}</Text>
+            <Text style={styles.reportValue}>
+              {isMonthlyLoading ? "..." : value}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Aylik gider kirilimi</Text>
+        {monthlyCostRows.map(([label, value]) => (
+          <View key={label} style={styles.expenseRow}>
+            <Text style={styles.expenseName}>{label}</Text>
+            <Text style={styles.expenseAmount}>
+              {isMonthlyLoading ? "..." : value}
+            </Text>
           </View>
         ))}
       </View>
@@ -3404,6 +3546,10 @@ function getCurrentWeekStartInputValue() {
   const diffToMonday = day === 0 ? -6 : 1 - day;
 
   return addDays(today, diffToMonday);
+}
+
+function getCurrentMonthInputValue() {
+  return getLocalDateInputValue().slice(0, 7);
 }
 
 function calculateDateRangeDays(startValue: string, endValue: string) {
