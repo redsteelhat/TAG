@@ -1,9 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
-import { Prisma, Vehicle } from '@prisma/client';
+import { DepreciationModel, Prisma, Vehicle } from '@prisma/client';
 import { IncomeCalculationService } from './income-calculation.service';
 
 const vehicle = {
   average_consumption_l_per_100km: new Prisma.Decimal('7.5'),
+  annual_depreciation_amount: null,
+  annual_estimated_km: null,
+  depreciation_enabled: false,
+  depreciation_model: null,
   id: 'vehicle_1'
 } as Vehicle;
 
@@ -37,8 +41,93 @@ describe('IncomeCalculationService', () => {
     expect(result.durationMinutes).toBe(32);
     expect(result.estimatedFuelCost.toFixed(2)).toBe('66.00');
     expect(result.allocatedPackageCost.toFixed(2)).toBe('100.00');
+    expect(result.allocatedDepreciationCost.toFixed(2)).toBe('0.00');
     expect(result.cashNetProfit.toFixed(2)).toBe('414.00');
     expect(result.trueNetProfit.toFixed(2)).toBe('314.00');
+  });
+
+  it('allocates per-kilometer depreciation from vehicle settings', async () => {
+    const service = new IncomeCalculationService(
+      {
+        calculateTripFuelCost: jest.fn().mockResolvedValue({
+          estimatedFuelCost: new Prisma.Decimal('66')
+        })
+      } as never,
+      {
+        calculateTripPackageCost: jest.fn().mockResolvedValue({
+          totalAllocatedPackageCost: new Prisma.Decimal('100')
+        })
+      } as never,
+      {
+        driverProfile: {
+          findUnique: jest.fn().mockResolvedValue({
+            show_depreciation_in_profit: true
+          })
+        }
+      } as never
+    );
+
+    const result = await service.calculateTripIncome(
+      'user_1',
+      {
+        ...vehicle,
+        annual_depreciation_amount: new Prisma.Decimal('60000'),
+        annual_estimated_km: new Prisma.Decimal('30000'),
+        depreciation_enabled: true,
+        depreciation_model: DepreciationModel.PER_KM
+      } as Vehicle,
+      {
+        deadheadKm: '4.00',
+        grossIncome: '450.00',
+        tripDate: '2026-06-17',
+        tripKm: '18.00'
+      }
+    );
+
+    expect(result.totalKm.toFixed(2)).toBe('22.00');
+    expect(result.allocatedDepreciationCost.toFixed(2)).toBe('44.00');
+    expect(result.trueNetProfit.toFixed(2)).toBe('240.00');
+  });
+
+  it('skips depreciation when driver profile hides it from profit', async () => {
+    const service = new IncomeCalculationService(
+      {
+        calculateTripFuelCost: jest.fn().mockResolvedValue({
+          estimatedFuelCost: new Prisma.Decimal('0')
+        })
+      } as never,
+      {
+        calculateTripPackageCost: jest.fn().mockResolvedValue({
+          totalAllocatedPackageCost: new Prisma.Decimal('0')
+        })
+      } as never,
+      {
+        driverProfile: {
+          findUnique: jest.fn().mockResolvedValue({
+            show_depreciation_in_profit: false
+          })
+        }
+      } as never
+    );
+
+    const result = await service.calculateTripIncome(
+      'user_1',
+      {
+        ...vehicle,
+        annual_depreciation_amount: new Prisma.Decimal('60000'),
+        annual_estimated_km: new Prisma.Decimal('30000'),
+        depreciation_enabled: true,
+        depreciation_model: DepreciationModel.PER_KM
+      } as Vehicle,
+      {
+        grossIncome: '450.00',
+        tripDate: '2026-06-17',
+        tripKm: '18.00'
+      }
+    );
+
+    expect(result.allocatedDepreciationCost.toFixed(2)).toBe('0.00');
+    expect(result.trueNetProfit.toFixed(2)).toBe('450.00');
   });
 
   it('returns zero fuel cost when vehicle has no fuel entry', async () => {
@@ -81,10 +170,11 @@ describe('IncomeCalculationService', () => {
     expect(breakdown.cashNetProfit).toBe('414.00');
     expect(breakdown.trueNetProfit).toBe('414.00');
     expect(breakdown.packageCost).toBe('0.00');
-    expect(breakdown.method.package).toBe(
-      'active_tag_packages_allocated_by_package_method'
+    expect(breakdown.method.depreciation).toBe(
+      'vehicle_depreciation_settings'
     );
     expect(breakdown.placeholderCosts).not.toContain('packageCost');
+    expect(breakdown.placeholderCosts).not.toContain('depreciationCost');
   });
 
   it('uses fallback duration when timestamps are missing', () => {

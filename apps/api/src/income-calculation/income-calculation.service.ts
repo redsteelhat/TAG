@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma, Vehicle } from '@prisma/client';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { DepreciationModel, Prisma, Vehicle } from '@prisma/client';
 import { FuelCostService } from '../fuel-cost/fuel-cost.service';
 import { PackageAllocationService } from '../package-allocation/package-allocation.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface TripIncomeCalculationInput {
   cancellationIncome?: string | Prisma.Decimal | null;
@@ -52,7 +53,8 @@ export class IncomeCalculationService {
 
   constructor(
     private readonly fuelCostService: FuelCostService,
-    private readonly packageAllocationService: PackageAllocationService
+    private readonly packageAllocationService: PackageAllocationService,
+    @Optional() private readonly prisma?: PrismaService
   ) {}
 
   async calculateTripIncome(
@@ -90,7 +92,15 @@ export class IncomeCalculationService {
       packageAllocation.totalAllocatedPackageCost;
     const allocatedFixedCost = zero;
     const allocatedMaintenanceCost = zero;
-    const allocatedDepreciationCost = zero;
+    const allocatedDepreciationCost = await this.calculateDepreciationCost(
+      userId,
+      vehicle,
+      totalKm,
+      {
+        currentTripId: input.currentTripId,
+        tripDate: this.resolveTripDate(input.tripDate, input.startedAt)
+      }
+    );
     const allocatedOtherVariableCost = zero;
     const cashNetProfit = totalIncome.minus(estimatedFuelCost);
     const trueNetProfit = cashNetProfit
@@ -137,14 +147,13 @@ export class IncomeCalculationService {
         fixedCost: 'placeholder_zero_until_fixed_cost_allocation_service',
         maintenance:
           'placeholder_zero_until_maintenance_reserve_allocation_service',
-        depreciation: 'placeholder_zero_until_depreciation_service',
+        depreciation: 'vehicle_depreciation_settings',
         otherVariable:
           'placeholder_zero_until_variable_expense_allocation_service'
       },
       placeholderCosts: [
         'fixedCost',
         'maintenanceCost',
-        'depreciationCost',
         'otherVariableCost'
       ],
       calculationVersion: this.calculationVersion
@@ -183,6 +192,115 @@ export class IncomeCalculationService {
     );
 
     return fuelCost.estimatedFuelCost;
+  }
+
+  async calculateDepreciationCost(
+    userId: string,
+    vehicle: Vehicle,
+    totalKm: Prisma.Decimal,
+    input: {
+      currentTripId?: string | null;
+      tripDate: Date;
+    }
+  ) {
+    if (!vehicle.depreciation_enabled) {
+      return new Prisma.Decimal(0);
+    }
+
+    if (!(await this.shouldShowDepreciationInProfit(userId))) {
+      return new Prisma.Decimal(0);
+    }
+
+    const annualDepreciation = this.toDecimal(
+      vehicle.annual_depreciation_amount ?? '0'
+    );
+
+    if (annualDepreciation.lte(0)) {
+      return new Prisma.Decimal(0);
+    }
+
+    if (vehicle.depreciation_model === DepreciationModel.PER_KM) {
+      const annualEstimatedKm = this.toDecimal(
+        vehicle.annual_estimated_km ?? '0'
+      );
+
+      if (annualEstimatedKm.lte(0)) {
+        return new Prisma.Decimal(0);
+      }
+
+      return annualDepreciation
+        .div(annualEstimatedKm)
+        .mul(totalKm)
+        .toDecimalPlaces(2);
+    }
+
+    if (vehicle.depreciation_model === DepreciationModel.MONTHLY) {
+      const monthlyDepreciation = annualDepreciation.div(12);
+      const monthlyTripCount = await this.countTripsInMonth(
+        userId,
+        vehicle.id,
+        input.tripDate,
+        input.currentTripId
+      );
+
+      return monthlyDepreciation
+        .div(Math.max(monthlyTripCount + 1, 1))
+        .toDecimalPlaces(2);
+    }
+
+    return new Prisma.Decimal(0);
+  }
+
+  private async shouldShowDepreciationInProfit(userId: string) {
+    if (!this.prisma) {
+      return true;
+    }
+
+    const profile = await this.prisma.driverProfile.findUnique({
+      where: {
+        user_id: userId
+      },
+      select: {
+        show_depreciation_in_profit: true
+      }
+    });
+
+    return profile?.show_depreciation_in_profit ?? true;
+  }
+
+  private async countTripsInMonth(
+    userId: string,
+    vehicleId: string,
+    tripDate: Date,
+    currentTripId?: string | null
+  ) {
+    if (!this.prisma) {
+      return 0;
+    }
+
+    const start = new Date(
+      Date.UTC(tripDate.getUTCFullYear(), tripDate.getUTCMonth(), 1)
+    );
+    const nextStart = new Date(
+      Date.UTC(tripDate.getUTCFullYear(), tripDate.getUTCMonth() + 1, 1)
+    );
+
+    return this.prisma.trip.count({
+      where: {
+        id: currentTripId
+          ? {
+              not: currentTripId
+            }
+          : undefined,
+        user_id: userId,
+        vehicle_id: vehicleId,
+        deleted_at: null,
+        trip_date: {
+          gte: start,
+          lt: nextStart
+        }
+      }
+    });
   }
 
   private resolveTripDate(

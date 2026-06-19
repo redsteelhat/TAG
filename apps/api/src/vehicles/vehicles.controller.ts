@@ -13,6 +13,7 @@ import { AuditLog } from '../audit/audit-log.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { UpdateDepreciationSettingsDto } from './dto/update-depreciation-settings.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehiclesService } from './vehicles.service';
 
@@ -69,6 +70,27 @@ export class VehiclesController {
   ) {
     return {
       data: await this.vehiclesService.update(user.id, id, dto)
+    };
+  }
+
+  @Patch(':id/depreciation-settings')
+  @ApiOperation({ summary: 'Update vehicle depreciation settings' })
+  @AuditLog({
+    action: 'vehicle.update_depreciation_settings',
+    entityType: 'vehicle',
+    entityIdParam: 'id'
+  })
+  async updateDepreciationSettings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateDepreciationSettingsDto
+  ) {
+    return {
+      data: await this.vehiclesService.updateDepreciationSettings(
+        user.id,
+        id,
+        dto
+      )
     };
   }
 

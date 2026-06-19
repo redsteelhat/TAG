@@ -1,6 +1,7 @@
 import {
   AllocationType,
   ExpenseType,
+  FixedCostAllocationMethod,
   PackageAllocationMethod,
   Prisma
 } from '@prisma/client';
@@ -350,6 +351,200 @@ describe('ReportsService', () => {
     expect(result.netProfit).toBe('7300.00');
     expect(result.kmProfit).toBe('7.30');
     expect(result.hourlyProfit).toBe('73.00');
+  });
+
+  it('allocates recurring fixed costs only on active days when requested', async () => {
+    const prisma = {
+      $transaction: jest.fn((queries: Array<Promise<unknown>>) =>
+        Promise.all(queries)
+      ),
+      trip: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 2
+          },
+          _sum: {
+            allocated_depreciation_cost: new Prisma.Decimal('0'),
+            allocated_fixed_cost: new Prisma.Decimal('0'),
+            allocated_maintenance_cost: new Prisma.Decimal('0'),
+            allocated_other_variable_cost: new Prisma.Decimal('0'),
+            allocated_package_cost: new Prisma.Decimal('0'),
+            cash_net_profit: new Prisma.Decimal('1000'),
+            cancellation_income: new Prisma.Decimal('0'),
+            deadhead_km: new Prisma.Decimal('0'),
+            duration_minutes: 120,
+            estimated_fuel_cost: new Prisma.Decimal('0'),
+            gross_income: new Prisma.Decimal('1000'),
+            tip_amount: new Prisma.Decimal('0'),
+            total_income: new Prisma.Decimal('1000'),
+            total_km: new Prisma.Decimal('100'),
+            true_net_profit: new Prisma.Decimal('1000'),
+            trip_km: new Prisma.Decimal('100')
+          }
+        }),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            trip_date: new Date('2026-06-18T09:00:00.000Z')
+          }
+        ])
+      },
+      shift: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 1
+          },
+          _sum: {
+            active_minutes: 120
+          }
+        }),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            started_at: new Date('2026-06-20T09:00:00.000Z')
+          }
+        ])
+      },
+      expenseEntry: {
+        findMany: jest.fn().mockResolvedValue([])
+      },
+      fuelEntry: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 0
+          },
+          _sum: {
+            amount: null,
+            liters: null
+          }
+        })
+      },
+      recurringExpense: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            allocation_method: FixedCostAllocationMethod.ACTIVE_DAY,
+            amount: new Prisma.Decimal('300'),
+            expense_type: ExpenseType.FIXED,
+            starts_at: new Date('2026-06-01T00:00:00.000Z'),
+            ends_at: null,
+            period: AllocationType.MONTHLY,
+            vehicle_id: 'vehicle_1'
+          }
+        ])
+      },
+      tagPackage: {
+        findMany: jest.fn().mockResolvedValue([])
+      }
+    };
+    const service = new ReportsService(
+      prisma as never,
+      new ReportCacheService()
+    );
+
+    const result = await service.calculateWeeklyProfit('user_1', {
+      date: '2026-06-18',
+      vehicleId: 'vehicle_1'
+    });
+
+    expect(result.fixedExpenses).toBe('20.00');
+    expect(result.totalCost).toBe('20.00');
+    expect(result.netProfit).toBe('980.00');
+  });
+
+  it('allocates recurring fixed costs by kilometer when requested', async () => {
+    const prisma = {
+      $transaction: jest.fn((queries: Array<Promise<unknown>>) =>
+        Promise.all(queries)
+      ),
+      trip: {
+        aggregate: jest
+          .fn()
+          .mockResolvedValueOnce({
+            _count: {
+              _all: 5
+            },
+            _sum: {
+              allocated_depreciation_cost: new Prisma.Decimal('0'),
+              allocated_fixed_cost: new Prisma.Decimal('0'),
+              allocated_maintenance_cost: new Prisma.Decimal('0'),
+              allocated_other_variable_cost: new Prisma.Decimal('0'),
+              allocated_package_cost: new Prisma.Decimal('0'),
+              cash_net_profit: new Prisma.Decimal('1000'),
+              cancellation_income: new Prisma.Decimal('0'),
+              deadhead_km: new Prisma.Decimal('0'),
+              duration_minutes: 300,
+              estimated_fuel_cost: new Prisma.Decimal('0'),
+              gross_income: new Prisma.Decimal('1000'),
+              tip_amount: new Prisma.Decimal('0'),
+              total_income: new Prisma.Decimal('1000'),
+              total_km: new Prisma.Decimal('150'),
+              true_net_profit: new Prisma.Decimal('1000'),
+              trip_km: new Prisma.Decimal('150')
+            }
+          })
+          .mockResolvedValueOnce({
+            _sum: {
+              total_km: new Prisma.Decimal('150')
+            }
+          })
+          .mockResolvedValueOnce({
+            _sum: {
+              total_km: new Prisma.Decimal('600')
+            }
+          })
+      },
+      shift: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 1
+          },
+          _sum: {
+            active_minutes: 300
+          }
+        })
+      },
+      expenseEntry: {
+        findMany: jest.fn().mockResolvedValue([])
+      },
+      fuelEntry: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 0
+          },
+          _sum: {
+            amount: null,
+            liters: null
+          }
+        })
+      },
+      recurringExpense: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            allocation_method: FixedCostAllocationMethod.PER_KM,
+            amount: new Prisma.Decimal('300'),
+            expense_type: ExpenseType.FIXED,
+            starts_at: new Date('2026-06-01T00:00:00.000Z'),
+            ends_at: null,
+            period: AllocationType.MONTHLY,
+            vehicle_id: 'vehicle_1'
+          }
+        ])
+      },
+      tagPackage: {
+        findMany: jest.fn().mockResolvedValue([])
+      }
+    };
+    const service = new ReportsService(
+      prisma as never,
+      new ReportCacheService()
+    );
+
+    const result = await service.calculateWeeklyProfit('user_1', {
+      date: '2026-06-18',
+      vehicleId: 'vehicle_1'
+    });
+
+    expect(result.fixedExpenses).toBe('75.00');
+    expect(result.totalCost).toBe('75.00');
+    expect(result.netProfit).toBe('925.00');
   });
 
   it('calculates per-kilometer profitability breakdown', async () => {

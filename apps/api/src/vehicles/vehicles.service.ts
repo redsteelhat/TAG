@@ -1,11 +1,13 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException
 } from '@nestjs/common';
-import { Prisma, Vehicle } from '@prisma/client';
+import { DepreciationModel, Prisma, Vehicle } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { UpdateDepreciationSettingsDto } from './dto/update-depreciation-settings.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 
 @Injectable()
@@ -73,14 +75,14 @@ export class VehiclesService {
   }
 
   async update(userId: string, id: string, dto: UpdateVehicleDto) {
-    await this.findOwnedVehicle(userId, id);
+    const currentVehicle = await this.findOwnedVehicle(userId, id);
 
     try {
       const vehicle = await this.prisma.vehicle.update({
         where: {
           id
         },
-        data: this.toVehicleUpdateData(dto)
+        data: this.toVehicleUpdateData(dto, currentVehicle)
       });
 
       return this.toVehicleResponse(vehicle);
@@ -91,6 +93,24 @@ export class VehiclesService {
 
       throw error;
     }
+  }
+
+  async updateDepreciationSettings(
+    userId: string,
+    id: string,
+    dto: UpdateDepreciationSettingsDto
+  ) {
+    const currentVehicle = await this.findOwnedVehicle(userId, id);
+    const vehicle = await this.prisma.vehicle.update({
+      where: {
+        id
+      },
+      data: {
+        ...this.toDepreciationUpdateData(dto, currentVehicle)
+      }
+    });
+
+    return this.toVehicleResponse(vehicle);
   }
 
   async remove(userId: string, id: string) {
@@ -207,14 +227,11 @@ export class VehiclesService {
       fuel_type: dto.fuelType,
       average_consumption_l_per_100km: dto.averageConsumptionLPer100Km,
       odometer_km: dto.odometerKm,
-      depreciation_enabled: dto.depreciationEnabled,
-      depreciation_model: dto.depreciationModel,
-      annual_depreciation_amount: dto.annualDepreciationAmount,
-      annual_estimated_km: dto.annualEstimatedKm
+      ...this.toDepreciationCreateData(dto)
     };
   }
 
-  private toVehicleUpdateData(dto: UpdateVehicleDto) {
+  private toVehicleUpdateData(dto: UpdateVehicleDto, currentVehicle: Vehicle) {
     const data: Prisma.VehicleUpdateInput = {};
 
     if (dto.plateNumber !== undefined) {
@@ -245,23 +262,128 @@ export class VehiclesService {
       data.odometer_km = dto.odometerKm;
     }
 
-    if (dto.depreciationEnabled !== undefined) {
-      data.depreciation_enabled = dto.depreciationEnabled;
-    }
-
-    if (dto.depreciationModel !== undefined) {
-      data.depreciation_model = dto.depreciationModel;
-    }
-
-    if (dto.annualDepreciationAmount !== undefined) {
-      data.annual_depreciation_amount = dto.annualDepreciationAmount;
-    }
-
-    if (dto.annualEstimatedKm !== undefined) {
-      data.annual_estimated_km = dto.annualEstimatedKm;
-    }
+    Object.assign(data, this.toDepreciationUpdateData(dto, currentVehicle));
 
     return data;
+  }
+
+  private toDepreciationCreateData(dto: CreateVehicleDto) {
+    if (!dto.depreciationEnabled) {
+      return {
+        annual_depreciation_amount: null,
+        annual_estimated_km: null,
+        depreciation_enabled: false,
+        depreciation_model: null
+      };
+    }
+
+    this.assertValidDepreciationSettings({
+      annualDepreciationAmount: dto.annualDepreciationAmount,
+      annualEstimatedKm: dto.annualEstimatedKm,
+      depreciationEnabled: true,
+      depreciationModel: dto.depreciationModel
+    });
+
+    return {
+      annual_depreciation_amount: dto.annualDepreciationAmount,
+      annual_estimated_km: dto.annualEstimatedKm,
+      depreciation_enabled: true,
+      depreciation_model: dto.depreciationModel
+    };
+  }
+
+  private toDepreciationUpdateData(
+    dto: UpdateVehicleDto | UpdateDepreciationSettingsDto,
+    currentVehicle: Vehicle
+  ) {
+    const hasDepreciationInput =
+      dto.depreciationEnabled !== undefined ||
+      dto.depreciationModel !== undefined ||
+      dto.annualDepreciationAmount !== undefined ||
+      dto.annualEstimatedKm !== undefined;
+
+    if (!hasDepreciationInput) {
+      return {};
+    }
+
+    const depreciationEnabled =
+      dto.depreciationEnabled ?? currentVehicle.depreciation_enabled;
+
+    if (!depreciationEnabled) {
+      return {
+        annual_depreciation_amount: null,
+        annual_estimated_km: null,
+        depreciation_enabled: false,
+        depreciation_model: null
+      };
+    }
+
+    const depreciationModel =
+      dto.depreciationModel ?? currentVehicle.depreciation_model ?? undefined;
+    const annualDepreciationAmount =
+      dto.annualDepreciationAmount ??
+      currentVehicle.annual_depreciation_amount?.toFixed(2);
+    const annualEstimatedKm =
+      dto.annualEstimatedKm ?? currentVehicle.annual_estimated_km?.toFixed(1);
+
+    this.assertValidDepreciationSettings({
+      annualDepreciationAmount,
+      annualEstimatedKm,
+      depreciationEnabled,
+      depreciationModel
+    });
+
+    return {
+      annual_depreciation_amount: annualDepreciationAmount,
+      annual_estimated_km: annualEstimatedKm ?? null,
+      depreciation_enabled: true,
+      depreciation_model: depreciationModel
+    };
+  }
+
+  private assertValidDepreciationSettings(settings: {
+    annualDepreciationAmount?: string;
+    annualEstimatedKm?: string;
+    depreciationEnabled: boolean;
+    depreciationModel?: DepreciationModel;
+  }) {
+    if (!settings.depreciationEnabled) {
+      return;
+    }
+
+    if (!settings.depreciationModel) {
+      throw new BadRequestException(
+        'Depreciation model is required when depreciation is enabled.'
+      );
+    }
+
+    if (!settings.annualDepreciationAmount) {
+      throw new BadRequestException(
+        'Annual depreciation amount is required when depreciation is enabled.'
+      );
+    }
+
+    if (
+      new Prisma.Decimal(settings.annualDepreciationAmount).lte(0)
+    ) {
+      throw new BadRequestException(
+        'Annual depreciation amount must be greater than zero.'
+      );
+    }
+
+    if (settings.depreciationModel === DepreciationModel.PER_KM) {
+      if (!settings.annualEstimatedKm) {
+        throw new BadRequestException(
+          'Annual estimated km is required for per-kilometer depreciation.'
+        );
+      }
+
+      if (new Prisma.Decimal(settings.annualEstimatedKm).lte(0)) {
+        throw new BadRequestException(
+          'Annual estimated km must be greater than zero.'
+        );
+      }
+    }
   }
 
   private toVehicleResponse(vehicle: Vehicle) {

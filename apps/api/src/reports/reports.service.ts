@@ -3,6 +3,7 @@ import {
   AllocationType,
   ExpenseEntry,
   ExpenseType,
+  FixedCostAllocationMethod,
   PackageAllocationMethod,
   Prisma,
   RecurringExpense,
@@ -503,7 +504,8 @@ export class ReportsService {
     ]);
 
     const directCosts = this.calculateDirectExpenseBuckets(directExpenses);
-    const recurringCosts = this.calculateRecurringExpenseBuckets(
+    const recurringCosts = await this.calculateRecurringExpenseBuckets(
+      userId,
       recurringExpenses,
       periodRange
     );
@@ -624,22 +626,24 @@ export class ReportsService {
     );
   }
 
-  private calculateRecurringExpenseBuckets(
+  private async calculateRecurringExpenseBuckets(
+    userId: string,
     recurringExpenses: RecurringExpense[],
     periodRange: PeriodRange
-  ): CostBuckets {
-    return recurringExpenses.reduce((buckets, expense) => {
-      const periodCost = this.calculateRecurringPeriodCost(
+  ): Promise<CostBuckets> {
+    const buckets = this.emptyCostBuckets();
+
+    for (const expense of recurringExpenses) {
+      const periodCost = await this.calculateRecurringPeriodCost(
+        userId,
         expense,
         periodRange
       );
 
-      return this.addExpenseToBuckets(
-        buckets,
-        expense.expense_type,
-        periodCost
-      );
-    }, this.emptyCostBuckets());
+      this.addExpenseToBuckets(buckets, expense.expense_type, periodCost);
+    }
+
+    return buckets;
   }
 
   private addExpenseToBuckets(
@@ -783,7 +787,8 @@ export class ReportsService {
     return this.decimal(aggregate._sum.total_km);
   }
 
-  private calculateRecurringPeriodCost(
+  private async calculateRecurringPeriodCost(
+    userId: string,
     expense: RecurringExpense,
     periodRange: PeriodRange
   ) {
@@ -797,6 +802,26 @@ export class ReportsService {
       return new Prisma.Decimal(0);
     }
 
+    if (expense.allocation_method === FixedCostAllocationMethod.ACTIVE_DAY) {
+      return this.calculateRecurringActiveDayCost(
+        userId,
+        expense,
+        periodRange,
+        coveredDays
+      );
+    }
+
+    if (expense.allocation_method === FixedCostAllocationMethod.PER_KM) {
+      return this.calculateRecurringPerKmCost(userId, expense, coveredDays);
+    }
+
+    return this.calculateRecurringCalendarDayCost(expense, coveredDays);
+  }
+
+  private calculateRecurringCalendarDayCost(
+    expense: RecurringExpense,
+    coveredDays: Date[]
+  ) {
     if (expense.period === AllocationType.DAILY) {
       return expense.amount.mul(coveredDays.length).toDecimalPlaces(2);
     }
@@ -814,6 +839,199 @@ export class ReportsService {
     }
 
     return total.toDecimalPlaces(2);
+  }
+
+  private async calculateRecurringActiveDayCost(
+    userId: string,
+    expense: RecurringExpense,
+    periodRange: PeriodRange,
+    coveredDays: Date[]
+  ) {
+    const activeDayKeys = await this.findActiveWorkDayKeys(
+      userId,
+      expense.vehicle_id,
+      periodRange
+    );
+    const activeCoveredDays = coveredDays.filter((day) =>
+      activeDayKeys.has(this.dayKey(day))
+    );
+
+    return this.calculateRecurringCalendarDayCost(expense, activeCoveredDays);
+  }
+
+  private async calculateRecurringPerKmCost(
+    userId: string,
+    expense: RecurringExpense,
+    coveredDays: Date[]
+  ) {
+    let total = new Prisma.Decimal(0);
+
+    for (const group of this.groupCoveredDaysByRecurringCycle(
+      expense.period,
+      coveredDays
+    )) {
+      const cycleRange = this.resolveRecurringCycleRange(
+        expense.period,
+        group.days[0]
+      );
+      const coveredRange = this.clampRangeToExpense(
+        {
+          start: group.days[0],
+          nextStart: this.nextUtcDayStart(group.days[group.days.length - 1])
+        },
+        expense
+      );
+      const denominatorRange = this.clampRangeToExpense(cycleRange, expense);
+
+      if (
+        coveredRange.start >= coveredRange.nextStart ||
+        denominatorRange.start >= denominatorRange.nextStart
+      ) {
+        continue;
+      }
+
+      const [coveredKm, denominatorKm] = await Promise.all([
+        this.sumTripKm(userId, expense.vehicle_id, {
+          gte: coveredRange.start,
+          lt: coveredRange.nextStart
+        }),
+        this.sumTripKm(userId, expense.vehicle_id, {
+          gte: denominatorRange.start,
+          lt: denominatorRange.nextStart
+        })
+      ]);
+
+      if (denominatorKm.lte(0)) {
+        continue;
+      }
+
+      total = total.plus(expense.amount.mul(coveredKm).div(denominatorKm));
+    }
+
+    return total.toDecimalPlaces(2);
+  }
+
+  private async findActiveWorkDayKeys(
+    userId: string,
+    vehicleId: string,
+    periodRange: PeriodRange
+  ) {
+    const [trips, shifts] = await Promise.all([
+      this.prisma.trip.findMany({
+        where: {
+          user_id: userId,
+          vehicle_id: vehicleId,
+          deleted_at: null,
+          trip_date: {
+            gte: periodRange.start,
+            lt: periodRange.nextStart
+          }
+        },
+        select: {
+          trip_date: true
+        }
+      }),
+      this.prisma.shift.findMany({
+        where: {
+          user_id: userId,
+          vehicle_id: vehicleId,
+          started_at: {
+            gte: periodRange.start,
+            lt: periodRange.nextStart
+          }
+        },
+        select: {
+          started_at: true
+        }
+      })
+    ]);
+
+    return new Set([
+      ...trips.map((trip) => this.dayKey(trip.trip_date)),
+      ...shifts.map((shift) => this.dayKey(shift.started_at))
+    ]);
+  }
+
+  private groupCoveredDaysByRecurringCycle(
+    period: AllocationType,
+    coveredDays: Date[]
+  ) {
+    const grouped = new Map<string, Date[]>();
+
+    for (const day of coveredDays) {
+      const key = this.recurringCycleKey(period, day);
+      const group = grouped.get(key) ?? [];
+
+      group.push(day);
+      grouped.set(key, group);
+    }
+
+    return [...grouped.entries()].map(([key, days]) => ({
+      days,
+      key
+    }));
+  }
+
+  private recurringCycleKey(period: AllocationType, day: Date) {
+    if (period === AllocationType.YEARLY) {
+      return `${day.getUTCFullYear()}`;
+    }
+
+    if (period === AllocationType.MONTHLY) {
+      return `${day.getUTCFullYear()}-${String(day.getUTCMonth() + 1).padStart(
+        2,
+        '0'
+      )}`;
+    }
+
+    return this.dayKey(day);
+  }
+
+  private resolveRecurringCycleRange(period: AllocationType, day: Date) {
+    if (period === AllocationType.YEARLY) {
+      const start = new Date(Date.UTC(day.getUTCFullYear(), 0, 1));
+      const nextStart = new Date(Date.UTC(day.getUTCFullYear() + 1, 0, 1));
+
+      return {
+        nextStart,
+        start
+      };
+    }
+
+    if (period === AllocationType.MONTHLY) {
+      const start = new Date(
+        Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), 1)
+      );
+      const nextStart = new Date(
+        Date.UTC(day.getUTCFullYear(), day.getUTCMonth() + 1, 1)
+      );
+
+      return {
+        nextStart,
+        start
+      };
+    }
+
+    return {
+      nextStart: this.nextUtcDayStart(day),
+      start: this.startOfUtcDay(day)
+    };
+  }
+
+  private clampRangeToExpense(
+    range: {
+      nextStart: Date;
+      start: Date;
+    },
+    expense: RecurringExpense
+  ) {
+    return {
+      nextStart: this.minDate(
+        range.nextStart,
+        expense.ends_at ? this.nextUtcDayStart(expense.ends_at) : range.nextStart
+      ),
+      start: this.maxDate(range.start, this.startOfUtcDay(expense.starts_at))
+    };
   }
 
   private resolveDayRange(dateValue?: string): PeriodRange {
@@ -1004,6 +1222,10 @@ export class ReportsService {
     nextStart.setUTCDate(nextStart.getUTCDate() + 1);
 
     return nextStart;
+  }
+
+  private dayKey(date: Date) {
+    return this.startOfUtcDay(date).toISOString().slice(0, 10);
   }
 
   private maxDate(first: Date, second: Date) {
