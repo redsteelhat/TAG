@@ -15,6 +15,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { ProfileModule } from './profile/profile.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { QueueModule } from './queue/queue.module';
 import { RecurringExpensesModule } from './recurring-expenses/recurring-expenses.module';
 import { ReminderJobsModule } from './reminder-jobs/reminder-jobs.module';
 import { ReportsModule } from './reports/reports.module';
@@ -49,6 +50,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     CategoriesModule,
     ExportsModule,
     ProfileModule,
+    QueueModule,
     PaymentMethodsModule,
     VehiclesModule,
     ShiftsModule,

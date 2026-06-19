@@ -20,6 +20,7 @@ import {
 } from '../common/pagination/pagination';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { QueueService } from '../queue/queue.service';
 import { ReportsService } from '../reports/reports.service';
 import {
   CreateExcelExportDto,
@@ -49,6 +50,7 @@ export class ExportsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly queueService: QueueService,
     private readonly reportsService: ReportsService
   ) {}
 
@@ -77,10 +79,38 @@ export class ExportsService {
       }
     });
 
+    this.queueService.enqueue(
+      'export.report',
+      {
+        dto,
+        exportJobId: exportJob.id,
+        format,
+        period,
+        periodRange,
+        userId
+      },
+      async ({ payload }) => {
+        await this.processReportExport(payload);
+      }
+    );
+
+    return this.toExportJobResponse(exportJob);
+  }
+
+  private async processReportExport(input: {
+    dto: CreateExcelExportDto;
+    exportJobId: string;
+    format: ExportFormat;
+    period: ExcelExportPeriod;
+    periodRange: ExportPeriodRange;
+    userId: string;
+  }) {
+    const { dto, exportJobId, format, period, periodRange, userId } = input;
+
     try {
       await this.prisma.exportJob.update({
         where: {
-          id: exportJob.id
+          id: exportJobId
         },
         data: {
           status: ExportStatus.PROCESSING
@@ -91,7 +121,7 @@ export class ExportsService {
         format === ExportFormat.PDF
           ? await this.buildPdfReport(userId, period, periodRange, dto)
           : await this.buildExcelWorkbook(userId, period, periodRange, dto);
-      const storageKey = this.buildStorageKey(userId, exportJob.id, format);
+      const storageKey = this.buildStorageKey(userId, exportJobId, format);
       const absolutePath = this.resolveStoragePath(storageKey);
 
       await mkdir(path.dirname(absolutePath), { recursive: true });
@@ -99,11 +129,11 @@ export class ExportsService {
 
       const completedJob = await this.prisma.exportJob.update({
         where: {
-          id: exportJob.id
+          id: exportJobId
         },
         data: {
           completed_at: new Date(),
-          file_url: `/exports/${exportJob.id}/download`,
+          file_url: `/exports/${exportJobId}/download`,
           status: ExportStatus.COMPLETED,
           storage_key: storageKey
         }
@@ -120,12 +150,10 @@ export class ExportsService {
         type: NotificationType.EXPORT_READY,
         userId
       });
-
-      return this.toExportJobResponse(completedJob);
     } catch (error) {
       await this.prisma.exportJob.update({
         where: {
-          id: exportJob.id
+          id: exportJobId
         },
         data: {
           error_message:
@@ -134,7 +162,9 @@ export class ExportsService {
         }
       });
 
-      throw new InternalServerErrorException('Report export failed.');
+      throw error instanceof Error
+        ? error
+        : new InternalServerErrorException('Report export failed.');
     }
   }
 
