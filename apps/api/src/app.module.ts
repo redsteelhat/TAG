@@ -9,6 +9,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { FuelEntriesModule } from './fuel-entries/fuel-entries.module';
 import { HealthModule } from './health/health.module';
+import { MaintenanceEntriesModule } from './maintenance-entries/maintenance-entries.module';
 import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { ProfileModule } from './profile/profile.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -50,6 +51,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     TripsModule,
     ExpensesModule,
     FuelEntriesModule,
+    MaintenanceEntriesModule,
     TagPackagesModule,
     RecurringExpensesModule,
     ReportsModule,
