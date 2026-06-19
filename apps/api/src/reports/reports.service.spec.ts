@@ -423,4 +423,87 @@ describe('ReportsService', () => {
     expect(result.fuelCostPerKm).toBe('1.00');
     expect(result.variableExpensePerKm).toBe('0.50');
   });
+
+  it('calculates per-hour profitability breakdown', async () => {
+    const prisma = {
+      $transaction: jest.fn((queries: Array<Promise<unknown>>) =>
+        Promise.all(queries)
+      ),
+      trip: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 6
+          },
+          _sum: {
+            allocated_depreciation_cost: new Prisma.Decimal('0'),
+            allocated_fixed_cost: new Prisma.Decimal('0'),
+            allocated_maintenance_cost: new Prisma.Decimal('0'),
+            allocated_other_variable_cost: new Prisma.Decimal('0'),
+            allocated_package_cost: new Prisma.Decimal('0'),
+            cash_net_profit: new Prisma.Decimal('750'),
+            cancellation_income: new Prisma.Decimal('0'),
+            deadhead_km: new Prisma.Decimal('30'),
+            duration_minutes: 300,
+            estimated_fuel_cost: new Prisma.Decimal('250'),
+            gross_income: new Prisma.Decimal('1000'),
+            tip_amount: new Prisma.Decimal('0'),
+            total_income: new Prisma.Decimal('1000'),
+            total_km: new Prisma.Decimal('180'),
+            true_net_profit: new Prisma.Decimal('750'),
+            trip_km: new Prisma.Decimal('150')
+          }
+        })
+      },
+      shift: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 1
+          },
+          _sum: {
+            active_minutes: 300
+          }
+        })
+      },
+      expenseEntry: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            amount: new Prisma.Decimal('150'),
+            expense_type: ExpenseType.VARIABLE
+          }
+        ])
+      },
+      fuelEntry: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 0
+          },
+          _sum: {
+            amount: null,
+            liters: null
+          }
+        })
+      },
+      recurringExpense: {
+        findMany: jest.fn().mockResolvedValue([])
+      },
+      tagPackage: {
+        findMany: jest.fn().mockResolvedValue([])
+      }
+    };
+    const service = new ReportsService(prisma as never);
+
+    const result = await service.calculateHourlyProfitability('user_1', {
+      date: '2026-06-18',
+      vehicleId: 'vehicle_1'
+    });
+
+    expect(result.period).toBe('daily');
+    expect(result.activeMinutes).toBe(300);
+    expect(result.activeHours).toBe('5.00');
+    expect(result.grossIncomePerHour).toBe('200.00');
+    expect(result.costPerHour).toBe('80.00');
+    expect(result.netProfitPerHour).toBe('120.00');
+    expect(result.fuelCostPerHour).toBe('50.00');
+    expect(result.variableExpensePerHour).toBe('30.00');
+  });
 });

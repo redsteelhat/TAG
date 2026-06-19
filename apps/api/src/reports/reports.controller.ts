@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
+import { HourlyProfitQueryDto } from './dto/hourly-profit-query.dto';
 import { KmProfitQueryDto } from './dto/km-profit-query.dto';
 import { MonthlyProfitQueryDto } from './dto/monthly-profit-query.dto';
 import { WeeklyProfitQueryDto } from './dto/weekly-profit-query.dto';
@@ -56,6 +57,20 @@ export class ReportsController {
   ) {
     return {
       data: await this.reportsService.calculateKmProfitability(user.id, query)
+    };
+  }
+
+  @Get('hourly-profitability')
+  @ApiOperation({ summary: 'Calculate per-hour profitability' })
+  async getHourlyProfitability(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: HourlyProfitQueryDto
+  ) {
+    return {
+      data: await this.reportsService.calculateHourlyProfitability(
+        user.id,
+        query
+      )
     };
   }
 }

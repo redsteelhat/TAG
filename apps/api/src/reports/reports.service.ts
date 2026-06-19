@@ -10,6 +10,10 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
+import {
+  HourlyProfitPeriod,
+  HourlyProfitQueryDto
+} from './dto/hourly-profit-query.dto';
 import { KmProfitPeriod, KmProfitQueryDto } from './dto/km-profit-query.dto';
 import { MonthlyProfitQueryDto } from './dto/monthly-profit-query.dto';
 import { WeeklyProfitQueryDto } from './dto/weekly-profit-query.dto';
@@ -113,6 +117,69 @@ export class ReportsService {
         grossIncomePerKm: 'grossIncome / totalKm',
         costPerKm: 'totalCost / totalKm',
         netProfitPerKm: 'netProfit / totalKm'
+      },
+      calculationVersion: profit.calculationVersion
+    };
+  }
+
+  async calculateHourlyProfitability(
+    userId: string,
+    query: HourlyProfitQueryDto
+  ) {
+    const periodRange = this.resolveHourlyProfitPeriodRange(query);
+    const profit = await this.calculateProfitForPeriod(
+      userId,
+      periodRange,
+      query.vehicleId
+    );
+    const activeHours =
+      profit.activeMinutes > 0
+        ? new Prisma.Decimal(profit.activeMinutes).div(60)
+        : new Prisma.Decimal(0);
+    const grossIncome = this.decimal(profit.grossIncome);
+    const totalCost = this.decimal(profit.totalCost);
+    const netProfit = this.decimal(profit.netProfit);
+
+    return {
+      date: profit.date,
+      endDate: profit.endDate,
+      period: profit.period,
+      startDate: profit.startDate,
+      vehicleId: profit.vehicleId,
+      activeMinutes: profit.activeMinutes,
+      activeHours: activeHours.toDecimalPlaces(2).toFixed(2),
+      grossIncome: profit.grossIncome,
+      totalCost: profit.totalCost,
+      netProfit: profit.netProfit,
+      grossIncomePerHour: this.money(
+        this.divideOrZero(grossIncome, activeHours)
+      ),
+      costPerHour: this.money(this.divideOrZero(totalCost, activeHours)),
+      netProfitPerHour: this.money(this.divideOrZero(netProfit, activeHours)),
+      fuelCostPerHour: this.money(
+        this.divideOrZero(this.decimal(profit.fuelCost), activeHours)
+      ),
+      packageCostPerHour: this.money(
+        this.divideOrZero(this.decimal(profit.tagPackageCost), activeHours)
+      ),
+      variableExpensePerHour: this.money(
+        this.divideOrZero(this.decimal(profit.variableExpenses), activeHours)
+      ),
+      fixedExpensePerHour: this.money(
+        this.divideOrZero(this.decimal(profit.fixedExpenses), activeHours)
+      ),
+      maintenanceReservePerHour: this.money(
+        this.divideOrZero(this.decimal(profit.maintenanceReserve), activeHours)
+      ),
+      depreciationPerHour: this.money(
+        this.divideOrZero(this.decimal(profit.depreciation), activeHours)
+      ),
+      tripCount: profit.tripCount,
+      shiftCount: profit.shiftCount,
+      formula: {
+        grossIncomePerHour: 'grossIncome / activeHours',
+        costPerHour: 'totalCost / activeHours',
+        netProfitPerHour: 'netProfit / activeHours'
       },
       calculationVersion: profit.calculationVersion
     };
@@ -641,6 +708,30 @@ export class ReportsService {
     }
 
     if (period === KmProfitPeriod.WEEKLY) {
+      return query.weekStart
+        ? this.resolveWeekRange(query.weekStart, false)
+        : this.resolveWeekRange(query.date);
+    }
+
+    return this.resolveDayRange(query.date);
+  }
+
+  private resolveHourlyProfitPeriodRange(
+    query: HourlyProfitQueryDto
+  ): PeriodRange {
+    const period =
+      query.period ??
+      (query.month
+        ? HourlyProfitPeriod.MONTHLY
+        : query.weekStart
+          ? HourlyProfitPeriod.WEEKLY
+          : HourlyProfitPeriod.DAILY);
+
+    if (period === HourlyProfitPeriod.MONTHLY) {
+      return this.resolveMonthRange(query.month ?? query.date);
+    }
+
+    if (period === HourlyProfitPeriod.WEEKLY) {
       return query.weekStart
         ? this.resolveWeekRange(query.weekStart, false)
         : this.resolveWeekRange(query.date);
