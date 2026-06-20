@@ -30,6 +30,12 @@ export class ProfileService {
       trialEndsAt: user.trial_ends_at,
       locale: user.locale,
       timezone: user.timezone,
+      kvkkAcceptedAt: user.kvkk_accepted_at,
+      kvkkVersion: user.kvkk_version,
+      privacyNoticeAcceptedAt: user.privacy_notice_accepted_at,
+      privacyNoticeVersion: user.privacy_notice_version,
+      explicitConsentAcceptedAt: user.explicit_consent_accepted_at,
+      explicitConsentVersion: user.explicit_consent_version,
       createdAt: user.created_at
     };
   }
@@ -55,6 +61,12 @@ export class ProfileService {
       trialEndsAt: user.trial_ends_at,
       locale: user.locale,
       timezone: user.timezone,
+      kvkkAcceptedAt: user.kvkk_accepted_at,
+      kvkkVersion: user.kvkk_version,
+      privacyNoticeAcceptedAt: user.privacy_notice_accepted_at,
+      privacyNoticeVersion: user.privacy_notice_version,
+      explicitConsentAcceptedAt: user.explicit_consent_accepted_at,
+      explicitConsentVersion: user.explicit_consent_version,
       createdAt: user.created_at
     };
   }
@@ -118,4 +130,3 @@ export class ProfileService {
     };
   }
 }
-

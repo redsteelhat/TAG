@@ -125,19 +125,27 @@ enum NotificationStatus {
 }
 
 model User {
-  id                  String             @id @default(cuid())
-  email               String             @unique
-  phone               String?            @unique
-  password_hash       String
-  full_name           String?
-  role                UserRole           @default(USER)
-  subscription_status SubscriptionStatus @default(TRIAL)
-  trial_ends_at       DateTime?
-  locale              String             @default("tr-TR")
-  timezone            String             @default("Europe/Istanbul")
-  created_at          DateTime           @default(now())
-  updated_at          DateTime           @updatedAt
-  deleted_at          DateTime?
+  id                           String             @id @default(cuid())
+  email                        String             @unique
+  phone                        String?            @unique
+  password_hash                String
+  full_name                    String?
+  role                         UserRole           @default(USER)
+  subscription_status          SubscriptionStatus @default(TRIAL)
+  trial_ends_at                DateTime?
+  locale                       String             @default("tr-TR")
+  timezone                     String             @default("Europe/Istanbul")
+  kvkk_accepted_at             DateTime?
+  kvkk_version                 String?
+  privacy_notice_accepted_at   DateTime?
+  privacy_notice_version       String?
+  explicit_consent_accepted_at DateTime?
+  explicit_consent_version     String?
+  erasure_requested_at         DateTime?
+  anonymized_at                DateTime?
+  created_at                   DateTime           @default(now())
+  updated_at                   DateTime           @updatedAt
+  deleted_at                   DateTime?
 
   driver_profile      DriverProfile?
   vehicles            Vehicle[]

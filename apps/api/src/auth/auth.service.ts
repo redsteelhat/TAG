@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException
@@ -12,6 +13,9 @@ import { RegisterDto } from './dto/register.dto';
 import { PasswordService } from './password.service';
 import { RefreshTokenPayload, TokenService } from './token.service';
 
+const DEFAULT_KVKK_VERSION = 'kvkk-2026-06';
+const DEFAULT_PRIVACY_NOTICE_VERSION = 'privacy-notice-2026-06';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -22,7 +26,14 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
+    if (!dto.kvkkAccepted) {
+      throw new BadRequestException(
+        'KVKK and privacy notice acceptance is required.'
+      );
+    }
+
     const passwordHash = await this.passwordService.hash(dto.password);
+    const consentAcceptedAt = new Date();
 
     try {
       const user = await this.prisma.user.create({
@@ -30,7 +41,18 @@ export class AuthService {
           email: dto.email.toLowerCase(),
           phone: dto.phone,
           password_hash: passwordHash,
-          full_name: dto.fullName
+          full_name: dto.fullName,
+          kvkk_accepted_at: consentAcceptedAt,
+          kvkk_version: dto.kvkkVersion ?? DEFAULT_KVKK_VERSION,
+          privacy_notice_accepted_at: consentAcceptedAt,
+          privacy_notice_version:
+            dto.privacyNoticeVersion ?? DEFAULT_PRIVACY_NOTICE_VERSION,
+          explicit_consent_accepted_at: dto.explicitConsentAccepted
+            ? new Date()
+            : undefined,
+          explicit_consent_version: dto.explicitConsentAccepted
+            ? dto.explicitConsentVersion
+            : undefined
         }
       });
 
@@ -202,4 +224,3 @@ export class AuthService {
     );
   }
 }
-

@@ -13,6 +13,7 @@ import { HealthModule } from './health/health.module';
 import { MaintenanceEntriesModule } from './maintenance-entries/maintenance-entries.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
+import { PrivacyModule } from './privacy/privacy.module';
 import { ProfileModule } from './profile/profile.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
@@ -50,6 +51,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     CategoriesModule,
     ExportsModule,
     ProfileModule,
+    PrivacyModule,
     QueueModule,
     PaymentMethodsModule,
     VehiclesModule,
