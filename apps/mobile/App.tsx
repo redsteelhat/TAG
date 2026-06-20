@@ -59,6 +59,9 @@ type AllocationType =
   | "PER_TRIP"
   | "PACKAGE_PERIOD";
 type PackageAllocationMethod = "PER_DAY" | "PER_TRIP" | "PER_KM";
+type ReportExportFormat = "PDF" | "XLSX";
+type ReportExportPeriod = "DAILY" | "WEEKLY" | "MONTHLY";
+type ExportStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 
 interface AuthUser {
   id: string;
@@ -148,6 +151,27 @@ interface QuickPackageFormState {
   startsAt: string;
 }
 
+interface QuickMaintenanceFormState {
+  allocationType: AllocationType;
+  amount: string;
+  category: string;
+  expectedIntervalKm: string;
+  maintenanceDate: string;
+  note: string;
+  odometerKm: string;
+  serviceName: string;
+  title: string;
+}
+
+interface ReportExportFormState {
+  date: string;
+  format: ReportExportFormat;
+  includeRawData: boolean;
+  month: string;
+  period: ReportExportPeriod;
+  weekStart: string;
+}
+
 interface ShiftFormState {
   startOdometerKm: string;
   endOdometerKm: string;
@@ -197,6 +221,45 @@ interface TagPackage {
   startsAt: string;
 }
 
+interface RecurringExpense {
+  id: string;
+  allocationMethod?: string | null;
+  amount: string;
+  endsAt?: string | null;
+  expenseType: ExpenseType;
+  isActive: boolean;
+  name: string;
+  nextDueAt?: string | null;
+  note?: string | null;
+  period: AllocationType;
+  startsAt: string;
+}
+
+interface MaintenanceEntry {
+  id: string;
+  allocationType: AllocationType;
+  amount: string;
+  category: string;
+  costPerKm?: string | null;
+  expectedIntervalKm?: string | null;
+  maintenanceDate: string;
+  note?: string | null;
+  odometerKm?: string | null;
+  serviceName?: string | null;
+  title: string;
+}
+
+interface ExportJob {
+  id: string;
+  format: ReportExportFormat;
+  status: ExportStatus;
+  periodStart: string;
+  periodEnd: string;
+  fileUrl?: string | null;
+  createdAt: string;
+  completedAt?: string | null;
+}
+
 interface Shift {
   id: string;
   startedAt: string;
@@ -232,6 +295,18 @@ interface FuelEntriesResponse {
 
 interface TagPackagesResponse {
   data: TagPackage[];
+}
+
+interface MaintenanceEntriesResponse {
+  data: MaintenanceEntry[];
+}
+
+interface RecurringExpensesResponse {
+  data: RecurringExpense[];
+}
+
+interface ExportJobResponse {
+  data: ExportJob;
 }
 
 interface DailyIncomeSummary {
@@ -306,10 +381,33 @@ interface ProfitLossAlert {
   tone: "danger" | "success" | "warning";
 }
 
+interface UpcomingMaintenanceAlert {
+  category: string;
+  detail: string;
+  dueAtKm: number;
+  id: string;
+  remainingKm: number;
+  title: string;
+  tone: "danger" | "warning";
+}
+
+interface FixedCostReminderAlert {
+  amount: string;
+  detail: string;
+  dueDate: string;
+  id: string;
+  name: string;
+  remainingDays: number;
+  title: string;
+  tone: "danger" | "warning";
+}
+
 interface DailyExpenseSummary {
   activePackageCount: number;
   fuelCost: number;
   fuelEntryCount: number;
+  maintenanceCost: number;
+  maintenanceEntryCount: number;
   otherExpenseCost: number;
   packageCost: number;
   receiptCount: number;
@@ -352,6 +450,8 @@ const initialDailyExpenseSummary: DailyExpenseSummary = {
   activePackageCount: 0,
   fuelCost: 0,
   fuelEntryCount: 0,
+  maintenanceCost: 0,
+  maintenanceEntryCount: 0,
   otherExpenseCost: 0,
   packageCost: 0,
   receiptCount: 0,
@@ -389,6 +489,27 @@ const initialQuickPackageFormState: QuickPackageFormState = {
   name: "Haftalik TAG paketi",
   note: "",
   startsAt: getLocalDateInputValue(),
+};
+
+const initialQuickMaintenanceFormState: QuickMaintenanceFormState = {
+  allocationType: "PER_KM",
+  amount: "",
+  category: "Periyodik bakim",
+  expectedIntervalKm: "10000",
+  maintenanceDate: getLocalDateInputValue(),
+  note: "",
+  odometerKm: "",
+  serviceName: "",
+  title: "Yag, filtre ve iscilik",
+};
+
+const initialReportExportFormState: ReportExportFormState = {
+  date: getLocalDateInputValue(),
+  format: "PDF",
+  includeRawData: true,
+  month: getCurrentMonthInputValue(),
+  period: "MONTHLY",
+  weekStart: getCurrentWeekStartInputValue(),
 };
 
 const initialShiftFormState: ShiftFormState = {
@@ -471,6 +592,33 @@ const packageAllocationOptions: Array<{
   { label: "Gune bol", value: "PER_DAY" },
   { label: "Sefere bol", value: "PER_TRIP" },
   { label: "Km'ye bol", value: "PER_KM" },
+];
+
+const maintenanceCategoryOptions = [
+  "Periyodik bakim",
+  "Mekanik",
+  "Elektrik",
+  "Lastik",
+  "Klima",
+  "Kaporta",
+  "Temizlik",
+];
+
+const reportExportFormatOptions: Array<{
+  label: string;
+  value: ReportExportFormat;
+}> = [
+  { label: "PDF", value: "PDF" },
+  { label: "Excel", value: "XLSX" },
+];
+
+const reportExportPeriodOptions: Array<{
+  label: string;
+  value: ReportExportPeriod;
+}> = [
+  { label: "Gunluk", value: "DAILY" },
+  { label: "Haftalik", value: "WEEKLY" },
+  { label: "Aylik", value: "MONTHLY" },
 ];
 
 export default function App() {
@@ -1208,6 +1356,22 @@ function TodayTabContent({
   const [dailyGoal, setDailyGoal] = useState(1500);
   const [goalInput, setGoalInput] = useState("1500");
   const [goalMessage, setGoalMessage] = useState<string | null>(null);
+  const [maintenanceAlerts, setMaintenanceAlerts] = useState<
+    UpcomingMaintenanceAlert[]
+  >([]);
+  const [maintenanceReminderMessage, setMaintenanceReminderMessage] = useState<
+    string | null
+  >(null);
+  const [isMaintenanceReminderLoading, setIsMaintenanceReminderLoading] =
+    useState(true);
+  const [fixedCostAlerts, setFixedCostAlerts] = useState<
+    FixedCostReminderAlert[]
+  >([]);
+  const [fixedCostReminderMessage, setFixedCostReminderMessage] = useState<
+    string | null
+  >(null);
+  const [isFixedCostReminderLoading, setIsFixedCostReminderLoading] =
+    useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -1218,6 +1382,22 @@ function TodayTabContent({
         error instanceof Error ? error.message : "Bugun ekrani yuklenemedi.",
       );
       setIsLoading(false);
+    });
+    loadMaintenanceReminders().catch((error) => {
+      setMaintenanceReminderMessage(
+        error instanceof Error
+          ? error.message
+          : "Yaklasan bakim bildirimi yuklenemedi.",
+      );
+      setIsMaintenanceReminderLoading(false);
+    });
+    loadFixedCostReminders().catch((error) => {
+      setFixedCostReminderMessage(
+        error instanceof Error
+          ? error.message
+          : "Sigorta, MTV ve muayene hatirlaticilari yuklenemedi.",
+      );
+      setIsFixedCostReminderLoading(false);
     });
   }, [selectedVehicle.id]);
 
@@ -1237,6 +1417,47 @@ function TodayTabContent({
 
     setOverview(response.data);
     setIsLoading(false);
+  }
+
+  async function loadMaintenanceReminders() {
+    setIsMaintenanceReminderLoading(true);
+    setMaintenanceReminderMessage(null);
+
+    const response = await getJson<MaintenanceEntriesResponse>(
+      `${apiBaseUrl}/maintenance-entries${buildQueryString({
+        page: 1,
+        pageSize: 100,
+        sortBy: "maintenanceDate",
+        sortDirection: "desc",
+        vehicleId: selectedVehicle.id,
+      })}`,
+      accessToken,
+    );
+
+    setMaintenanceAlerts(
+      buildUpcomingMaintenanceAlerts(response.data, selectedVehicle),
+    );
+    setIsMaintenanceReminderLoading(false);
+  }
+
+  async function loadFixedCostReminders() {
+    setIsFixedCostReminderLoading(true);
+    setFixedCostReminderMessage(null);
+
+    const response = await getJson<RecurringExpensesResponse>(
+      `${apiBaseUrl}/recurring-expenses${buildQueryString({
+        isActive: "true",
+        page: 1,
+        pageSize: 100,
+        sortBy: "nextDueAt",
+        sortDirection: "asc",
+        vehicleId: selectedVehicle.id,
+      })}`,
+      accessToken,
+    );
+
+    setFixedCostAlerts(buildFixedCostReminderAlerts(response.data));
+    setIsFixedCostReminderLoading(false);
   }
 
   async function loadDailyGoal() {
@@ -1346,6 +1567,19 @@ function TodayTabContent({
 
       {message ? <Text style={styles.formAlert}>{message}</Text> : null}
       {!isLoading ? <ProfitLossAlerts alerts={todayAlerts} /> : null}
+      <UpcomingMaintenanceReminders
+        alerts={maintenanceAlerts}
+        isLoading={isMaintenanceReminderLoading}
+        message={maintenanceReminderMessage}
+        onRefresh={loadMaintenanceReminders}
+        selectedVehicle={selectedVehicle}
+      />
+      <FixedCostReminders
+        alerts={fixedCostAlerts}
+        isLoading={isFixedCostReminderLoading}
+        message={fixedCostReminderMessage}
+        onRefresh={loadFixedCostReminders}
+      />
 
       <View style={styles.sectionHeaderRow}>
         <Text style={styles.sectionTitle}>Bugun ozeti</Text>
@@ -1488,6 +1722,11 @@ function RecordTabContent({
   const [packageForm, setPackageForm] = useState<QuickPackageFormState>(
     initialQuickPackageFormState,
   );
+  const [maintenanceForm, setMaintenanceForm] =
+    useState<QuickMaintenanceFormState>(() => ({
+      ...initialQuickMaintenanceFormState,
+      odometerKm: selectedVehicle.odometerKm ?? "",
+    }));
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expenseMessage, setExpenseMessage] = useState<string | null>(null);
@@ -1499,6 +1738,12 @@ function RecordTabContent({
   const [packageMessage, setPackageMessage] = useState<string | null>(null);
   const [isPackageSubmitting, setIsPackageSubmitting] = useState(false);
   const [lastPackage, setLastPackage] = useState<TagPackage | null>(null);
+  const [maintenanceMessage, setMaintenanceMessage] = useState<string | null>(
+    null,
+  );
+  const [isMaintenanceSubmitting, setIsMaintenanceSubmitting] = useState(false);
+  const [lastMaintenanceEntry, setLastMaintenanceEntry] =
+    useState<MaintenanceEntry | null>(null);
   const [expenseSummary, setExpenseSummary] = useState<DailyExpenseSummary>(
     initialDailyExpenseSummary,
   );
@@ -1537,9 +1782,15 @@ function RecordTabContent({
       endsAt: addDays(getLocalDateInputValue(), 6),
       startsAt: getLocalDateInputValue(),
     });
+    setMaintenanceForm({
+      ...initialQuickMaintenanceFormState,
+      maintenanceDate: getLocalDateInputValue(),
+      odometerKm: selectedVehicle.odometerKm ?? "",
+    });
     setLastCompletedShift(null);
     setLastFuelEntry(null);
     setLastPackage(null);
+    setLastMaintenanceEntry(null);
     refreshExpenseSummary();
     loadTripDrafts().catch(() => setIsDraftLoading(false));
     loadActiveShift().catch((error) => {
@@ -1583,6 +1834,13 @@ function RecordTabContent({
     value: QuickPackageFormState[Key],
   ) {
     setPackageForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateMaintenanceField<Key extends keyof QuickMaintenanceFormState>(
+    field: Key,
+    value: QuickMaintenanceFormState[Key],
+  ) {
+    setMaintenanceForm((current) => ({ ...current, [field]: value }));
   }
 
   function updateShiftField(field: keyof ShiftFormState, value: string) {
@@ -1632,7 +1890,12 @@ function RecordTabContent({
     setExpenseSummaryMessage(null);
 
     const today = getLocalDateInputValue();
-    const [expensesResponse, fuelEntriesResponse, tagPackagesResponse] =
+    const [
+      expensesResponse,
+      fuelEntriesResponse,
+      tagPackagesResponse,
+      maintenanceEntriesResponse,
+    ] =
       await Promise.all([
         getJson<ExpenseEntriesResponse>(
           `${apiBaseUrl}/expenses${buildQueryString({
@@ -1669,6 +1932,18 @@ function RecordTabContent({
           })}`,
           accessToken,
         ),
+        getJson<MaintenanceEntriesResponse>(
+          `${apiBaseUrl}/maintenance-entries${buildQueryString({
+            endDate: today,
+            page: 1,
+            pageSize: 100,
+            sortBy: "maintenanceDate",
+            sortDirection: "desc",
+            startDate: today,
+            vehicleId: selectedVehicle.id,
+          })}`,
+          accessToken,
+        ),
       ]);
 
     setExpenseSummary(
@@ -1676,6 +1951,7 @@ function RecordTabContent({
         expensesResponse,
         fuelEntriesResponse,
         tagPackagesResponse,
+        maintenanceEntriesResponse,
       ),
     );
     setIsExpenseSummaryLoading(false);
@@ -2019,6 +2295,76 @@ function RecordTabContent({
     }
   }
 
+  async function submitQuickMaintenance() {
+    const amount = normalizeDecimalInput(maintenanceForm.amount);
+    const odometerKm = normalizeDecimalInput(maintenanceForm.odometerKm);
+    const expectedIntervalKm = normalizeDecimalInput(
+      maintenanceForm.expectedIntervalKm,
+    );
+
+    if (!amount || Number(amount) <= 0) {
+      setMaintenanceMessage("Bakim tutari 0 TL uzerinde olmali.");
+      return;
+    }
+
+    if (!maintenanceForm.title.trim()) {
+      setMaintenanceMessage("Bakim basligi zorunlu.");
+      return;
+    }
+
+    if (!maintenanceForm.maintenanceDate) {
+      setMaintenanceMessage("Bakim tarihi zorunlu.");
+      return;
+    }
+
+    if (odometerKm && Number(odometerKm) < 0) {
+      setMaintenanceMessage("Km sayaci negatif olamaz.");
+      return;
+    }
+
+    if (expectedIntervalKm && Number(expectedIntervalKm) <= 0) {
+      setMaintenanceMessage("Bakim araligi 0 km uzerinde olmali.");
+      return;
+    }
+
+    setIsMaintenanceSubmitting(true);
+    setMaintenanceMessage(null);
+
+    try {
+      const response = await postJson<{ data: MaintenanceEntry }>(
+        `${apiBaseUrl}/maintenance-entries`,
+        {
+          allocationType: maintenanceForm.allocationType,
+          amount,
+          category: maintenanceForm.category,
+          expectedIntervalKm: expectedIntervalKm || undefined,
+          maintenanceDate: maintenanceForm.maintenanceDate,
+          note: maintenanceForm.note.trim() || undefined,
+          odometerKm: odometerKm || undefined,
+          serviceName: maintenanceForm.serviceName.trim() || undefined,
+          title: maintenanceForm.title.trim(),
+          vehicleId: selectedVehicle.id,
+        },
+        accessToken,
+      );
+
+      setLastMaintenanceEntry(response.data);
+      setMaintenanceForm({
+        ...initialQuickMaintenanceFormState,
+        maintenanceDate: getLocalDateInputValue(),
+        odometerKm: response.data.odometerKm ?? maintenanceForm.odometerKm,
+      });
+      setMaintenanceMessage("Bakim kaydi eklendi.");
+      refreshExpenseSummary();
+    } catch (error) {
+      setMaintenanceMessage(
+        error instanceof Error ? error.message : "Bakim kaydedilemedi.",
+      );
+    } finally {
+      setIsMaintenanceSubmitting(false);
+    }
+  }
+
   async function startShift() {
     const startOdometerKm = normalizeDecimalInput(shiftForm.startOdometerKm);
 
@@ -2306,6 +2652,7 @@ function RecordTabContent({
         {[
           ["Yakit", formatMoney(expenseSummary.fuelCost)],
           ["Paket gunluk payi", formatMoney(expenseSummary.packageCost)],
+          ["Bakim", formatMoney(expenseSummary.maintenanceCost)],
           ["Diger giderler", formatMoney(expenseSummary.otherExpenseCost)],
           ["Fisli kayit", String(expenseSummary.receiptCount)],
         ].map(([name, amount]) => (
@@ -2885,6 +3232,184 @@ function RecordTabContent({
       <View style={styles.section}>
         <View style={styles.sectionHeaderRow}>
           <View>
+            <Text style={styles.sectionTitle}>Bakim ekle</Text>
+            <Text style={styles.sectionSubtitle}>
+              Servis, lastik, mekanik ve periyodik bakim maliyetini km'ye dagit.
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.inputLabel}>Kategori</Text>
+        <View style={styles.optionGrid}>
+          {maintenanceCategoryOptions.map((category) => {
+            const isActive = maintenanceForm.category === category;
+
+            return (
+              <Pressable
+                key={category}
+                onPress={() => updateMaintenanceField("category", category)}
+                style={[
+                  styles.optionButton,
+                  isActive ? styles.optionButtonActive : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    isActive ? styles.optionButtonTextActive : null,
+                  ]}
+                >
+                  {category}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <TextField
+          label="Bakim basligi"
+          onChangeText={(value) => updateMaintenanceField("title", value)}
+          placeholder="Yag, filtre ve iscilik"
+          value={maintenanceForm.title}
+        />
+
+        <View style={styles.formRow}>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Tutar"
+              onChangeText={(value) => updateMaintenanceField("amount", value)}
+              placeholder="8000"
+              value={maintenanceForm.amount}
+            />
+          </View>
+          <View style={styles.formColumn}>
+            <TextField
+              label="Bakim tarihi"
+              onChangeText={(value) =>
+                updateMaintenanceField("maintenanceDate", value)
+              }
+              placeholder="2026-06-20"
+              value={maintenanceForm.maintenanceDate}
+            />
+          </View>
+        </View>
+
+        <View style={styles.formRow}>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Km sayaci"
+              onChangeText={(value) =>
+                updateMaintenanceField("odometerKm", value)
+              }
+              placeholder="85120"
+              value={maintenanceForm.odometerKm}
+            />
+          </View>
+          <View style={styles.formColumn}>
+            <TextField
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              label="Bakim araligi km"
+              onChangeText={(value) =>
+                updateMaintenanceField("expectedIntervalKm", value)
+              }
+              placeholder="10000"
+              value={maintenanceForm.expectedIntervalKm}
+            />
+          </View>
+        </View>
+
+        <TextField
+          label="Servis"
+          onChangeText={(value) => updateMaintenanceField("serviceName", value)}
+          placeholder="Yetkili servis / ozel servis"
+          value={maintenanceForm.serviceName}
+        />
+
+        <TextField
+          label="Not"
+          multiline
+          onChangeText={(value) => updateMaintenanceField("note", value)}
+          placeholder="Sonraki bakim, degisen parcalar..."
+          style={[styles.input, styles.textArea]}
+          value={maintenanceForm.note}
+        />
+
+        <View style={styles.quickTripPreview}>
+          <View>
+            <Text style={styles.shiftLabel}>Km basi bakim</Text>
+            <Text style={styles.shiftValue}>
+              {calculateMaintenanceCostPerKm(maintenanceForm) > 0
+                ? formatMoney(calculateMaintenanceCostPerKm(maintenanceForm))
+                : "-"}
+            </Text>
+          </View>
+          <View style={styles.autoCalcBadge}>
+            <Text style={styles.autoCalcBadgeText}>
+              {formatAllocationType(maintenanceForm.allocationType)}
+            </Text>
+          </View>
+        </View>
+
+        {maintenanceMessage ? (
+          <Text
+            style={[
+              styles.formAlert,
+              isSuccessMessage(maintenanceMessage) ? styles.formSuccess : null,
+            ]}
+          >
+            {maintenanceMessage}
+          </Text>
+        ) : null}
+
+        <Pressable
+          disabled={isMaintenanceSubmitting}
+          onPress={submitQuickMaintenance}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            (pressed || isMaintenanceSubmitting) && styles.primaryButtonPressed,
+          ]}
+        >
+          {isMaintenanceSubmitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Bakim Kaydet</Text>
+          )}
+        </Pressable>
+
+        {lastMaintenanceEntry ? (
+          <View style={styles.shiftResultPanel}>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Son bakim</Text>
+              <Text style={styles.expenseAmount}>
+                {formatMoney(toNumber(lastMaintenanceEntry.amount))}
+              </Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Kategori</Text>
+              <Text style={styles.expenseAmount}>
+                {lastMaintenanceEntry.category}
+              </Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Km basi maliyet</Text>
+              <Text style={styles.expenseAmount}>
+                {lastMaintenanceEntry.costPerKm
+                  ? formatMoney(toNumber(lastMaintenanceEntry.costPerKm))
+                  : "-"}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <View>
             <Text style={styles.sectionTitle}>Offline taslaklar</Text>
             <Text style={styles.sectionSubtitle}>
               Baglanti yokken seferleri cihazda sakla, sonra API'ye gonder.
@@ -2967,19 +3492,6 @@ function RecordTabContent({
             gorunur.
           </Text>
         )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Diger hizli kayitlar</Text>
-        <View style={styles.actionGrid}>
-          {["Bakim Ekle"].map(
-            (action) => (
-              <Pressable key={action} style={styles.actionButton}>
-                <Text style={styles.actionText}>{action}</Text>
-              </Pressable>
-            ),
-          )}
-        </View>
       </View>
 
       <View style={styles.section}>
@@ -3134,6 +3646,12 @@ function ReportsTabContent({
   const [isWeeklyLoading, setIsWeeklyLoading] = useState(true);
   const [isMonthlyLoading, setIsMonthlyLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [exportForm, setExportForm] = useState<ReportExportFormState>(
+    initialReportExportFormState,
+  );
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [isExportSubmitting, setIsExportSubmitting] = useState(false);
+  const [lastExportJob, setLastExportJob] = useState<ExportJob | null>(null);
 
   useEffect(() => {
     void refreshReports();
@@ -3188,6 +3706,58 @@ function ReportsTabContent({
       );
     } finally {
       setIsMonthlyLoading(false);
+    }
+  }
+
+  function updateExportField<Key extends keyof ReportExportFormState>(
+    field: Key,
+    value: ReportExportFormState[Key],
+  ) {
+    setExportForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function submitReportExport() {
+    if (exportForm.period === "DAILY" && !exportForm.date) {
+      setExportMessage("Gunluk export icin tarih zorunlu.");
+      return;
+    }
+
+    if (exportForm.period === "WEEKLY" && !exportForm.weekStart) {
+      setExportMessage("Haftalik export icin hafta baslangici zorunlu.");
+      return;
+    }
+
+    if (exportForm.period === "MONTHLY" && !exportForm.month) {
+      setExportMessage("Aylik export icin ay zorunlu.");
+      return;
+    }
+
+    setIsExportSubmitting(true);
+    setExportMessage(null);
+
+    try {
+      const response = await postJson<ExportJobResponse>(
+        `${apiBaseUrl}/exports/${exportForm.format === "PDF" ? "pdf" : "excel"}`,
+        {
+          date: exportForm.period === "DAILY" ? exportForm.date : undefined,
+          includeRawData: exportForm.includeRawData,
+          month: exportForm.period === "MONTHLY" ? exportForm.month : undefined,
+          period: exportForm.period,
+          vehicleId: selectedVehicle.id,
+          weekStart:
+            exportForm.period === "WEEKLY" ? exportForm.weekStart : undefined,
+        },
+        accessToken,
+      );
+
+      setLastExportJob(response.data);
+      setExportMessage("Disa aktarma talebi kuyruga alindi.");
+    } catch (error) {
+      setExportMessage(
+        error instanceof Error ? error.message : "Export talebi olusturulamadi.",
+      );
+    } finally {
+      setIsExportSubmitting(false);
     }
   }
 
@@ -3279,6 +3849,181 @@ function ReportsTabContent({
 
       {message ? <Text style={styles.formAlert}>{message}</Text> : null}
       {!isWeeklyLoading ? <ProfitLossAlerts alerts={weeklyAlerts} /> : null}
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <View>
+            <Text style={styles.sectionTitle}>PDF / Excel disa aktarma</Text>
+            <Text style={styles.sectionSubtitle}>
+              Gunluk, haftalik veya aylik finans raporunu kuyruga al.
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.inputLabel}>Format</Text>
+        <View style={styles.optionGrid}>
+          {reportExportFormatOptions.map((option) => {
+            const isActive = exportForm.format === option.value;
+
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => updateExportField("format", option.value)}
+                style={[
+                  styles.optionButton,
+                  isActive ? styles.optionButtonActive : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    isActive ? styles.optionButtonTextActive : null,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Text style={styles.inputLabel}>Donem</Text>
+        <View style={styles.optionGrid}>
+          {reportExportPeriodOptions.map((option) => {
+            const isActive = exportForm.period === option.value;
+
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => updateExportField("period", option.value)}
+                style={[
+                  styles.optionButton,
+                  isActive ? styles.optionButtonActive : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    isActive ? styles.optionButtonTextActive : null,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {exportForm.period === "DAILY" ? (
+          <TextField
+            label="Tarih"
+            onChangeText={(value) => updateExportField("date", value)}
+            placeholder="2026-06-20"
+            value={exportForm.date}
+          />
+        ) : null}
+
+        {exportForm.period === "WEEKLY" ? (
+          <TextField
+            label="Hafta baslangici"
+            onChangeText={(value) => updateExportField("weekStart", value)}
+            placeholder="2026-06-15"
+            value={exportForm.weekStart}
+          />
+        ) : null}
+
+        {exportForm.period === "MONTHLY" ? (
+          <TextField
+            label="Ay"
+            onChangeText={(value) => updateExportField("month", value)}
+            placeholder="2026-06"
+            value={exportForm.month}
+          />
+        ) : null}
+
+        <Pressable
+          onPress={() =>
+            updateExportField("includeRawData", !exportForm.includeRawData)
+          }
+          style={[
+            styles.outlineButton,
+            exportForm.includeRawData ? styles.optionButtonActive : null,
+          ]}
+        >
+          <Text
+            style={[
+              styles.outlineButtonText,
+              exportForm.includeRawData ? styles.optionButtonTextActive : null,
+            ]}
+          >
+            {exportForm.includeRawData
+              ? "Ham sefer/gider verisi dahil"
+              : "Sadece rapor ozeti"}
+          </Text>
+        </Pressable>
+
+        <View style={styles.quickTripPreview}>
+          <View>
+            <Text style={styles.shiftLabel}>Talep tipi</Text>
+            <Text style={styles.shiftValue}>
+              {formatReportExportPeriod(exportForm.period)}
+            </Text>
+          </View>
+          <View style={styles.autoCalcBadge}>
+            <Text style={styles.autoCalcBadgeText}>
+              {exportForm.format === "PDF" ? "PDF rapor" : "Excel XLSX"}
+            </Text>
+          </View>
+        </View>
+
+        {exportMessage ? (
+          <Text
+            style={[
+              styles.formAlert,
+              isSuccessMessage(exportMessage) ? styles.formSuccess : null,
+            ]}
+          >
+            {exportMessage}
+          </Text>
+        ) : null}
+
+        <Pressable
+          disabled={isExportSubmitting}
+          onPress={submitReportExport}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            (pressed || isExportSubmitting) && styles.primaryButtonPressed,
+          ]}
+        >
+          {isExportSubmitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Export Talebi Olustur</Text>
+          )}
+        </Pressable>
+
+        {lastExportJob ? (
+          <View style={styles.shiftResultPanel}>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Son talep</Text>
+              <Text style={styles.expenseAmount}>{lastExportJob.format}</Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Durum</Text>
+              <Text style={styles.expenseAmount}>
+                {formatExportStatus(lastExportJob.status)}
+              </Text>
+            </View>
+            <View style={styles.expenseRow}>
+              <Text style={styles.expenseName}>Donem</Text>
+              <Text style={styles.expenseAmount}>
+                {formatDateOnly(lastExportJob.periodStart)} /{" "}
+                {formatDateOnly(lastExportJob.periodEnd)}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
 
       <View style={styles.sectionHeaderRow}>
         <Text style={styles.sectionTitle}>Haftalik ozet</Text>
@@ -3426,6 +4171,188 @@ function ProfitLossAlerts({ alerts }: { alerts: ProfitLossAlert[] }) {
   );
 }
 
+function UpcomingMaintenanceReminders({
+  alerts,
+  isLoading,
+  message,
+  onRefresh,
+  selectedVehicle,
+}: {
+  alerts: UpcomingMaintenanceAlert[];
+  isLoading: boolean;
+  message: string | null;
+  onRefresh: () => void;
+  selectedVehicle: Vehicle;
+}) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeaderRow}>
+        <View>
+          <Text style={styles.sectionTitle}>Yaklasan bakim bildirimi</Text>
+          <Text style={styles.sectionSubtitle}>
+            Arac km sayacina gore 500 km icindeki veya geciken bakimlar.
+          </Text>
+        </View>
+        <Pressable
+          disabled={isLoading}
+          onPress={onRefresh}
+          style={[styles.secondaryButton, isLoading ? styles.disabledButton : null]}
+        >
+          <Text style={styles.secondaryButtonText}>
+            {isLoading ? "..." : "Yenile"}
+          </Text>
+        </Pressable>
+      </View>
+
+      {message ? <Text style={styles.formAlert}>{message}</Text> : null}
+
+      {isLoading ? (
+        <View style={styles.draftRow}>
+          <ActivityIndicator color="#115e59" />
+          <Text style={styles.emptyText}>
+            Bakim bildirimleri kontrol ediliyor.
+          </Text>
+        </View>
+      ) : !selectedVehicle.odometerKm ? (
+        <Text style={styles.emptyText}>
+          Yaklasan bakim hesaplamak icin arac km sayacini guncelle.
+        </Text>
+      ) : alerts.length === 0 ? (
+        <View style={styles.quickTripPreview}>
+          <View>
+            <Text style={styles.shiftLabel}>Durum</Text>
+            <Text style={styles.shiftValue}>Bakim riski yok</Text>
+          </View>
+          <View style={styles.autoCalcBadge}>
+            <Text style={styles.autoCalcBadgeText}>500 km icinde kayit yok</Text>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.profitAlertList}>
+          {alerts.map((alert) => (
+            <View
+              key={alert.id}
+              style={[
+                styles.profitAlert,
+                alert.tone === "danger" ? styles.profitAlertDanger : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.profitAlertTitle,
+                  alert.tone === "danger" ? styles.profitAlertTitleDanger : null,
+                ]}
+              >
+                {alert.title}
+              </Text>
+              <Text style={styles.profitAlertDetail}>{alert.detail}</Text>
+              <View style={styles.shiftResultPanel}>
+                <View style={styles.expenseRow}>
+                  <Text style={styles.expenseName}>Kategori</Text>
+                  <Text style={styles.expenseAmount}>{alert.category}</Text>
+                </View>
+                <View style={styles.expenseRow}>
+                  <Text style={styles.expenseName}>Bakim km</Text>
+                  <Text style={styles.expenseAmount}>
+                    {formatNumber(alert.dueAtKm)} km
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function FixedCostReminders({
+  alerts,
+  isLoading,
+  message,
+  onRefresh,
+}: {
+  alerts: FixedCostReminderAlert[];
+  isLoading: boolean;
+  message: string | null;
+  onRefresh: () => void;
+}) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeaderRow}>
+        <View>
+          <Text style={styles.sectionTitle}>Sigorta / MTV / muayene</Text>
+          <Text style={styles.sectionSubtitle}>
+            7 gun icinde vadesi gelen veya geciken sabit giderler.
+          </Text>
+        </View>
+        <Pressable
+          disabled={isLoading}
+          onPress={onRefresh}
+          style={[styles.secondaryButton, isLoading ? styles.disabledButton : null]}
+        >
+          <Text style={styles.secondaryButtonText}>
+            {isLoading ? "..." : "Yenile"}
+          </Text>
+        </Pressable>
+      </View>
+
+      {message ? <Text style={styles.formAlert}>{message}</Text> : null}
+
+      {isLoading ? (
+        <View style={styles.draftRow}>
+          <ActivityIndicator color="#115e59" />
+          <Text style={styles.emptyText}>Sabit gider vadeleri kontrol ediliyor.</Text>
+        </View>
+      ) : alerts.length === 0 ? (
+        <View style={styles.quickTripPreview}>
+          <View>
+            <Text style={styles.shiftLabel}>Durum</Text>
+            <Text style={styles.shiftValue}>Yaklasan vade yok</Text>
+          </View>
+          <View style={styles.autoCalcBadge}>
+            <Text style={styles.autoCalcBadgeText}>7 gun icinde kayit yok</Text>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.profitAlertList}>
+          {alerts.map((alert) => (
+            <View
+              key={alert.id}
+              style={[
+                styles.profitAlert,
+                alert.tone === "danger" ? styles.profitAlertDanger : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.profitAlertTitle,
+                  alert.tone === "danger" ? styles.profitAlertTitleDanger : null,
+                ]}
+              >
+                {alert.title}
+              </Text>
+              <Text style={styles.profitAlertDetail}>{alert.detail}</Text>
+              <View style={styles.shiftResultPanel}>
+                <View style={styles.expenseRow}>
+                  <Text style={styles.expenseName}>Tutar</Text>
+                  <Text style={styles.expenseAmount}>
+                    {formatMoney(toNumber(alert.amount))}
+                  </Text>
+                </View>
+                <View style={styles.expenseRow}>
+                  <Text style={styles.expenseName}>Vade</Text>
+                  <Text style={styles.expenseAmount}>{alert.dueDate}</Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 function VehiclesTabContent({
   onChangeVehicle,
   selectedVehicle,
@@ -3548,6 +4475,7 @@ function calculateDailyExpenseSummary(
   expensesResponse: ExpenseEntriesResponse,
   fuelEntriesResponse: FuelEntriesResponse,
   tagPackagesResponse: TagPackagesResponse,
+  maintenanceEntriesResponse: MaintenanceEntriesResponse,
 ): DailyExpenseSummary {
   const packageExpenseCost = expensesResponse.data
     .filter((expense) => expense.expenseType === "PLATFORM_PACKAGE")
@@ -3563,6 +4491,10 @@ function calculateDailyExpenseSummary(
     (total, tagPackage) => total + toNumber(tagPackage.dailyCost),
     0,
   );
+  const maintenanceCost = maintenanceEntriesResponse.data.reduce(
+    (total, maintenanceEntry) => total + toNumber(maintenanceEntry.amount),
+    0,
+  );
   const packageCost = packageExpenseCost + activePackageDailyCost;
   const receiptCount =
     expensesResponse.data.filter((expense) => Boolean(expense.receiptUrl))
@@ -3575,15 +4507,155 @@ function calculateDailyExpenseSummary(
     activePackageCount: tagPackagesResponse.data.length,
     fuelCost,
     fuelEntryCount: fuelEntriesResponse.data.length,
+    maintenanceCost,
+    maintenanceEntryCount: maintenanceEntriesResponse.data.length,
     otherExpenseCost,
     packageCost,
     receiptCount,
-    totalCost: fuelCost + packageCost + otherExpenseCost,
+    totalCost: fuelCost + packageCost + maintenanceCost + otherExpenseCost,
     totalEntryCount:
       expensesResponse.data.length +
       fuelEntriesResponse.data.length +
-      tagPackagesResponse.data.length,
+      tagPackagesResponse.data.length +
+      maintenanceEntriesResponse.data.length,
   };
+}
+
+function calculateMaintenanceCostPerKm(form: QuickMaintenanceFormState) {
+  const amount = toNumber(normalizeDecimalInput(form.amount));
+  const expectedIntervalKm = toNumber(
+    normalizeDecimalInput(form.expectedIntervalKm),
+  );
+
+  return expectedIntervalKm > 0 ? amount / expectedIntervalKm : 0;
+}
+
+function buildUpcomingMaintenanceAlerts(
+  entries: MaintenanceEntry[],
+  selectedVehicle: Vehicle,
+  thresholdKm = 500,
+): UpcomingMaintenanceAlert[] {
+  const currentOdometerKm = toNumber(selectedVehicle.odometerKm);
+
+  if (currentOdometerKm <= 0) {
+    return [];
+  }
+
+  return entries
+    .map((entry) => {
+      const entryOdometerKm = toNumber(entry.odometerKm);
+      const expectedIntervalKm = toNumber(entry.expectedIntervalKm);
+
+      if (entryOdometerKm <= 0 || expectedIntervalKm <= 0) {
+        return null;
+      }
+
+      const dueAtKm = entryOdometerKm + expectedIntervalKm;
+      const remainingKm = dueAtKm - currentOdometerKm;
+
+      if (remainingKm > thresholdKm) {
+        return null;
+      }
+
+      return {
+        category: entry.category,
+        detail:
+          remainingKm >= 0
+            ? `${entry.title} bakimina ${formatNumber(remainingKm)} km kaldi.`
+            : `${entry.title} bakimi ${formatNumber(Math.abs(remainingKm))} km gecikti.`,
+        dueAtKm,
+        id: entry.id,
+        remainingKm,
+        title:
+          remainingKm >= 0
+            ? "Bakim zamani yaklasiyor"
+            : "Bakim gecikti",
+        tone: remainingKm >= 0 ? "warning" : "danger",
+      } satisfies UpcomingMaintenanceAlert;
+    })
+    .filter((alert): alert is UpcomingMaintenanceAlert => Boolean(alert))
+    .sort((first, second) => first.remainingKm - second.remainingKm)
+    .slice(0, 3);
+}
+
+function buildFixedCostReminderAlerts(
+  entries: RecurringExpense[],
+  windowDays = 7,
+): FixedCostReminderAlert[] {
+  const today = new Date(`${getLocalDateInputValue()}T00:00:00.000Z`);
+
+  return entries
+    .map((entry) => {
+      if (!entry.nextDueAt || !isVehicleLegalReminder(entry)) {
+        return null;
+      }
+
+      const dueDate = new Date(`${entry.nextDueAt.slice(0, 10)}T00:00:00.000Z`);
+      const remainingDays = calculateDayDifference(today, dueDate);
+
+      if (remainingDays > windowDays) {
+        return null;
+      }
+
+      const isOverdue = remainingDays < 0;
+      const label = resolveFixedCostReminderLabel(entry.name);
+
+      return {
+        amount: entry.amount,
+        detail: isOverdue
+          ? `${entry.name} vadesi ${Math.abs(remainingDays)} gun gecikti.`
+          : remainingDays === 0
+            ? `${entry.name} odemesi bugun vadesine geliyor.`
+            : `${entry.name} odemesine ${remainingDays} gun kaldi.`,
+        dueDate: entry.nextDueAt.slice(0, 10),
+        id: entry.id,
+        name: entry.name,
+        remainingDays,
+        title: isOverdue ? `${label} gecikti` : `${label} yaklasiyor`,
+        tone: isOverdue ? "danger" : "warning",
+      } satisfies FixedCostReminderAlert;
+    })
+    .filter((alert): alert is FixedCostReminderAlert => Boolean(alert))
+    .sort((first, second) => first.remainingDays - second.remainingDays)
+    .slice(0, 3);
+}
+
+function isVehicleLegalReminder(entry: RecurringExpense) {
+  const name = entry.name.toLocaleLowerCase("tr-TR");
+  const note = entry.note?.toLocaleLowerCase("tr-TR") ?? "";
+  const text = `${name} ${note}`;
+
+  return (
+    text.includes("sigorta") ||
+    text.includes("kasko") ||
+    text.includes("mtv") ||
+    text.includes("vergi") ||
+    text.includes("muayene")
+  );
+}
+
+function resolveFixedCostReminderLabel(name: string) {
+  const normalizedName = name.toLocaleLowerCase("tr-TR");
+
+  if (normalizedName.includes("sigorta") || normalizedName.includes("kasko")) {
+    return "Sigorta";
+  }
+
+  if (normalizedName.includes("muayene")) {
+    return "Muayene";
+  }
+
+  if (normalizedName.includes("mtv") || normalizedName.includes("vergi")) {
+    return "MTV / vergi";
+  }
+
+  return "Sabit gider";
+}
+
+function calculateDayDifference(start: Date, end: Date) {
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  return Math.round((end.getTime() - start.getTime()) / dayMs);
 }
 
 function buildQueryString(query: Record<string, string | number | undefined>) {
@@ -3831,8 +4903,38 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function formatDateOnly(value: string) {
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function formatReportExportPeriod(period: ReportExportPeriod) {
+  const labels: Record<ReportExportPeriod, string> = {
+    DAILY: "Gunluk rapor",
+    MONTHLY: "Aylik rapor",
+    WEEKLY: "Haftalik rapor",
+  };
+
+  return labels[period];
+}
+
+function formatExportStatus(status: ExportStatus) {
+  const labels: Record<ExportStatus, string> = {
+    COMPLETED: "Hazir",
+    FAILED: "Hatali",
+    PENDING: "Kuyrukta",
+    PROCESSING: "Isleniyor",
+  };
+
+  return labels[status];
+}
+
 function isSuccessMessage(message: string) {
   return (
+    message.includes("alindi") ||
     message.includes("eklendi") ||
     message.includes("kaydedildi") ||
     message.includes("gonderildi")
