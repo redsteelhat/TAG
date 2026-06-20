@@ -1,12 +1,10 @@
-import { ModulePlaceholder } from '../../components/module-placeholder';
+import { AppShell } from '../../components/app-shell';
+import { ExportPanel } from '../../components/export-panel';
 
 export default function ExportsPage() {
   return (
-    <ModulePlaceholder
-      description="Excel ve PDF rapor talepleri, export gecmisi ve dosya indirme akislari burada toplanacak."
-      eyebrow="Disa aktarma"
-      primaryActionLabel="Export Al"
-      title="Disa Aktar"
-    />
+    <AppShell eyebrow="Disa aktarma" title="Disa Aktar">
+      <ExportPanel />
+    </AppShell>
   );
 }
