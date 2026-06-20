@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import {
   Car,
+  CalendarClock,
   Download,
   Fuel,
   LayoutDashboard,
@@ -46,6 +47,7 @@ const navSections: NavSection[] = [
     items: [
       { label: 'Gelirler', href: '/income', icon: Wallet },
       { label: 'Giderler', href: '/expenses', icon: Receipt },
+      { label: 'Sabit Gider', href: '/fixed-costs', icon: CalendarClock },
       { label: 'Yakit', href: '/fuel', icon: Fuel },
       { label: 'Araclar', href: '/vehicles', icon: Car },
       { label: 'Paketler', href: '/packages', icon: Package },
