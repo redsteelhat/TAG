@@ -11,6 +11,7 @@ import {
   Prisma,
   RecurringExpense
 } from '@prisma/client';
+import { maskLogMessage } from '../common/logging/log-masker';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -50,7 +51,9 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
     this.interval = setInterval(() => {
       void this.runOnce().catch((error) => {
         this.logger.error(
-          error instanceof Error ? error.message : 'Reminder job failed.'
+          maskLogMessage(
+            error instanceof Error ? error.message : 'Reminder job failed.'
+          )
         );
       });
     }, intervalMs);
@@ -67,12 +70,15 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
   async runOnce(now = new Date()): Promise<ReminderRunResult> {
     const dueNotifications =
       await this.notificationsService.dispatchDueNotifications(now);
-    const [packageEndingReminders, recurringDueReminders, maintenanceReminders] =
-      await Promise.all([
-        this.createPackageEndingReminders(now),
-        this.createRecurringDueReminders(now),
-        this.createMaintenanceReminders()
-      ]);
+    const [
+      packageEndingReminders,
+      recurringDueReminders,
+      maintenanceReminders
+    ] = await Promise.all([
+      this.createPackageEndingReminders(now),
+      this.createRecurringDueReminders(now),
+      this.createMaintenanceReminders()
+    ]);
 
     return {
       dispatchedDueNotifications: dueNotifications.dispatchedCount,
@@ -83,10 +89,7 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async createPackageEndingReminders(now: Date) {
-    const windowDays = this.getNumberConfig(
-      'PACKAGE_ENDING_REMINDER_DAYS',
-      3
-    );
+    const windowDays = this.getNumberConfig('PACKAGE_ENDING_REMINDER_DAYS', 3);
     const windowEnd = this.addDays(now, windowDays);
     const tagPackages = await this.prisma.tagPackage.findMany({
       where: {
@@ -120,10 +123,7 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async createRecurringDueReminders(now: Date) {
-    const windowDays = this.getNumberConfig(
-      'RECURRING_DUE_REMINDER_DAYS',
-      7
-    );
+    const windowDays = this.getNumberConfig('RECURRING_DUE_REMINDER_DAYS', 7);
     const windowEnd = this.addDays(now, windowDays);
     const recurringExpenses = await this.prisma.recurringExpense.findMany({
       where: {
@@ -205,10 +205,9 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
       }
 
       const wasCreated = await this.createReminderIfMissing({
-        body:
-          remainingKm.gte(0)
-            ? `${entry.title} bakimina ${remainingKm.toDecimalPlaces(0).toFixed(0)} km kaldi.`
-            : `${entry.title} bakimi ${remainingKm.abs().toDecimalPlaces(0).toFixed(0)} km gecikti.`,
+        body: remainingKm.gte(0)
+          ? `${entry.title} bakimina ${remainingKm.toDecimalPlaces(0).toFixed(0)} km kaldi.`
+          : `${entry.title} bakimi ${remainingKm.abs().toDecimalPlaces(0).toFixed(0)} km gecikti.`,
         entityId: entry.id,
         entityType: 'maintenance_entry',
         reminderKey: `maintenance-km:${entry.id}:${dueAtKm.toDecimalPlaces(1).toFixed(1)}`,

@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { maskLogMessage } from '../common/logging/log-masker';
 
 export type QueueJobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
@@ -104,7 +105,10 @@ export class QueueService implements OnModuleDestroy {
       return;
     }
 
-    while (this.activeCount < this.concurrency && this.pendingItems.length > 0) {
+    while (
+      this.activeCount < this.concurrency &&
+      this.pendingItems.length > 0
+    ) {
       const item = this.pendingItems.shift();
 
       if (!item) {
@@ -142,7 +146,9 @@ export class QueueService implements OnModuleDestroy {
 
       job.status = 'FAILED';
       job.processedAt = new Date();
-      this.logger.error(`${job.name} failed: ${job.errorMessage}`);
+      this.logger.error(
+        maskLogMessage(`${job.name} failed: ${job.errorMessage}`)
+      );
     }
   }
 
@@ -150,7 +156,10 @@ export class QueueService implements OnModuleDestroy {
     return `${name}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
   }
 
-  private getPositiveNumber(value: string | number | undefined, fallback: number) {
+  private getPositiveNumber(
+    value: string | number | undefined,
+    fallback: number
+  ) {
     const parsed = Number(value);
 
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;

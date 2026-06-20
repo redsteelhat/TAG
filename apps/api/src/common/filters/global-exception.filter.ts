@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
+import { maskLogMessage } from '../logging/log-masker';
 
 interface ErrorResponseBody {
   statusCode: number;
@@ -116,9 +117,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return exceptionResponse as HttpExceptionResponse;
   }
 
-  private mapKnownPrismaError(
-    exception: Prisma.PrismaClientKnownRequestError
-  ) {
+  private mapKnownPrismaError(exception: Prisma.PrismaClientKnownRequestError) {
     switch (exception.code) {
       case 'P2002':
         return {
@@ -162,12 +161,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     request: Request,
     statusCode: number
   ) {
-    const message = `${request.method} ${
-      request.originalUrl || request.url
-    } failed with ${statusCode}`;
+    const message = maskLogMessage(
+      `${request.method} ${
+        request.originalUrl || request.url
+      } failed with ${statusCode}`
+    );
 
     if (statusCode >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      const stack = exception instanceof Error ? exception.stack : undefined;
+      const stack =
+        exception instanceof Error && exception.stack
+          ? maskLogMessage(exception.stack)
+          : undefined;
       this.logger.error(message, stack);
       return;
     }

@@ -10,6 +10,10 @@ import { Request, Response } from 'express';
 import { Observable, tap } from 'rxjs';
 import { AuthenticatedUser } from '../auth/jwt-auth.guard';
 import {
+  maskLogMessage,
+  maskSensitiveData
+} from '../common/logging/log-masker';
+import {
   AUDIT_LOG_METADATA_KEY,
   AuditLogMetadata
 } from './audit-log.decorator';
@@ -60,16 +64,18 @@ export class AuditLogInterceptor implements NestInterceptor {
             entityId,
             ipAddress: this.getIpAddress(request),
             userAgent: request.headers['user-agent'],
-            metadata: {
+            metadata: maskSensitiveData({
               method: request.method,
               path: request.originalUrl || request.url,
               statusCode: response.statusCode
-            }
+            }) as Record<string, string | number>
           })
           .catch((error: unknown) => {
             const message =
               error instanceof Error ? error.message : 'Unknown audit error';
-            this.logger.warn(`Audit log write failed: ${message}`);
+            this.logger.warn(
+              maskLogMessage(`Audit log write failed: ${message}`)
+            );
           });
       })
     );
@@ -140,19 +146,13 @@ export class AuditLogInterceptor implements NestInterceptor {
       return undefined;
     }
 
-    const value = path
-      .split('.')
-      .reduce<unknown>((current, key) => {
-        if (
-          current &&
-          typeof current === 'object' &&
-          key in current
-        ) {
-          return (current as Record<string, unknown>)[key];
-        }
+    const value = path.split('.').reduce<unknown>((current, key) => {
+      if (current && typeof current === 'object' && key in current) {
+        return (current as Record<string, unknown>)[key];
+      }
 
-        return undefined;
-      }, source);
+      return undefined;
+    }, source);
 
     return typeof value === 'string' ? value : undefined;
   }
