@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import {
   Car,
   CalendarClock,
+  Calculator,
   Download,
   Fuel,
   LayoutDashboard,
@@ -48,6 +49,7 @@ const navSections: NavSection[] = [
       { label: 'Gelirler', href: '/income', icon: Wallet },
       { label: 'Giderler', href: '/expenses', icon: Receipt },
       { label: 'Sabit Gider', href: '/fixed-costs', icon: CalendarClock },
+      { label: 'Amortisman', href: '/depreciation', icon: Calculator },
       { label: 'Yakit', href: '/fuel', icon: Fuel },
       { label: 'Araclar', href: '/vehicles', icon: Car },
       { label: 'Paketler', href: '/packages', icon: Package },
