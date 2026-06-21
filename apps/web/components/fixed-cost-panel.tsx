@@ -4,12 +4,15 @@ import {
   CalendarClock,
   ChevronLeft,
   ChevronRight,
+  FileSearch,
+  LockKeyhole,
   ListFilter,
   RefreshCw,
   Save,
   Search
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { EmptyState } from './empty-state';
 import { getJson, postJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
@@ -259,6 +262,18 @@ export function FixedCostPanel() {
       }
     );
   }, [fixedCosts]);
+  const hasActiveFilters = Boolean(
+    vehicleId ||
+    expenseType ||
+    period ||
+    allocationMethod ||
+    isActive ||
+    q.trim() ||
+    startDate ||
+    endDate ||
+    minAmount ||
+    maxAmount
+  );
 
   useEffect(() => {
     setAccessToken(getAccessToken());
@@ -481,16 +496,24 @@ export function FixedCostPanel() {
   if (!accessToken) {
     return (
       <section className="panel empty-state-panel">
-        <p className="eyebrow">Oturum gerekli</p>
-        <h2>Sabit giderleri gormek icin giris yap.</h2>
-        <p>Token bulunamadigi icin API’den sabit gider verisi cekilmedi.</p>
+        <EmptyState
+          actionHref="/login"
+          actionLabel="Giris ekranina git"
+          description="Sigorta, MTV, muayene ve abonelik dagitimlarini gorebilmek icin aktif oturum gerekiyor."
+          eyebrow="Oturum gerekli"
+          icon={LockKeyhole}
+          title="Sabit giderleri gormek icin giris yap."
+        />
       </section>
     );
   }
 
   return (
     <section className="income-list-page">
-      <section className="metric-grid income-metrics" aria-label="Sabit gider ozeti">
+      <section
+        className="metric-grid income-metrics"
+        aria-label="Sabit gider ozeti"
+      >
         <MetricCard
           label="Goruntulenen sabit gider"
           value={formatMoney(pageMetrics.totalAmount)}
@@ -580,7 +603,10 @@ export function FixedCostPanel() {
               Donem
               <select
                 onChange={(event) =>
-                  updateFixedCostForm('period', event.target.value as PeriodType)
+                  updateFixedCostForm(
+                    'period',
+                    event.target.value as PeriodType
+                  )
                 }
                 value={fixedCostForm.period}
               >
@@ -622,11 +648,13 @@ export function FixedCostPanel() {
                 }
                 value={fixedCostForm.allocationMethod}
               >
-                {Object.entries(allocationMethodLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
+                {Object.entries(allocationMethodLabels).map(
+                  ([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  )
+                )}
               </select>
             </label>
 
@@ -917,10 +945,16 @@ export function FixedCostPanel() {
             </div>
 
             {fixedCosts.map((item) => (
-              <div className="data-table-row fixed-cost-table-row" role="row" key={item.id}>
+              <div
+                className="data-table-row fixed-cost-table-row"
+                role="row"
+                key={item.id}
+              >
                 <span>
                   <strong>{item.name}</strong>
-                  <small>{item.note || expenseTypeLabels[item.expenseType]}</small>
+                  <small>
+                    {item.note || expenseTypeLabels[item.expenseType]}
+                  </small>
                 </span>
                 <span>{vehicleNameById(vehicles, item.vehicleId)}</span>
                 <span>
@@ -928,7 +962,9 @@ export function FixedCostPanel() {
                   <small>{formatDate(item.startsAt)}</small>
                 </span>
                 <span>{allocationMethodLabels[item.allocationMethod]}</span>
-                <span>{item.nextDueAt ? formatDate(item.nextDueAt) : 'Yok'}</span>
+                <span>
+                  {item.nextDueAt ? formatDate(item.nextDueAt) : 'Yok'}
+                </span>
                 <span>{formatMoney(toMonthlyEquivalent(item))}</span>
                 <span>
                   <span
@@ -947,12 +983,28 @@ export function FixedCostPanel() {
           </div>
         ) : (
           <div className="empty-state-panel compact">
-            <CalendarClock aria-hidden="true" className="panel-icon" />
-            <h2>Henuz sabit gider kaydi yok.</h2>
-            <p>
-              Sigorta, MTV, muayene, kredi, telefon ve abonelik giderleri
-              burada takip edilecek.
-            </p>
+            <EmptyState
+              description={
+                hasActiveFilters
+                  ? 'Bu filtrelerle eslesen sabit gider bulunamadi. Donem, durum veya arac filtresini temizleyerek tekrar deneyebilirsin.'
+                  : 'Sigorta, MTV, muayene, kredi, telefon ve abonelik giderleri eklendikce gunluk ve aylik pay burada gorunur.'
+              }
+              icon={hasActiveFilters ? FileSearch : CalendarClock}
+              title={
+                hasActiveFilters
+                  ? 'Filtreye uygun sabit gider yok.'
+                  : 'Henuz sabit gider kaydi yok.'
+              }
+              tips={
+                hasActiveFilters
+                  ? ['Durum filtresini kaldir', 'Tutar araligini genislet']
+                  : [
+                      'Preset sec',
+                      'Odeme donemini belirle',
+                      'Dagitim metodunu sec'
+                    ]
+              }
+            />
           </div>
         )}
 

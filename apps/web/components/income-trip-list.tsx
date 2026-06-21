@@ -4,6 +4,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit3,
+  FileSearch,
+  LockKeyhole,
   ListFilter,
   Plus,
   RefreshCw,
@@ -11,6 +13,7 @@ import {
   Search
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { EmptyState } from './empty-state';
 import { getJson, patchJson, postJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
@@ -167,6 +170,9 @@ export function IncomeTripList() {
       }
     );
   }, [trips]);
+  const hasActiveFilters = Boolean(
+    q.trim() || startDate || endDate || paymentMethod
+  );
 
   useEffect(() => {
     setAccessToken(getAccessToken());
@@ -381,9 +387,14 @@ export function IncomeTripList() {
   if (!accessToken) {
     return (
       <section className="panel empty-state-panel">
-        <p className="eyebrow">Oturum gerekli</p>
-        <h2>Gelir ve sefer listesini gormek icin giris yap.</h2>
-        <p>Token bulunamadigi icin API’den sefer verisi cekilmedi.</p>
+        <EmptyState
+          actionHref="/login"
+          actionLabel="Giris ekranina git"
+          description="Sefer, vardiya ve net kar verilerini gorebilmek icin aktif oturum gerekiyor."
+          eyebrow="Oturum gerekli"
+          icon={LockKeyhole}
+          title="Gelir ve sefer listesini gormek icin giris yap."
+        />
       </section>
     );
   }
@@ -523,7 +534,10 @@ export function IncomeTripList() {
               Odeme tipi
               <select
                 onChange={(event) =>
-                  updateTripForm('paymentMethod', event.target.value as PaymentMethod)
+                  updateTripForm(
+                    'paymentMethod',
+                    event.target.value as PaymentMethod
+                  )
                 }
                 value={tripForm.paymentMethod}
               >
@@ -772,12 +786,28 @@ export function IncomeTripList() {
           </div>
         ) : (
           <div className="empty-state-panel compact">
-            <Plus aria-hidden="true" className="panel-icon" />
-            <h2>Henuz sefer kaydi yok.</h2>
-            <p>
-              Sefer ekleme ekrani tamamlandiginda yeni gelir kayitlari burada
-              listelenecek.
-            </p>
+            <EmptyState
+              description={
+                hasActiveFilters
+                  ? 'Bu filtrelerle eslesen sefer bulunamadi. Filtreleri temizleyerek tum gelir kayitlarini tekrar gorebilirsin.'
+                  : 'Ilk seferini eklediginde brüt gelir, km, yakit etkisi ve net kar bu listede gorunur.'
+              }
+              icon={hasActiveFilters ? FileSearch : Plus}
+              title={
+                hasActiveFilters
+                  ? 'Filtreye uygun sefer yok.'
+                  : 'Henuz sefer kaydi yok.'
+              }
+              tips={
+                hasActiveFilters
+                  ? ['Tarih araligini genislet', 'Odeme filtresini temizle']
+                  : [
+                      'Brut geliri gir',
+                      'Km bilgisini ekle',
+                      'Yakit tahmini olussun'
+                    ]
+              }
+            />
           </div>
         )}
 

@@ -10,11 +10,13 @@ import {
   Calculator,
   Download,
   Fuel,
+  ListChecks,
   LayoutDashboard,
   Package,
   Receipt,
   ReceiptText,
   Settings,
+  ShieldCheck,
   Target,
   Wallet,
   Wrench,
@@ -42,7 +44,10 @@ interface NavSection {
 const navSections: NavSection[] = [
   {
     title: 'Genel',
-    items: [{ label: 'Dashboard', href: '/', icon: LayoutDashboard }]
+    items: [
+      { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { label: 'Kurulum', href: '/onboarding', icon: ListChecks }
+    ]
   },
   {
     title: 'Operasyon',
@@ -68,7 +73,10 @@ const navSections: NavSection[] = [
   },
   {
     title: 'Sistem',
-    items: [{ label: 'Ayarlar', href: '/settings', icon: Settings }]
+    items: [
+      { label: 'Admin', href: '/admin', icon: ShieldCheck },
+      { label: 'Ayarlar', href: '/settings', icon: Settings }
+    ]
   }
 ];
 

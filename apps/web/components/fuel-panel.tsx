@@ -3,13 +3,16 @@
 import {
   ChevronLeft,
   ChevronRight,
+  FileSearch,
   Fuel,
+  LockKeyhole,
   ListFilter,
   RefreshCw,
   Save,
   Search
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { EmptyState } from './empty-state';
 import { getJson, postJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
@@ -196,6 +199,19 @@ export function FuelPanel() {
       consumptionPer100Km: kmDelta > 0 ? (totals.liters / kmDelta) * 100 : 0
     };
   }, [fuelEntries]);
+  const hasActiveFilters = Boolean(
+    vehicleId ||
+    fuelType ||
+    paymentMethod ||
+    fullTank ||
+    q.trim() ||
+    startDate ||
+    endDate ||
+    minAmount ||
+    maxAmount ||
+    minLiters ||
+    maxLiters
+  );
 
   useEffect(() => {
     setAccessToken(getAccessToken());
@@ -410,9 +426,14 @@ export function FuelPanel() {
   if (!accessToken) {
     return (
       <section className="panel empty-state-panel">
-        <p className="eyebrow">Oturum gerekli</p>
-        <h2>Yakit panelini gormek icin giris yap.</h2>
-        <p>Token bulunamadigi icin API’den yakit verisi cekilmedi.</p>
+        <EmptyState
+          actionHref="/login"
+          actionLabel="Giris ekranina git"
+          description="Yakit tuketimi, litre fiyati ve km basi yakit maliyetini hesaplamak icin aktif oturum gerekiyor."
+          eyebrow="Oturum gerekli"
+          icon={LockKeyhole}
+          title="Yakit panelini gormek icin giris yap."
+        />
       </section>
     );
   }
@@ -496,7 +517,9 @@ export function FuelPanel() {
               Tutar
               <input
                 inputMode="decimal"
-                onChange={(event) => updateFuelForm('amount', event.target.value)}
+                onChange={(event) =>
+                  updateFuelForm('amount', event.target.value)
+                }
                 placeholder="1500.00"
                 required
                 value={fuelForm.amount}
@@ -507,7 +530,9 @@ export function FuelPanel() {
               Litre
               <input
                 inputMode="decimal"
-                onChange={(event) => updateFuelForm('liters', event.target.value)}
+                onChange={(event) =>
+                  updateFuelForm('liters', event.target.value)
+                }
                 placeholder="32.500"
                 required
                 value={fuelForm.liters}
@@ -857,7 +882,11 @@ export function FuelPanel() {
             </div>
 
             {fuelEntries.map((entry) => (
-              <div className="data-table-row fuel-table-row" role="row" key={entry.id}>
+              <div
+                className="data-table-row fuel-table-row"
+                role="row"
+                key={entry.id}
+              >
                 <span>
                   <strong>{formatDate(entry.createdAt)}</strong>
                   <small>{formatVehicleName(vehicles, entry.vehicleId)}</small>
@@ -887,12 +916,28 @@ export function FuelPanel() {
           </div>
         ) : (
           <div className="empty-state-panel compact">
-            <Fuel aria-hidden="true" className="panel-icon" />
-            <h2>Henuz yakit kaydi yok.</h2>
-            <p>
-              Litre, tutar, km sayaci ve istasyon bilgisi girdikce yakit
-              maliyeti burada analiz edilecek.
-            </p>
+            <EmptyState
+              description={
+                hasActiveFilters
+                  ? 'Bu filtrelerle eslesen yakit kaydi bulunamadi. Filtreleri temizleyerek tum yakit gecmisini gorebilirsin.'
+                  : 'Litre, tutar, km sayaci ve istasyon bilgisi girdikce yakit maliyeti burada analiz edilir.'
+              }
+              icon={hasActiveFilters ? FileSearch : Fuel}
+              title={
+                hasActiveFilters
+                  ? 'Filtreye uygun yakit kaydi yok.'
+                  : 'Henuz yakit kaydi yok.'
+              }
+              tips={
+                hasActiveFilters
+                  ? ['Tarih araligini genislet', 'Yakit tipi filtresini kaldir']
+                  : [
+                      'Tutar ve litre gir',
+                      'Km sayacini ekle',
+                      'Full depo kaydini isaretle'
+                    ]
+              }
+            />
           </div>
         )}
 

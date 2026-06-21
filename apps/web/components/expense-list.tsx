@@ -3,6 +3,8 @@
 import {
   ChevronLeft,
   ChevronRight,
+  FileSearch,
+  LockKeyhole,
   ListFilter,
   Plus,
   RefreshCw,
@@ -10,6 +12,7 @@ import {
   Search
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { EmptyState } from './empty-state';
 import { getJson, postJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
@@ -243,7 +246,8 @@ export function ExpenseList() {
         const amount = toNumber(expense.amount);
 
         return {
-          recurringTotal: totals.recurringTotal + (expense.isRecurring ? amount : 0),
+          recurringTotal:
+            totals.recurringTotal + (expense.isRecurring ? amount : 0),
           totalAmount: totals.totalAmount + amount,
           variableTotal:
             totals.variableTotal +
@@ -257,6 +261,18 @@ export function ExpenseList() {
       }
     );
   }, [expenses]);
+  const hasActiveFilters = Boolean(
+    vehicleId ||
+    categoryId ||
+    expenseType ||
+    allocationType ||
+    paymentMethod ||
+    q.trim() ||
+    startDate ||
+    endDate ||
+    minAmount ||
+    maxAmount
+  );
 
   useEffect(() => {
     setAccessToken(getAccessToken());
@@ -325,9 +341,7 @@ export function ExpenseList() {
       setCategories(categoriesResponse.data);
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : 'Filtre verileri yuklenemedi.'
+        error instanceof Error ? error.message : 'Filtre verileri yuklenemedi.'
       );
     }
   }
@@ -505,9 +519,14 @@ export function ExpenseList() {
   if (!accessToken) {
     return (
       <section className="panel empty-state-panel">
-        <p className="eyebrow">Oturum gerekli</p>
-        <h2>Gider listesini gormek icin giris yap.</h2>
-        <p>Token bulunamadigi icin API’den gider verisi cekilmedi.</p>
+        <EmptyState
+          actionHref="/login"
+          actionLabel="Giris ekranina git"
+          description="Gider, yakit disi maliyet ve sabit gider verilerini gorebilmek icin aktif oturum gerekiyor."
+          eyebrow="Oturum gerekli"
+          icon={LockKeyhole}
+          title="Gider listesini gormek icin giris yap."
+        />
       </section>
     );
   }
@@ -527,10 +546,7 @@ export function ExpenseList() {
           label="Tekrarlayan gider"
           value={formatMoney(pageMetrics.recurringTotal)}
         />
-        <MetricCard
-          label="Kayit sayisi"
-          value={`${expenses.length}`}
-        />
+        <MetricCard label="Kayit sayisi" value={`${expenses.length}`} />
       </section>
 
       <section className="panel data-form quick-expense-panel">
@@ -555,7 +571,10 @@ export function ExpenseList() {
           ))}
         </div>
 
-        <form className="quick-expense-form" onSubmit={handleQuickExpenseSubmit}>
+        <form
+          className="quick-expense-form"
+          onSubmit={handleQuickExpenseSubmit}
+        >
           <div className="quick-expense-grid">
             <label>
               Arac
@@ -953,7 +972,9 @@ export function ExpenseList() {
                   <small>{formatOdometer(expense.odometerKm)}</small>
                 </span>
                 <span>
-                  <strong>{categoryNameById(categories, expense.categoryId)}</strong>
+                  <strong>
+                    {categoryNameById(categories, expense.categoryId)}
+                  </strong>
                   <small>{expense.note || 'Not yok'}</small>
                 </span>
                 <span>{expenseTypeLabels[expense.expenseType]}</span>
@@ -981,12 +1002,24 @@ export function ExpenseList() {
           </div>
         ) : (
           <div className="empty-state-panel compact">
-            <Plus aria-hidden="true" className="panel-icon" />
-            <h2>Henuz gider kaydi yok.</h2>
-            <p>
-              Yakit disi giderler, sabit giderler ve operasyon maliyetleri
-              burada listelenecek.
-            </p>
+            <EmptyState
+              description={
+                hasActiveFilters
+                  ? 'Bu filtrelerle eslesen gider bulunamadi. Filtreleri temizleyerek tum gider kayitlarini kontrol edebilirsin.'
+                  : 'Otopark, HGS, yikama, ceza ve diger operasyon giderlerini eklediginde maliyet dagilimi burada gorunur.'
+              }
+              icon={hasActiveFilters ? FileSearch : Plus}
+              title={
+                hasActiveFilters
+                  ? 'Filtreye uygun gider yok.'
+                  : 'Henuz gider kaydi yok.'
+              }
+              tips={
+                hasActiveFilters
+                  ? ['Kategori filtresini kaldir', 'Tutar araligini genislet']
+                  : ['Hizli preset sec', 'Tutar gir', 'Dagitim tipini belirle']
+              }
+            />
           </div>
         )}
 
@@ -1037,7 +1070,10 @@ function categoryNameById(categories: Category[], categoryId?: string | null) {
     return 'Kategori yok';
   }
 
-  return categories.find((category) => category.id === categoryId)?.name ?? 'Kategori';
+  return (
+    categories.find((category) => category.id === categoryId)?.name ??
+    'Kategori'
+  );
 }
 
 function findCategoryIdByName(categories: Category[], name: string) {

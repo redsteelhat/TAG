@@ -30,9 +30,11 @@ export default function RegisterPage() {
       });
 
       persistAuthSession(response);
-      router.push('/');
+      router.push('/onboarding');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Kayit olusturulamadi.');
+      setMessage(
+        error instanceof Error ? error.message : 'Kayit olusturulamadi.'
+      );
     } finally {
       setIsSubmitting(false);
     }

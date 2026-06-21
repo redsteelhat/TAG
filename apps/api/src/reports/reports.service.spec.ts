@@ -134,6 +134,7 @@ describe('ReportsService', () => {
       '300.00'
     );
     expect(result.sourceBreakdown.calculatedTagPackageCost).toBe('100.00');
+    expectProfitReportFormula(result);
   });
 
   it('calculates weekly profit using Monday week range by default', async () => {
@@ -242,6 +243,7 @@ describe('ReportsService', () => {
     expect(result.netProfit).toBe('990.00');
     expect(result.kmProfit).toBe('3.30');
     expect(result.hourlyProfit).toBe('61.88');
+    expectProfitReportFormula(result);
   });
 
   it('calculates monthly profit from a YYYY-MM month query', async () => {
@@ -351,6 +353,7 @@ describe('ReportsService', () => {
     expect(result.netProfit).toBe('7300.00');
     expect(result.kmProfit).toBe('7.30');
     expect(result.hourlyProfit).toBe('73.00');
+    expectProfitReportFormula(result);
   });
 
   it('allocates recurring fixed costs only on active days when requested', async () => {
@@ -447,6 +450,7 @@ describe('ReportsService', () => {
     expect(result.fixedExpenses).toBe('20.00');
     expect(result.totalCost).toBe('20.00');
     expect(result.netProfit).toBe('980.00');
+    expectProfitReportFormula(result);
   });
 
   it('allocates recurring fixed costs by kilometer when requested', async () => {
@@ -545,6 +549,7 @@ describe('ReportsService', () => {
     expect(result.fixedExpenses).toBe('75.00');
     expect(result.totalCost).toBe('75.00');
     expect(result.netProfit).toBe('925.00');
+    expectProfitReportFormula(result);
   });
 
   it('calculates per-kilometer profitability breakdown', async () => {
@@ -630,6 +635,7 @@ describe('ReportsService', () => {
     expect(result.netProfitPerKm).toBe('3.50');
     expect(result.fuelCostPerKm).toBe('1.00');
     expect(result.variableExpensePerKm).toBe('0.50');
+    expectKmProfitabilityFormula(result);
   });
 
   it('calculates per-hour profitability breakdown', async () => {
@@ -716,6 +722,7 @@ describe('ReportsService', () => {
     expect(result.netProfitPerHour).toBe('120.00');
     expect(result.fuelCostPerHour).toBe('50.00');
     expect(result.variableExpensePerHour).toBe('30.00');
+    expectHourlyProfitabilityFormula(result);
   });
 
   it('calculates break-even target and remaining revenue', async () => {
@@ -808,6 +815,7 @@ describe('ReportsService', () => {
     expect(result.costBreakdown.fuelCost).toBe('150.00');
     expect(result.costBreakdown.tagPackageCost).toBe('250.00');
     expect(result.costBreakdown.fixedExpenses).toBe('100.00');
+    expectBreakEvenFormula(result);
   });
 
   it('builds report overview from report APIs', async () => {
@@ -865,3 +873,187 @@ describe('ReportsService', () => {
     });
   });
 });
+
+function expectProfitReportFormula(report: {
+  activeMinutes: number;
+  depreciation: string;
+  fixedExpenses: string;
+  fuelCost: string;
+  grossIncome: string;
+  hourlyProfit: string;
+  kmProfit: string;
+  maintenanceReserve: string;
+  netProfit: string;
+  tagPackageCost: string;
+  totalCost: string;
+  totalKm: string;
+  variableExpenses: string;
+}) {
+  const totalCost = sumMoney(
+    report.fuelCost,
+    report.tagPackageCost,
+    report.variableExpenses,
+    report.fixedExpenses,
+    report.maintenanceReserve,
+    report.depreciation
+  );
+  const netProfit = decimal(report.grossIncome).minus(totalCost);
+  const totalKm = decimal(report.totalKm);
+  const activeHours =
+    report.activeMinutes > 0
+      ? decimal(report.activeMinutes).div(60)
+      : decimal(0);
+
+  expectMoney(report.totalCost, totalCost);
+  expectMoney(report.netProfit, netProfit);
+  expectMoney(report.kmProfit, divideOrZero(netProfit, totalKm));
+  expectMoney(report.hourlyProfit, divideOrZero(netProfit, activeHours));
+}
+
+function expectKmProfitabilityFormula(report: {
+  costPerKm: string;
+  depreciationPerKm: string;
+  fixedExpensePerKm: string;
+  fuelCostPerKm: string;
+  grossIncome: string;
+  grossIncomePerKm: string;
+  maintenanceReservePerKm: string;
+  netProfit: string;
+  netProfitPerKm: string;
+  packageCostPerKm: string;
+  totalCost: string;
+  totalKm: string;
+  variableExpensePerKm: string;
+}) {
+  const totalKm = decimal(report.totalKm);
+  const componentCostPerKm = sumMoney(
+    report.fuelCostPerKm,
+    report.packageCostPerKm,
+    report.variableExpensePerKm,
+    report.fixedExpensePerKm,
+    report.maintenanceReservePerKm,
+    report.depreciationPerKm
+  );
+
+  expectMoney(
+    report.grossIncomePerKm,
+    divideOrZero(decimal(report.grossIncome), totalKm)
+  );
+  expectMoney(report.costPerKm, divideOrZero(decimal(report.totalCost), totalKm));
+  expectMoney(
+    report.netProfitPerKm,
+    divideOrZero(decimal(report.netProfit), totalKm)
+  );
+  expectMoney(report.costPerKm, componentCostPerKm);
+}
+
+function expectHourlyProfitabilityFormula(report: {
+  activeHours: string;
+  costPerHour: string;
+  depreciationPerHour: string;
+  fixedExpensePerHour: string;
+  fuelCostPerHour: string;
+  grossIncome: string;
+  grossIncomePerHour: string;
+  maintenanceReservePerHour: string;
+  netProfit: string;
+  netProfitPerHour: string;
+  packageCostPerHour: string;
+  totalCost: string;
+  variableExpensePerHour: string;
+}) {
+  const activeHours = decimal(report.activeHours);
+  const componentCostPerHour = sumMoney(
+    report.fuelCostPerHour,
+    report.packageCostPerHour,
+    report.variableExpensePerHour,
+    report.fixedExpensePerHour,
+    report.maintenanceReservePerHour,
+    report.depreciationPerHour
+  );
+
+  expectMoney(
+    report.grossIncomePerHour,
+    divideOrZero(decimal(report.grossIncome), activeHours)
+  );
+  expectMoney(
+    report.costPerHour,
+    divideOrZero(decimal(report.totalCost), activeHours)
+  );
+  expectMoney(
+    report.netProfitPerHour,
+    divideOrZero(decimal(report.netProfit), activeHours)
+  );
+  expectMoney(report.costPerHour, componentCostPerHour);
+}
+
+function expectBreakEvenFormula(report: {
+  breakEvenProgressPercent: string;
+  breakEvenRevenue: string;
+  costBreakdown: {
+    depreciation: string;
+    fixedExpenses: string;
+    fuelCost: string;
+    maintenanceReserve: string;
+    tagPackageCost: string;
+    variableExpenses: string;
+  };
+  grossIncome: string;
+  isBreakEvenReached: boolean;
+  remainingRevenue: string;
+  surplusRevenue: string;
+}) {
+  const breakEvenRevenue = sumMoney(
+    report.costBreakdown.fuelCost,
+    report.costBreakdown.tagPackageCost,
+    report.costBreakdown.variableExpenses,
+    report.costBreakdown.fixedExpenses,
+    report.costBreakdown.maintenanceReserve,
+    report.costBreakdown.depreciation
+  );
+  const grossIncome = decimal(report.grossIncome);
+  const remainingRevenue = positiveDifference(breakEvenRevenue, grossIncome);
+  const surplusRevenue = positiveDifference(grossIncome, breakEvenRevenue);
+  const progress = breakEvenRevenue.gt(0)
+    ? grossIncome.mul(100).div(breakEvenRevenue)
+    : decimal(100);
+
+  expectMoney(report.breakEvenRevenue, breakEvenRevenue);
+  expectMoney(report.remainingRevenue, remainingRevenue);
+  expectMoney(report.surplusRevenue, surplusRevenue);
+  expectMoney(report.breakEvenProgressPercent, progress);
+  expect(report.isBreakEvenReached).toBe(grossIncome.gte(breakEvenRevenue));
+}
+
+function sumMoney(...values: Array<string | number | Prisma.Decimal>) {
+  let total = new Prisma.Decimal(0);
+
+  for (const value of values) {
+    total = total.plus(decimal(value));
+  }
+
+  return total;
+}
+
+function expectMoney(actual: string, expected: Prisma.Decimal) {
+  expect(decimal(actual).toFixed(2)).toBe(
+    expected.toDecimalPlaces(2).toFixed(2)
+  );
+}
+
+function divideOrZero(numerator: Prisma.Decimal, denominator: Prisma.Decimal) {
+  return denominator.lte(0) ? decimal(0) : numerator.div(denominator);
+}
+
+function positiveDifference(
+  minuend: Prisma.Decimal,
+  subtrahend: Prisma.Decimal
+) {
+  const difference = minuend.minus(subtrahend);
+
+  return difference.gt(0) ? difference : decimal(0);
+}
+
+function decimal(value: string | number | Prisma.Decimal) {
+  return value instanceof Prisma.Decimal ? value : new Prisma.Decimal(value);
+}

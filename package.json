@@ -23,6 +23,8 @@
     "api:perf": "node scripts/performance/api-performance-test.mjs",
     "lint": "pnpm -r --if-present lint",
     "postinstall": "pnpm db:generate",
+    "test:reports": "node scripts/quality/report-validation.mjs",
+    "test:responsive": "node scripts/quality/responsive-test.mjs",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck"
   },

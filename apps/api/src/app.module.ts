@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AdminModule } from './admin/admin.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
@@ -46,6 +47,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
         errorMessage: 'Too many requests. Please try again later.'
       })
     }),
+    AdminModule,
     AuditModule,
     ErrorTrackingModule,
     PrismaModule,

@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Clock,
+  FileSearch,
   FileText,
   ListFilter,
   RefreshCw,
@@ -15,6 +15,7 @@ import {
   Wrench
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { EmptyState } from './empty-state';
 import { getJson, patchJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
@@ -108,6 +109,7 @@ export function ReminderPanel() {
       }
     );
   }, [items]);
+  const hasActiveFilters = Boolean(typeFilter || statusFilter || unreadOnly);
 
   useEffect(() => {
     setAccessToken(getAccessToken());
@@ -146,9 +148,7 @@ export function ReminderPanel() {
       setMeta(response.meta);
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : 'Hatirlaticilar yuklenemedi.'
+        error instanceof Error ? error.message : 'Hatirlaticilar yuklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -322,25 +322,48 @@ export function ReminderPanel() {
 
         {message ? <p className="form-message">{message}</p> : null}
 
-        <div className="data-table" role="table" aria-label="Hatirlaticilar">
-          <div
-            className="data-table-row data-table-head reminder-table-row"
-            role="row"
-          >
-            <span>Tip</span>
-            <span>Baslik</span>
-            <span>Durum</span>
-            <span>Zaman</span>
-            <span>Meta</span>
-            <span>Aksiyon</span>
+        {isLoading ? (
+          <div className="data-table-empty">Hatirlaticilar yukleniyor.</div>
+        ) : items.length === 0 ? (
+          <div className="empty-state-panel compact">
+            <EmptyState
+              description={
+                hasActiveFilters
+                  ? 'Bu filtrelerle eslesen hatirlatici bulunamadi. Tip, durum veya okunmamis filtresini temizleyebilirsin.'
+                  : 'Yaklasan bakim, sigorta, MTV, paket bitisi ve export hazir bildirimleri burada listelenir.'
+              }
+              icon={hasActiveFilters ? FileSearch : BellRing}
+              title={
+                hasActiveFilters
+                  ? 'Filtreye uygun hatirlatici yok.'
+                  : 'Henuz hatirlatici yok.'
+              }
+              tips={
+                hasActiveFilters
+                  ? ['Tip filtresini kaldir', 'Durum filtresini kaldir']
+                  : [
+                      'Bakim kaydi ekle',
+                      'Sabit gider vadesi gir',
+                      'Export talebi olustur'
+                    ]
+              }
+            />
           </div>
+        ) : (
+          <div className="data-table" role="table" aria-label="Hatirlaticilar">
+            <div
+              className="data-table-row data-table-head reminder-table-row"
+              role="row"
+            >
+              <span>Tip</span>
+              <span>Baslik</span>
+              <span>Durum</span>
+              <span>Zaman</span>
+              <span>Meta</span>
+              <span>Aksiyon</span>
+            </div>
 
-          {isLoading ? (
-            <div className="data-table-empty">Hatirlaticilar yukleniyor.</div>
-          ) : items.length === 0 ? (
-            <div className="data-table-empty">Hatirlatici bulunamadi.</div>
-          ) : (
-            items.map((item) => {
+            {items.map((item) => {
               const TypeIcon = iconForType(item.type);
 
               return (
@@ -358,7 +381,9 @@ export function ReminderPanel() {
                     <small>{item.body}</small>
                   </span>
                   <span>
-                    <b className={`reminder-status ${item.status.toLowerCase()}`}>
+                    <b
+                      className={`reminder-status ${item.status.toLowerCase()}`}
+                    >
                       {statusLabels[item.status]}
                     </b>
                   </span>
@@ -370,25 +395,32 @@ export function ReminderPanel() {
                   <span>
                     <button
                       className="secondary-button"
-                      disabled={item.status === 'READ' || updatingId === item.id}
+                      disabled={
+                        item.status === 'READ' || updatingId === item.id
+                      }
                       onClick={() => markAsRead(item)}
                       type="button"
                     >
-                      <CheckCircle2 aria-hidden="true" className="inline-icon" />
+                      <CheckCircle2
+                        aria-hidden="true"
+                        className="inline-icon"
+                      />
                       Okundu
                     </button>
                   </span>
                 </div>
               );
-            })
-          )}
-        </div>
+            })}
+          </div>
+        )}
 
         <div className="pagination-row">
           <button
             className="secondary-button"
             disabled={!meta?.hasPreviousPage}
-            onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+            onClick={() =>
+              setPage((currentPage) => Math.max(1, currentPage - 1))
+            }
             type="button"
           >
             <ChevronLeft aria-hidden="true" className="inline-icon" />

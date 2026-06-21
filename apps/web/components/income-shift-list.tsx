@@ -4,10 +4,12 @@ import {
   CalendarClock,
   ChevronLeft,
   ChevronRight,
+  FileSearch,
   ListFilter,
   RefreshCw
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { EmptyState } from './empty-state';
 import { getJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
@@ -115,6 +117,9 @@ export function IncomeShiftList() {
       }
     );
   }, [shifts]);
+  const hasActiveFilters = Boolean(
+    vehicleId || status || q.trim() || startDate || endDate
+  );
 
   useEffect(() => {
     setAccessToken(getAccessToken());
@@ -263,7 +268,10 @@ export function IncomeShiftList() {
         />
       </section>
 
-      <form className="list-toolbar shift-toolbar" onSubmit={handleFilterSubmit}>
+      <form
+        className="list-toolbar shift-toolbar"
+        onSubmit={handleFilterSubmit}
+      >
         <label className="toolbar-search">
           <CalendarClock aria-hidden="true" />
           <input
@@ -349,7 +357,11 @@ export function IncomeShiftList() {
         </label>
 
         <div className="toolbar-actions">
-          <button className="secondary-button" type="button" onClick={clearFilters}>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={clearFilters}
+          >
             <ListFilter aria-hidden="true" className="button-icon" />
             Temizle
           </button>
@@ -364,7 +376,10 @@ export function IncomeShiftList() {
 
       {shifts.length > 0 ? (
         <div className="data-table" role="table" aria-label="Vardiyalar">
-          <div className="data-table-row shift-table-row data-table-head" role="row">
+          <div
+            className="data-table-row shift-table-row data-table-head"
+            role="row"
+          >
             <span>Baslangic</span>
             <span>Bitis</span>
             <span>Arac</span>
@@ -376,15 +391,23 @@ export function IncomeShiftList() {
           </div>
 
           {shifts.map((shift) => (
-            <div className="data-table-row shift-table-row" role="row" key={shift.id}>
+            <div
+              className="data-table-row shift-table-row"
+              role="row"
+              key={shift.id}
+            >
               <span>
                 <strong>{formatDateTime(shift.startedAt)}</strong>
                 <small>{shift.note || 'Not yok'}</small>
               </span>
-              <span>{shift.endedAt ? formatDateTime(shift.endedAt) : 'Devam ediyor'}</span>
+              <span>
+                {shift.endedAt ? formatDateTime(shift.endedAt) : 'Devam ediyor'}
+              </span>
               <span>{formatVehicleById(shift.vehicleId, vehicles)}</span>
               <span>
-                <span className={`status-pill compact ${shift.status.toLowerCase()}`}>
+                <span
+                  className={`status-pill compact ${shift.status.toLowerCase()}`}
+                >
                   {statusLabels[shift.status]}
                 </span>
               </span>
@@ -397,9 +420,24 @@ export function IncomeShiftList() {
         </div>
       ) : (
         <div className="empty-state-panel compact">
-          <CalendarClock aria-hidden="true" className="panel-icon" />
-          <h2>Henuz vardiya kaydi yok.</h2>
-          <p>Mobil vardiya modu veya web vardiya islemleri tamamlandikca kayitlar burada listelenecek.</p>
+          <EmptyState
+            description={
+              hasActiveFilters
+                ? 'Bu filtrelerle eslesen vardiya bulunamadi. Durum, arac veya tarih filtresini temizleyebilirsin.'
+                : 'Vardiya baslatip bitirdiginde sure, km, gelir ve net kar bu listede gorunur.'
+            }
+            icon={hasActiveFilters ? FileSearch : CalendarClock}
+            title={
+              hasActiveFilters
+                ? 'Filtreye uygun vardiya yok.'
+                : 'Henuz vardiya kaydi yok.'
+            }
+            tips={
+              hasActiveFilters
+                ? ['Tarih araligini genislet', 'Durum filtresini kaldir']
+                : ['Vardiyaya basla', 'Seferleri ekle', 'Vardiyayi bitir']
+            }
+          />
         </div>
       )}
 

@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  FileSearch,
   FileSpreadsheet,
   FileText,
   ListFilter,
@@ -11,6 +12,7 @@ import {
   Save
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { EmptyState } from './empty-state';
 import { API_BASE_URL, getJson, postJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
@@ -120,6 +122,7 @@ export function ExportPanel() {
       }
     );
   }, [jobs]);
+  const hasActiveFilters = Boolean(formatFilter || statusFilter);
 
   useEffect(() => {
     setAccessToken(getAccessToken());
@@ -264,7 +267,9 @@ export function ExportPanel() {
       link.remove();
       URL.revokeObjectURL(url);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Dosya indirilemedi.');
+      setMessage(
+        error instanceof Error ? error.message : 'Dosya indirilemedi.'
+      );
     } finally {
       setDownloadingId(null);
     }
@@ -397,7 +402,8 @@ export function ExportPanel() {
                 <option value="">Tum araclar</option>
                 {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.plateNumber} {vehicle.brand ?? ''} {vehicle.model ?? ''}
+                    {vehicle.plateNumber} {vehicle.brand ?? ''}{' '}
+                    {vehicle.model ?? ''}
                   </option>
                 ))}
               </select>
@@ -419,7 +425,11 @@ export function ExportPanel() {
               Ham sefer, gider, yakit ve bakim verilerini dahil et
             </label>
 
-            <button className="primary-button" disabled={isSubmitting} type="submit">
+            <button
+              className="primary-button"
+              disabled={isSubmitting}
+              type="submit"
+            >
               <Save aria-hidden="true" className="inline-icon" />
               {isSubmitting ? 'Kuyruga aliniyor' : 'Export al'}
             </button>
@@ -492,29 +502,58 @@ export function ExportPanel() {
 
         {message ? <p className="form-message">{message}</p> : null}
 
-        <div className="data-table" role="table" aria-label="Export gecmisi">
-          <div className="data-table-row data-table-head export-table-row" role="row">
-            <span>Format</span>
-            <span>Donem</span>
-            <span>Durum</span>
-            <span>Olusturma</span>
-            <span>Tamamlanma</span>
-            <span>Hata</span>
-            <span>Indir</span>
+        {isLoading ? (
+          <div className="data-table-empty">Export gecmisi yukleniyor.</div>
+        ) : jobs.length === 0 ? (
+          <div className="empty-state-panel compact">
+            <EmptyState
+              description={
+                hasActiveFilters
+                  ? 'Bu filtrelerle eslesen export dosyasi bulunamadi. Format veya durum filtresini temizleyebilirsin.'
+                  : 'PDF veya Excel export talebi olusturdugunda kuyruk durumu ve indirme aksiyonu burada gorunur.'
+              }
+              icon={hasActiveFilters ? FileSearch : FileSpreadsheet}
+              title={
+                hasActiveFilters
+                  ? 'Filtreye uygun export yok.'
+                  : 'Henuz export kaydi yok.'
+              }
+              tips={
+                hasActiveFilters
+                  ? ['Format filtresini kaldir', 'Durum filtresini kaldir']
+                  : ['Donem sec', 'Format belirle', 'Export al']
+              }
+            />
           </div>
+        ) : (
+          <div className="data-table" role="table" aria-label="Export gecmisi">
+            <div
+              className="data-table-row data-table-head export-table-row"
+              role="row"
+            >
+              <span>Format</span>
+              <span>Donem</span>
+              <span>Durum</span>
+              <span>Olusturma</span>
+              <span>Tamamlanma</span>
+              <span>Hata</span>
+              <span>Indir</span>
+            </div>
 
-          {isLoading ? (
-            <div className="data-table-empty">Export gecmisi yukleniyor.</div>
-          ) : jobs.length === 0 ? (
-            <div className="data-table-empty">Export kaydi bulunamadi.</div>
-          ) : (
-            jobs.map((job) => (
-              <div className="data-table-row export-table-row" role="row" key={job.id}>
+            {jobs.map((job) => (
+              <div
+                className="data-table-row export-table-row"
+                role="row"
+                key={job.id}
+              >
                 <span className="export-format-cell">
                   {job.format === 'PDF' ? (
                     <FileText aria-hidden="true" className="inline-icon" />
                   ) : (
-                    <FileSpreadsheet aria-hidden="true" className="inline-icon" />
+                    <FileSpreadsheet
+                      aria-hidden="true"
+                      className="inline-icon"
+                    />
                   )}
                   {job.format}
                 </span>
@@ -528,13 +567,17 @@ export function ExportPanel() {
                   </b>
                 </span>
                 <span>{formatDateTime(job.createdAt)}</span>
-                <span>{job.completedAt ? formatDateTime(job.completedAt) : '-'}</span>
+                <span>
+                  {job.completedAt ? formatDateTime(job.completedAt) : '-'}
+                </span>
                 <span>{job.errorMessage ?? '-'}</span>
                 <span>
                   <button
                     aria-label="Export indir"
                     className="icon-button"
-                    disabled={job.status !== 'COMPLETED' || downloadingId === job.id}
+                    disabled={
+                      job.status !== 'COMPLETED' || downloadingId === job.id
+                    }
                     onClick={() => downloadJob(job)}
                     type="button"
                   >
@@ -542,15 +585,17 @@ export function ExportPanel() {
                   </button>
                 </span>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div className="pagination-row">
           <button
             className="secondary-button"
             disabled={!meta?.hasPreviousPage}
-            onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+            onClick={() =>
+              setPage((currentPage) => Math.max(1, currentPage - 1))
+            }
             type="button"
           >
             <ChevronLeft aria-hidden="true" className="inline-icon" />

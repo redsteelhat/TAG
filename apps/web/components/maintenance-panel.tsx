@@ -3,12 +3,15 @@
 import {
   ChevronLeft,
   ChevronRight,
+  FileSearch,
   ListFilter,
   RefreshCw,
   Save,
-  Search
+  Search,
+  Wrench
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { EmptyState } from './empty-state';
 import { getJson, postJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
@@ -177,6 +180,18 @@ export function MaintenancePanel() {
 
   const averageCostPerKm =
     entries.length > 0 ? pageMetrics.averageCostPerKm / entries.length : 0;
+  const hasActiveFilters = Boolean(
+    vehicleId ||
+    category ||
+    allocationType ||
+    q.trim() ||
+    startDate ||
+    endDate ||
+    minAmount ||
+    maxAmount ||
+    minOdometerKm ||
+    maxOdometerKm
+  );
 
   useEffect(() => {
     setAccessToken(getAccessToken());
@@ -321,7 +336,9 @@ export function MaintenancePanel() {
         }
       );
 
-      setEntries((currentEntries) => [response.data, ...currentEntries].slice(0, 10));
+      setEntries((currentEntries) =>
+        [response.data, ...currentEntries].slice(0, 10)
+      );
       setForm((currentForm) => ({
         ...emptyMaintenanceForm,
         vehicleId: currentForm.vehicleId
@@ -461,7 +478,8 @@ export function MaintenancePanel() {
                 <option value="">Arac sec</option>
                 {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.plateNumber} {vehicle.brand ?? ''} {vehicle.model ?? ''}
+                    {vehicle.plateNumber} {vehicle.brand ?? ''}{' '}
+                    {vehicle.model ?? ''}
                   </option>
                 ))}
               </select>
@@ -604,7 +622,11 @@ export function MaintenancePanel() {
               />
             </label>
 
-            <button className="primary-button" disabled={isSaving} type="submit">
+            <button
+              className="primary-button"
+              disabled={isSaving}
+              type="submit"
+            >
               <Save aria-hidden="true" className="inline-icon" />
               {isSaving ? 'Kaydediliyor' : 'Bakim kaydet'}
             </button>
@@ -631,7 +653,10 @@ export function MaintenancePanel() {
           </button>
         </div>
 
-        <form className="maintenance-list-toolbar" onSubmit={handleFilterSubmit}>
+        <form
+          className="maintenance-list-toolbar"
+          onSubmit={handleFilterSubmit}
+        >
           <label className="toolbar-search">
             Ara
             <Search aria-hidden="true" />
@@ -780,27 +805,50 @@ export function MaintenancePanel() {
 
         {message ? <p className="form-message">{message}</p> : null}
 
-        <div className="data-table" role="table">
-          <div
-            className="data-table-row data-table-head maintenance-table-row"
-            role="row"
-          >
-            <span>Tarih</span>
-            <span>Bakim</span>
-            <span>Arac</span>
-            <span>Tutar</span>
-            <span>Km</span>
-            <span>Km basi</span>
-            <span>Sonraki</span>
-            <span>Dagitim</span>
+        {isLoading ? (
+          <div className="data-table-empty">Bakim kayitlari yukleniyor.</div>
+        ) : entries.length === 0 ? (
+          <div className="empty-state-panel compact">
+            <EmptyState
+              description={
+                hasActiveFilters
+                  ? 'Bu filtrelerle eslesen bakim kaydi bulunamadi. Km, tutar veya kategori filtresini genisletebilirsin.'
+                  : 'Periyodik bakim, lastik, mekanik ve temizlik kayitlari eklendikce km basi yipranma maliyeti burada hesaplanir.'
+              }
+              icon={hasActiveFilters ? FileSearch : Wrench}
+              title={
+                hasActiveFilters
+                  ? 'Filtreye uygun bakim kaydi yok.'
+                  : 'Henuz bakim kaydi yok.'
+              }
+              tips={
+                hasActiveFilters
+                  ? ['Kategori filtresini kaldir', 'Km araligini genislet']
+                  : [
+                      'Bakim tutarini gir',
+                      'Aralik km ekle',
+                      'Km basi maliyeti izle'
+                    ]
+              }
+            />
           </div>
+        ) : (
+          <div className="data-table" role="table">
+            <div
+              className="data-table-row data-table-head maintenance-table-row"
+              role="row"
+            >
+              <span>Tarih</span>
+              <span>Bakim</span>
+              <span>Arac</span>
+              <span>Tutar</span>
+              <span>Km</span>
+              <span>Km basi</span>
+              <span>Sonraki</span>
+              <span>Dagitim</span>
+            </div>
 
-          {isLoading ? (
-            <div className="data-table-empty">Bakim kayitlari yukleniyor.</div>
-          ) : entries.length === 0 ? (
-            <div className="data-table-empty">Bakim kaydi bulunamadi.</div>
-          ) : (
-            entries.map((item) => (
+            {entries.map((item) => (
               <div
                 className="data-table-row maintenance-table-row"
                 key={item.id}
@@ -816,22 +864,29 @@ export function MaintenancePanel() {
                 </span>
                 <span>{vehicleLabel(vehicles, item.vehicleId)}</span>
                 <span>{formatMoney(toNumber(item.amount))}</span>
-                <span>{item.odometerKm ? formatKm(toNumber(item.odometerKm)) : '-'}</span>
+                <span>
+                  {item.odometerKm ? formatKm(toNumber(item.odometerKm)) : '-'}
+                </span>
                 <span>
                   {item.costPerKm ? formatMoney(toNumber(item.costPerKm)) : '-'}
                 </span>
                 <span>{nextMaintenanceKm(item)}</span>
-                <span>{allocationTypeLabels[item.allocationType] ?? item.allocationType}</span>
+                <span>
+                  {allocationTypeLabels[item.allocationType] ??
+                    item.allocationType}
+                </span>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div className="pagination-row">
           <button
             className="secondary-button"
             disabled={!meta?.hasPreviousPage}
-            onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+            onClick={() =>
+              setPage((currentPage) => Math.max(1, currentPage - 1))
+            }
             type="button"
           >
             <ChevronLeft aria-hidden="true" className="inline-icon" />
@@ -900,5 +955,7 @@ function nextMaintenanceKm(item: MaintenanceEntry) {
     return '-';
   }
 
-  return formatKm(toNumber(item.odometerKm) + toNumber(item.expectedIntervalKm));
+  return formatKm(
+    toNumber(item.odometerKm) + toNumber(item.expectedIntervalKm)
+  );
 }

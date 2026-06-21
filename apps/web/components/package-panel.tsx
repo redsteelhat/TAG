@@ -3,6 +3,8 @@
 import {
   ChevronLeft,
   ChevronRight,
+  FileSearch,
+  LockKeyhole,
   ListFilter,
   Package,
   RefreshCw,
@@ -10,6 +12,7 @@ import {
   Search
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { EmptyState } from './empty-state';
 import { getJson, postJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
@@ -155,6 +158,16 @@ export function PackagePanel() {
       }
     );
   }, [packages]);
+  const hasActiveFilters = Boolean(
+    vehicleId ||
+    allocationMethod ||
+    isActive ||
+    q.trim() ||
+    startDate ||
+    endDate ||
+    minAmount ||
+    maxAmount
+  );
 
   useEffect(() => {
     setAccessToken(getAccessToken());
@@ -355,9 +368,14 @@ export function PackagePanel() {
   if (!accessToken) {
     return (
       <section className="panel empty-state-panel">
-        <p className="eyebrow">Oturum gerekli</p>
-        <h2>Paket giderlerini gormek icin giris yap.</h2>
-        <p>Token bulunamadigi icin API’den paket verisi cekilmedi.</p>
+        <EmptyState
+          actionHref="/login"
+          actionLabel="Giris ekranina git"
+          description="Paket payi, gunluk dagitim ve break-even hesaplarini gorebilmek icin aktif oturum gerekiyor."
+          eyebrow="Oturum gerekli"
+          icon={LockKeyhole}
+          title="Paket giderlerini gormek icin giris yap."
+        />
       </section>
     );
   }
@@ -486,11 +504,13 @@ export function PackagePanel() {
                 }
                 value={packageForm.allocationMethod}
               >
-                {Object.entries(allocationMethodLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
+                {Object.entries(allocationMethodLabels).map(
+                  ([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  )
+                )}
               </select>
             </label>
 
@@ -729,7 +749,11 @@ export function PackagePanel() {
             </div>
 
             {packages.map((item) => (
-              <div className="data-table-row package-table-row" role="row" key={item.id}>
+              <div
+                className="data-table-row package-table-row"
+                role="row"
+                key={item.id}
+              >
                 <span>
                   <strong>{item.name}</strong>
                   <small>{item.note || 'Not yok'}</small>
@@ -737,7 +761,9 @@ export function PackagePanel() {
                 <span>{vehicleNameById(vehicles, item.vehicleId)}</span>
                 <span>
                   <strong>{formatDate(item.startsAt)}</strong>
-                  <small>{formatDate(item.endsAt)} - {item.durationDays} gun</small>
+                  <small>
+                    {formatDate(item.endsAt)} - {item.durationDays} gun
+                  </small>
                 </span>
                 <span>{allocationMethodLabels[item.allocationMethod]}</span>
                 <span>{formatMoney(toNumber(item.dailyCost))}</span>
@@ -763,12 +789,31 @@ export function PackagePanel() {
           </div>
         ) : (
           <div className="empty-state-panel compact">
-            <Package aria-hidden="true" className="panel-icon" />
-            <h2>Henuz paket kaydi yok.</h2>
-            <p>
-              TAG paket, uyelik veya operasyonel kullanim bedelleri burada
-              izlenecek.
-            </p>
+            <EmptyState
+              description={
+                hasActiveFilters
+                  ? 'Bu filtrelerle eslesen paket bulunamadi. Donem veya durum filtresini temizleyerek tekrar deneyebilirsin.'
+                  : 'TAG paket, uyelik veya operasyonel kullanim bedellerini eklediginde gunluk pay ve break-even etkisi burada gorunur.'
+              }
+              icon={hasActiveFilters ? FileSearch : Package}
+              title={
+                hasActiveFilters
+                  ? 'Filtreye uygun paket yok.'
+                  : 'Henuz paket kaydi yok.'
+              }
+              tips={
+                hasActiveFilters
+                  ? [
+                      'Aktif/pasif filtresini kaldir',
+                      'Donem araligini genislet'
+                    ]
+                  : [
+                      'Paket tutarini gir',
+                      'Baslangic ve bitis sec',
+                      'Dagitim metodunu belirle'
+                    ]
+              }
+            />
           </div>
         )}
 
@@ -846,7 +891,9 @@ function calculateDailyCost(form: PackageFormState) {
   return durationDays > 0 ? amount / durationDays : 0;
 }
 
-function calculateDurationDays(form: Pick<PackageFormState, 'endsAt' | 'startsAt'>) {
+function calculateDurationDays(
+  form: Pick<PackageFormState, 'endsAt' | 'startsAt'>
+) {
   if (!form.startsAt || !form.endsAt) {
     return 1;
   }
