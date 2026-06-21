@@ -8,15 +8,15 @@ Bu urun, klasik gelir-gider takibi yerine sefer, vardiya, kilometre, yakit, pake
 
 ## Dokumanlar
 
-| Dokuman | Aciklama |
-|---|---|
-| [PRD.md](./PRD.md) | Urun gereksinimleri ve genel kapsam |
-| [MVP_SCOPE.md](./MVP_SCOPE.md) | MVP kapsam listesi, P0/P1/P2 ayrimi |
-| [USER_FLOWS.md](./USER_FLOWS.md) | Kritik kullanici akislari |
-| [WIREFRAMES.md](./WIREFRAMES.md) | Low-fidelity mobil ve web wireframe taslaklari |
-| [DB_SCHEMA_DRAFT.md](./DB_SCHEMA_DRAFT.md) | PostgreSQL + Prisma DB sema taslagi |
-| [API_CONTRACT_DRAFT.md](./API_CONTRACT_DRAFT.md) | REST API contract taslagi |
-| [DESIGN_SYSTEM_STARTER.md](./DESIGN_SYSTEM_STARTER.md) | MVP tasarim sistemi baslangici |
+| Dokuman                                                | Aciklama                                       |
+| ------------------------------------------------------ | ---------------------------------------------- |
+| [PRD.md](./PRD.md)                                     | Urun gereksinimleri ve genel kapsam            |
+| [MVP_SCOPE.md](./MVP_SCOPE.md)                         | MVP kapsam listesi, P0/P1/P2 ayrimi            |
+| [USER_FLOWS.md](./USER_FLOWS.md)                       | Kritik kullanici akislari                      |
+| [WIREFRAMES.md](./WIREFRAMES.md)                       | Low-fidelity mobil ve web wireframe taslaklari |
+| [DB_SCHEMA_DRAFT.md](./DB_SCHEMA_DRAFT.md)             | PostgreSQL + Prisma DB sema taslagi            |
+| [API_CONTRACT_DRAFT.md](./API_CONTRACT_DRAFT.md)       | REST API contract taslagi                      |
+| [DESIGN_SYSTEM_STARTER.md](./DESIGN_SYSTEM_STARTER.md) | MVP tasarim sistemi baslangici                 |
 
 ## MVP Odagi
 
@@ -80,6 +80,16 @@ Health check:
 curl http://localhost:3001/api/v1/health
 ```
 
+Monitoring endpointleri:
+
+```bash
+curl http://localhost:3001/api/v1/health/live
+curl http://localhost:3001/api/v1/health/ready
+curl -H "x-monitoring-token: $MONITORING_TOKEN" http://localhost:3001/api/v1/monitoring/metrics
+```
+
+`/health/live` process liveness, `/health/ready` PostgreSQL ve queue readiness durumunu doner. `/monitoring/metrics` runtime bellek/CPU, dependency check ve queue metriklerini doner; `MONITORING_TOKEN` veya admin JWT gerektirir.
+
 Mobil uygulama:
 
 ```bash
@@ -102,6 +112,43 @@ pnpm db:generate
 pnpm db:migrate
 pnpm db:studio
 ```
+
+## Backup Sistemi
+
+PostgreSQL backup script'i `DATABASE_URL` degerini kullanir ve varsayilan olarak `backups/postgres` altina `*.sql.gz` dosyasi yazar. Bu klasor git'e dahil edilmez.
+
+Manuel backup:
+
+```bash
+pnpm db:backup
+```
+
+Gunluk backup worker:
+
+```bash
+pnpm db:backup:watch
+```
+
+Varsayilan ayarlar:
+
+```bash
+BACKUP_DIR=backups/postgres
+BACKUP_FILE_PREFIX=tag-finance
+BACKUP_RETENTION_DAYS=14
+BACKUP_INTERVAL_HOURS=24
+BACKUP_DOCKER_CONTAINER=tag-postgres
+BACKUP_PG_SCHEMA=public
+```
+
+Local Docker kurulumunda `BACKUP_DOCKER_CONTAINER=tag-postgres` kullanilabilir. Managed PostgreSQL veya VPS ortaminda host uzerinde `pg_dump` kuruluysa `BACKUP_DOCKER_CONTAINER` bos birakilip `BACKUP_PG_DUMP_BIN` ile binary yolu verilebilir.
+
+Restore ornegi:
+
+```bash
+gzip -dc backups/postgres/tag-finance-YYYY-MM-DDTHH-MM-SS-000Z.sql.gz | psql "$DATABASE_URL"
+```
+
+Production icin `pnpm db:backup:watch` ayri bir process/systemd service olarak calistirilmali veya `pnpm db:backup` cron ile gunluk tetiklenmelidir. Backup dosyalari hassas veri icerir; disk sifreleme, erisim kisiti ve offsite kopyalama politikasi production ortaminda zorunludur.
 
 ## Marka ve Hukuki Not
 

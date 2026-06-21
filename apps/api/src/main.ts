@@ -1,6 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import {
@@ -21,6 +22,9 @@ async function bootstrap() {
 
   assertSecurityConfiguration(configService);
   configureExpressSecurity(app, configService);
+  app.use('/favicon.ico', (_request: Request, response: Response) => {
+    response.status(204).end();
+  });
   app.setGlobalPrefix(apiPrefix);
   app.enableCors(buildCorsOptions(configService));
   app.useGlobalPipes(

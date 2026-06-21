@@ -39,6 +39,7 @@ desktop.ini
 tmp/
 temp/
 uploads/
+backups/
 *.sqlite
 *.sqlite3
 

@@ -11,6 +11,7 @@ import { ExpensesModule } from './expenses/expenses.module';
 import { FuelEntriesModule } from './fuel-entries/fuel-entries.module';
 import { HealthModule } from './health/health.module';
 import { MaintenanceEntriesModule } from './maintenance-entries/maintenance-entries.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { PrivacyModule } from './privacy/privacy.module';
@@ -60,6 +61,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     ExpensesModule,
     FuelEntriesModule,
     MaintenanceEntriesModule,
+    MonitoringModule,
     NotificationsModule,
     TagPackagesModule,
     RecurringExpensesModule,

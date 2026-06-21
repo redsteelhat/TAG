@@ -176,6 +176,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       return;
     }
 
+    if (statusCode >= HttpStatus.BAD_REQUEST) {
+      this.logger.debug(message);
+      return;
+    }
+
     this.logger.warn(message);
   }
 

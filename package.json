@@ -8,6 +8,8 @@
   },
   "scripts": {
     "build": "pnpm -r --if-present build",
+    "db:backup": "node scripts/backup/postgres-backup.mjs",
+    "db:backup:watch": "node scripts/backup/postgres-backup.mjs --watch",
     "db:generate": "pnpm --filter @tag/api db:generate",
     "db:migrate": "pnpm --filter @tag/api db:migrate",
     "db:seed": "pnpm --filter @tag/api db:seed",
