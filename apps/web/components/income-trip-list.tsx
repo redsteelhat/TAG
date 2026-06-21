@@ -108,15 +108,15 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
   CASH: 'Nakit',
   DIGITAL: 'Dijital',
   MIXED: 'Karma',
-  OTHER: 'Diger'
+  OTHER: 'Diğer'
 };
 
 const sortOptions: Array<{ label: string; value: TripSortBy }> = [
   { label: 'Sefer tarihi', value: 'tripDate' },
-  { label: 'Olusturma tarihi', value: 'createdAt' },
+  { label: 'Oluşturma tarihi', value: 'createdAt' },
   { label: 'Gelir', value: 'totalIncome' },
   { label: 'Km', value: 'totalKm' },
-  { label: 'Net kar', value: 'trueNetProfit' }
+  { label: 'Net kâr', value: 'trueNetProfit' }
 ];
 
 const emptyTripForm: TripFormState = {
@@ -219,7 +219,7 @@ export function IncomeTripList() {
     }
   ) {
     if (!token) {
-      setMessage('Sefer listesini gormek icin once giris yapmalisin.');
+      setMessage('Sefer listesini görmek için önce giriş yapmalısın.');
       return;
     }
 
@@ -245,7 +245,7 @@ export function IncomeTripList() {
       setMeta(response.meta);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Seferler yuklenemedi.'
+        error instanceof Error ? error.message : 'Seferler yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -265,7 +265,7 @@ export function IncomeTripList() {
       setVehicles(response.data);
     } catch (error) {
       setFormMessage(
-        error instanceof Error ? error.message : 'Araclar yuklenemedi.'
+        error instanceof Error ? error.message : 'Araçlar yüklenemedi.'
       );
     }
   }
@@ -274,12 +274,12 @@ export function IncomeTripList() {
     event.preventDefault();
 
     if (!accessToken) {
-      setFormMessage('Sefer kaydetmek icin once giris yapmalisin.');
+      setFormMessage('Sefer kaydetmek için önce giriş yapmalısın.');
       return;
     }
 
     if (!tripForm.vehicleId) {
-      setFormMessage('Sefer kaydetmek icin once arac secmelisin.');
+      setFormMessage('Sefer kaydetmek için önce araç seçmelisin.');
       return;
     }
 
@@ -298,7 +298,7 @@ export function IncomeTripList() {
       }
 
       setFormMessage(
-        editingTripId ? 'Sefer kaydi guncellendi.' : 'Sefer kaydi olusturuldu.'
+        editingTripId ? 'Sefer kaydı güncellendi.' : 'Sefer kaydı oluşturuldu.'
       );
       setEditingTripId(null);
       resetTripForm();
@@ -389,11 +389,11 @@ export function IncomeTripList() {
       <section className="panel empty-state-panel">
         <EmptyState
           actionHref="/login"
-          actionLabel="Giris ekranina git"
-          description="Sefer, vardiya ve net kar verilerini gorebilmek icin aktif oturum gerekiyor."
+          actionLabel="Giriş ekranına git"
+          description="Sefer, vardiya ve net kâr verilerini görebilmek için aktif oturum gerekiyor."
           eyebrow="Oturum gerekli"
           icon={LockKeyhole}
-          title="Gelir ve sefer listesini gormek icin giris yap."
+          title="Gelir ve sefer listesini görmek için giriş yap."
         />
       </section>
     );
@@ -401,21 +401,21 @@ export function IncomeTripList() {
 
   return (
     <section className="income-list-page">
-      <section className="metric-grid income-metrics" aria-label="Sayfa ozeti">
+      <section className="metric-grid income-metrics" aria-label="Sayfa özeti">
         <MetricCard
-          label="Goruntulenen gelir"
+          label="Görüntülenen gelir"
           value={formatMoney(pageMetrics.grossIncome)}
         />
         <MetricCard
-          label="Goruntulenen net kar"
+          label="Görüntülenen net kâr"
           value={formatMoney(pageMetrics.netProfit)}
         />
         <MetricCard
-          label="Goruntulenen km"
+          label="Görüntülenen km"
           value={`${formatNumber(pageMetrics.totalKm)} km`}
         />
         <MetricCard
-          label="Yakit etkisi"
+          label="Yakıt etkisi"
           value={formatMoney(pageMetrics.fuelCost)}
         />
       </section>
@@ -426,7 +426,7 @@ export function IncomeTripList() {
             <p className="eyebrow">
               {editingTripId ? 'Sefer duzenleme' : 'Yeni sefer'}
             </p>
-            <h2>{editingTripId ? 'Sefer kaydini duzenle' : 'Sefer ekle'}</h2>
+            <h2>{editingTripId ? 'Sefer kaydıni duzenle' : 'Sefer ekle'}</h2>
           </div>
           <button
             className="secondary-button"
@@ -441,7 +441,7 @@ export function IncomeTripList() {
         <form className="trip-editor-form" onSubmit={handleTripSubmit}>
           <div className="trip-editor-grid">
             <label>
-              Arac
+              Araç
               <select
                 disabled={vehicles.length === 0}
                 onChange={(event) =>
@@ -450,7 +450,7 @@ export function IncomeTripList() {
                 required
                 value={tripForm.vehicleId}
               >
-                <option value="">Arac sec</option>
+                <option value="">Araç seç</option>
                 {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {formatVehicleLabel(vehicle)}
@@ -472,7 +472,7 @@ export function IncomeTripList() {
             </label>
 
             <label>
-              Baslangic saati
+              Başlangıç saati
               <input
                 onChange={(event) =>
                   updateTripForm('startedAt', event.target.value)
@@ -483,7 +483,7 @@ export function IncomeTripList() {
             </label>
 
             <label>
-              Bitis saati
+              Bitiş saati
               <input
                 onChange={(event) =>
                   updateTripForm('endedAt', event.target.value)
@@ -494,7 +494,7 @@ export function IncomeTripList() {
             </label>
 
             <label>
-              Brut gelir
+              Brüt gelir
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -507,7 +507,7 @@ export function IncomeTripList() {
             </label>
 
             <label>
-              Bahsis / ekstra
+              Bahşiş / ekstra
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -519,7 +519,7 @@ export function IncomeTripList() {
             </label>
 
             <label>
-              Iptal geliri
+              İptal geliri
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -531,7 +531,7 @@ export function IncomeTripList() {
             </label>
 
             <label>
-              Odeme tipi
+              Ödeme tipi
               <select
                 onChange={(event) =>
                   updateTripForm(
@@ -562,7 +562,7 @@ export function IncomeTripList() {
             </label>
 
             <label>
-              Bos km
+              Boş km
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -574,23 +574,23 @@ export function IncomeTripList() {
             </label>
 
             <label>
-              Baslangic lokasyonu
+              Başlangıç lokasyonu
               <input
                 onChange={(event) =>
                   updateTripForm('pickupLocation', event.target.value)
                 }
-                placeholder="Kadikoy"
+                placeholder="Kadıköy"
                 value={tripForm.pickupLocation}
               />
             </label>
 
             <label>
-              Bitis lokasyonu
+              Bitiş lokasyonu
               <input
                 onChange={(event) =>
                   updateTripForm('dropoffLocation', event.target.value)
                 }
-                placeholder="Besiktas"
+                placeholder="Beşiktaş"
                 value={tripForm.dropoffLocation}
               />
             </label>
@@ -600,7 +600,7 @@ export function IncomeTripList() {
             Not
             <textarea
               onChange={(event) => updateTripForm('note', event.target.value)}
-              placeholder="Yogun trafik, yolcu bekleme, odeme detayi"
+              placeholder="Yoğun trafik, yolcu bekleme, ödeme detayı"
               rows={3}
               value={tripForm.note}
             />
@@ -609,8 +609,8 @@ export function IncomeTripList() {
           {formMessage ? (
             <p
               className={
-                formMessage.includes('olusturuldu') ||
-                formMessage.includes('guncellendi')
+                formMessage.includes('oluşturuldu') ||
+                formMessage.includes('güncellendi')
                   ? 'form-success'
                   : 'form-alert'
               }
@@ -626,7 +626,7 @@ export function IncomeTripList() {
                 onClick={beginCreateTrip}
                 type="button"
               >
-                Vazgec
+                Vazgeç
               </button>
             ) : null}
             <button
@@ -637,7 +637,7 @@ export function IncomeTripList() {
               {isSavingTrip
                 ? 'Kaydediliyor'
                 : editingTripId
-                  ? 'Seferi Guncelle'
+                  ? 'Seferi Güncelle'
                   : 'Sefer Ekle'}
             </button>
           </div>
@@ -656,7 +656,7 @@ export function IncomeTripList() {
           </label>
 
           <label>
-            Baslangic
+            Başlangıç
             <input
               onChange={(event) => setStartDate(event.target.value)}
               type="date"
@@ -665,7 +665,7 @@ export function IncomeTripList() {
           </label>
 
           <label>
-            Bitis
+            Bitiş
             <input
               onChange={(event) => setEndDate(event.target.value)}
               type="date"
@@ -674,12 +674,12 @@ export function IncomeTripList() {
           </label>
 
           <label>
-            Odeme
+            Ödeme
             <select
               onChange={(event) => setPaymentMethod(event.target.value)}
               value={paymentMethod}
             >
-              <option value="">Tum odemeler</option>
+              <option value="">Tüm ödemeler</option>
               {Object.entries(paymentMethodLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -703,7 +703,7 @@ export function IncomeTripList() {
           </label>
 
           <label>
-            Yon
+            Yön
             <select
               onChange={(event) =>
                 setSortDirection(event.target.value as SortDirection)
@@ -726,7 +726,7 @@ export function IncomeTripList() {
             </button>
             <button className="primary-button" disabled={isLoading}>
               <RefreshCw aria-hidden="true" className="button-icon" />
-              {isLoading ? 'Yukleniyor' : 'Filtrele'}
+              {isLoading ? 'Yükleniyor' : 'Filtrele'}
             </button>
           </div>
         </form>
@@ -735,11 +735,11 @@ export function IncomeTripList() {
       <section className="panel income-table-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Sefer kayitlari</p>
+            <p className="eyebrow">Sefer kayıtları</p>
             <h2>Gelir/sefer listesi</h2>
           </div>
           <span className="status-pill">
-            {meta ? `${meta.total} kayit` : 'Hazirlaniyor'}
+            {meta ? `${meta.total} kayıt` : 'Hazırlanıyor'}
           </span>
         </div>
 
@@ -750,11 +750,11 @@ export function IncomeTripList() {
             <div className="data-table-row data-table-head" role="row">
               <span>Tarih</span>
               <span>Rota</span>
-              <span>Odeme</span>
+              <span>Ödeme</span>
               <span>Km</span>
               <span>Gelir</span>
-              <span>Yakit</span>
-              <span>Net kar</span>
+              <span>Yakıt</span>
+              <span>Net kâr</span>
               <span>Islem</span>
             </div>
 
@@ -789,22 +789,22 @@ export function IncomeTripList() {
             <EmptyState
               description={
                 hasActiveFilters
-                  ? 'Bu filtrelerle eslesen sefer bulunamadi. Filtreleri temizleyerek tum gelir kayitlarini tekrar gorebilirsin.'
-                  : 'Ilk seferini eklediginde brüt gelir, km, yakit etkisi ve net kar bu listede gorunur.'
+                  ? 'Bu filtrelerle eşleşen sefer bulunamadı. Filtreleri temizleyerek tüm gelir kayıtlarını tekrar görebilirsin.'
+                  : 'İlk seferini eklediğinde brüt gelir, km, yakıt etkisi ve net kâr bu listede görünür.'
               }
               icon={hasActiveFilters ? FileSearch : Plus}
               title={
                 hasActiveFilters
                   ? 'Filtreye uygun sefer yok.'
-                  : 'Henuz sefer kaydi yok.'
+                  : 'Henüz sefer kaydı yok.'
               }
               tips={
                 hasActiveFilters
-                  ? ['Tarih araligini genislet', 'Odeme filtresini temizle']
+                  ? ['Tarih aralığını genişlet', 'Ödeme filtresini temizle']
                   : [
-                      'Brut geliri gir',
+                      'Brüt geliri gir',
                       'Km bilgisini ekle',
-                      'Yakit tahmini olussun'
+                      'Yakıt tahmini olussun'
                     ]
               }
             />
@@ -821,7 +821,7 @@ export function IncomeTripList() {
             type="button"
           >
             <ChevronLeft aria-hidden="true" className="button-icon" />
-            Onceki
+            Önceki
           </button>
           <span>
             Sayfa {meta?.page ?? page} / {meta?.totalPages || 1}
@@ -854,8 +854,8 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 }
 
 function formatRoute(trip: Trip) {
-  const pickup = trip.pickupLocation || 'Baslangic yok';
-  const dropoff = trip.dropoffLocation || 'Bitis yok';
+  const pickup = trip.pickupLocation || 'Başlangıç yok';
+  const dropoff = trip.dropoffLocation || 'Bitiş yok';
 
   return `${pickup} - ${dropoff}`;
 }

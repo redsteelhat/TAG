@@ -103,7 +103,7 @@ export function DailyIncomeDashboard() {
           setError(
             loadError instanceof Error
               ? loadError.message
-              : 'Dashboard metrikleri alinamadi.'
+              : 'Ana panel metrikleri alınamadı.'
           );
         }
       } finally {
@@ -122,15 +122,15 @@ export function DailyIncomeDashboard() {
 
   const cards = useMemo(() => {
     if (needsLogin) {
-      return buildStateCards('Giris gerekli', 'Oturum acildiginda dashboard verisi yuklenir');
+      return buildStateCards('Giriş gerekli', 'Oturum açıldığında ana panel verisi yüklenir');
     }
 
     if (isLoading) {
-      return buildStateCards('Yukleniyor', 'Finans motoru rapor ozeti hesaplaniyor', '...');
+      return buildStateCards('Yükleniyor', 'Finans motoru rapor özeti hesaplanıyor', '...');
     }
 
     if (error || !overview) {
-      return buildStateCards('API hatasi', error ?? 'Dashboard metrikleri alinamadi');
+      return buildStateCards('API hatası', error ?? 'Ana panel metrikleri alınamadı');
     }
 
     const daily = overview.dailyProfit;
@@ -144,64 +144,64 @@ export function DailyIncomeDashboard() {
       {
         detail: `${daily.tripCount} sefer`,
         icon: WalletCards,
-        label: 'Bugunku brut gelir',
-        trend: daily.tripCount > 0 ? 'Canli rapor' : 'Kayit yok',
+        label: 'Bugünkü brüt gelir',
+        trend: daily.tripCount > 0 ? 'Canlı rapor' : 'Kayıt yok',
         value: formatMoneyValue(daily.grossIncome)
       },
       {
-        detail: 'Yakit, paket ve dagitilmis giderler dusuldu',
+        detail: 'Yakıt, paket ve dağıtılmış giderler düşüldü',
         icon: TrendingUp,
-        label: 'Bugunku net kar',
-        trend: netProfit >= 0 ? 'Karda' : 'Zararda',
+        label: 'Bugünkü net kâr',
+        trend: netProfit >= 0 ? 'Kârda' : 'Zararda',
         value: formatMoneyValue(daily.netProfit)
       },
       {
         detail: 'Toplam finans motoru gideri',
         icon: ReceiptText,
-        label: 'Bugunku toplam gider',
-        trend: 'Yaklasik maliyet',
+        label: 'Bugünkü toplam gider',
+        trend: 'Yaklaşık maliyet',
         value: formatMoneyValue(daily.totalCost)
       },
       {
-        detail: `${formatNumber(totalKm)} km toplam kullanim`,
+        detail: `${formatNumber(totalKm)} km toplam kullanım`,
         icon: Route,
-        label: 'Km basi net kar',
-        trend: totalKm > 0 ? 'Hesaplandi' : 'Km gerekli',
+        label: 'Km başı net kâr',
+        trend: totalKm > 0 ? 'Hesaplandı' : 'Km gerekli',
         value: `${formatNumber(toNumber(overview.kmProfitability.netProfitPerKm), 2)} TL`
       },
       {
-        detail: `${formatDuration(activeMinutes)} aktif sure`,
+        detail: `${formatDuration(activeMinutes)} aktif süre`,
         icon: Clock,
-        label: 'Saatlik net kar',
-        trend: activeMinutes > 0 ? 'Hesaplandi' : 'Sure gerekli',
+        label: 'Saatlik net kâr',
+        trend: activeMinutes > 0 ? 'Hesaplandı' : 'Süre gerekli',
         value: formatMoneyValue(overview.hourlyProfitability.netProfitPerHour)
       },
       {
-        detail: 'Seferlerden tahmini yakit etkisi',
+        detail: 'Seferlerden tahmini yakıt etkisi',
         icon: Fuel,
-        label: 'Yakit maliyeti',
-        trend: 'Kar eritici',
+        label: 'Yakıt maliyeti',
+        trend: 'Kârı azaltıyor',
         value: formatMoneyValue(daily.fuelCost)
       },
       {
         detail: `Kalan: ${formatMoneyValue(breakEven.remainingRevenue)}`,
         icon: Gauge,
-        label: 'Break-even durumu',
-        trend: breakEven.isBreakEvenReached ? 'Paket cikti' : 'Kara gecmedi',
+        label: 'Başabaş durumu',
+        trend: breakEven.isBreakEvenReached ? 'Paket çıktı' : 'Kâra geçmedi',
         value: `%${formatNumber(breakEvenProgress, 0)}`
       },
       {
-        detail: `Esik: ${formatMoneyValue(breakEven.breakEvenRevenue)}`,
+        detail: `Eşik: ${formatMoneyValue(breakEven.breakEvenRevenue)}`,
         icon: PackageCheck,
-        label: 'Paket / operasyon payi',
-        trend: toNumber(daily.tagPackageCost) > 0 ? 'Dagitildi' : 'Paket yok',
+        label: 'Paket / operasyon payı',
+        trend: toNumber(daily.tagPackageCost) > 0 ? 'Dağıtıldı' : 'Paket yok',
         value: formatMoneyValue(daily.tagPackageCost)
       }
     ] satisfies MetricCard[];
   }, [error, isLoading, needsLogin, overview]);
 
   return (
-    <section className="metric-grid" aria-label="Gunluk dashboard metrikleri">
+    <section className="metric-grid" aria-label="Günlük ana panel metrikleri">
       {cards.map((metric) => {
         const Icon = metric.icon;
 
@@ -226,56 +226,56 @@ function buildStateCards(trend: string, detail: string, value = '-'): MetricCard
     {
       detail,
       icon: WalletCards,
-      label: 'Bugunku brut gelir',
+      label: 'Bugünkü brüt gelir',
       trend,
       value
     },
     {
       detail,
       icon: TrendingUp,
-      label: 'Bugunku net kar',
+      label: 'Bugünkü net kâr',
       trend,
       value
     },
     {
       detail,
       icon: ReceiptText,
-      label: 'Bugunku toplam gider',
+      label: 'Bugünkü toplam gider',
       trend,
       value
     },
     {
       detail,
       icon: Route,
-      label: 'Km basi net kar',
+      label: 'Km başı net kâr',
       trend,
       value
     },
     {
       detail,
       icon: Clock,
-      label: 'Saatlik net kar',
+      label: 'Saatlik net kâr',
       trend,
       value
     },
     {
       detail,
       icon: Fuel,
-      label: 'Yakit maliyeti',
+      label: 'Yakıt maliyeti',
       trend,
       value
     },
     {
       detail,
       icon: Gauge,
-      label: 'Break-even durumu',
+      label: 'Başabaş durumu',
       trend,
       value
     },
     {
       detail,
       icon: PackageCheck,
-      label: 'Paket / operasyon payi',
+      label: 'Paket / operasyon payı',
       trend,
       value
     }

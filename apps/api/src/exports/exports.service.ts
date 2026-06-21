@@ -140,13 +140,13 @@ export class ExportsService {
       });
 
       await this.notificationsService.createImmediate({
-        body: `${periodRange.startDate} - ${periodRange.endDate} donemi ${format} raporun hazir.`,
+        body: `${periodRange.startDate} - ${periodRange.endDate} donemi ${format} raporun hazır.`,
         metadata: {
           exportJobId: completedJob.id,
           fileUrl: completedJob.file_url,
           format
         },
-        title: 'Raporun hazir',
+        title: 'Raporun hazır',
         type: NotificationType.EXPORT_READY,
         userId
       });
@@ -215,7 +215,7 @@ export class ExportsService {
       exportJob.status !== ExportStatus.COMPLETED ||
       !exportJob.storage_key
     ) {
-      throw new NotFoundException('Export file is not ready.');
+      throw new NotFoundException('Dışa aktarma dosyası henüz hazır değil.');
     }
 
     const absolutePath = this.resolveStoragePath(exportJob.storage_key);
@@ -223,7 +223,7 @@ export class ExportsService {
     try {
       await stat(absolutePath);
     } catch {
-      throw new NotFoundException('Export file not found.');
+      throw new NotFoundException('Dışa aktarma dosyası bulunamadı.');
     }
 
     return {
@@ -242,7 +242,7 @@ export class ExportsService {
     const report = await this.calculateReport(userId, period, dto);
     const sheets: WorkbookSheet[] = [
       {
-        name: 'Ozet',
+        name: 'Özet',
         rows: this.buildSummaryRows(period, periodRange, report)
       }
     ];
@@ -266,11 +266,11 @@ export class ExportsService {
           rows: this.buildExpenseRows(expenses)
         },
         {
-          name: 'Yakit',
+          name: 'Yakıt',
           rows: this.buildFuelRows(fuelEntries)
         },
         {
-          name: 'Bakim',
+          name: 'Bakım',
           rows: this.buildMaintenanceRows(maintenanceEntries)
         }
       );
@@ -288,7 +288,7 @@ export class ExportsService {
     const report = await this.calculateReport(userId, period, dto);
     const sections: PdfReportSection[] = [
       {
-        title: 'Finans Ozeti',
+        title: 'Finans Özeti',
         rows: this.buildPdfSummaryRows(report)
       },
       {
@@ -316,7 +316,7 @@ export class ExportsService {
     return this.pdfBuilder.build({
       sections,
       subtitle: `${periodRange.startDate} - ${periodRange.endDate}`,
-      title: 'TAG Surucu Finans Raporu'
+      title: 'TAG Sürücü Finans Raporu'
     });
   }
 
@@ -353,48 +353,48 @@ export class ExportsService {
     report: Record<string, unknown>
   ): WorkbookSheet['rows'] {
     return [
-      ['TAG Surucu Finans Raporu'],
-      ['Donem', period],
-      ['Baslangic', periodRange.startDate],
-      ['Bitis', periodRange.endDate],
+      ['TAG Sürücü Finans Raporu'],
+      ['Dönem', period],
+      ['Başlangıç', periodRange.startDate],
+      ['Bitiş', periodRange.endDate],
       [],
-      ['Metrik', 'Deger'],
-      ['Brut gelir', this.toCell(report.grossIncome)],
-      ['Yakit maliyeti', this.toCell(report.fuelCost)],
+      ['Metrik', 'Değer'],
+      ['Brüt gelir', this.toCell(report.grossIncome)],
+      ['Yakıt maliyeti', this.toCell(report.fuelCost)],
       ['Paket maliyeti', this.toCell(report.tagPackageCost)],
-      ['Degisken giderler', this.toCell(report.variableExpenses)],
+      ['Değişken giderler', this.toCell(report.variableExpenses)],
       ['Sabit giderler', this.toCell(report.fixedExpenses)],
-      ['Bakim rezervi', this.toCell(report.maintenanceReserve)],
+      ['Bakım rezervi', this.toCell(report.maintenanceReserve)],
       ['Amortisman', this.toCell(report.depreciation)],
       ['Toplam maliyet', this.toCell(report.totalCost)],
-      ['Net kar', this.toCell(report.netProfit)],
-      ['Km basi kar', this.toCell(report.kmProfit)],
-      ['Saatlik kar', this.toCell(report.hourlyProfit)],
+      ['Net kâr', this.toCell(report.netProfit)],
+      ['Km başı kâr', this.toCell(report.kmProfit)],
+      ['Saatlik kâr', this.toCell(report.hourlyProfit)],
       ['Toplam km', this.toCell(report.totalKm)],
       ['Aktif dakika', this.toCell(report.activeMinutes)],
-      ['Sefer sayisi', this.toCell(report.tripCount)],
-      ['Vardiya sayisi', this.toCell(report.shiftCount)],
+      ['Sefer sayısı', this.toCell(report.tripCount)],
+      ['Vardiya sayısı', this.toCell(report.shiftCount)],
       ['Hesaplama versiyonu', this.toCell(report.calculationVersion)]
     ];
   }
 
   private buildPdfSummaryRows(report: Record<string, unknown>) {
     return [
-      ['Brut gelir', this.toCell(report.grossIncome)],
+      ['Brüt gelir', this.toCell(report.grossIncome)],
       ['Toplam maliyet', this.toCell(report.totalCost)],
-      ['Net kar', this.toCell(report.netProfit)],
-      ['Km basi kar', this.toCell(report.kmProfit)],
-      ['Saatlik kar', this.toCell(report.hourlyProfit)]
+      ['Net kâr', this.toCell(report.netProfit)],
+      ['Km başı kâr', this.toCell(report.kmProfit)],
+      ['Saatlik kâr', this.toCell(report.hourlyProfit)]
     ] as PdfReportSection['rows'];
   }
 
   private buildPdfCostRows(report: Record<string, unknown>) {
     return [
-      ['Yakit maliyeti', this.toCell(report.fuelCost)],
+      ['Yakıt maliyeti', this.toCell(report.fuelCost)],
       ['Paket maliyeti', this.toCell(report.tagPackageCost)],
-      ['Degisken giderler', this.toCell(report.variableExpenses)],
+      ['Değişken giderler', this.toCell(report.variableExpenses)],
       ['Sabit giderler', this.toCell(report.fixedExpenses)],
-      ['Bakim rezervi', this.toCell(report.maintenanceReserve)],
+      ['Bakım rezervi', this.toCell(report.maintenanceReserve)],
       ['Amortisman', this.toCell(report.depreciation)]
     ] as PdfReportSection['rows'];
   }
@@ -403,8 +403,8 @@ export class ExportsService {
     return [
       ['Toplam km', this.toCell(report.totalKm)],
       ['Aktif dakika', this.toCell(report.activeMinutes)],
-      ['Sefer sayisi', this.toCell(report.tripCount)],
-      ['Vardiya sayisi', this.toCell(report.shiftCount)],
+      ['Sefer sayısı', this.toCell(report.tripCount)],
+      ['Vardiya sayısı', this.toCell(report.shiftCount)],
       ['Hesaplama versiyonu', this.toCell(report.calculationVersion)]
     ] as PdfReportSection['rows'];
   }
@@ -413,22 +413,22 @@ export class ExportsService {
     return [
       [
         'Tarih',
-        'Baslangic',
-        'Bitis',
-        'Brut gelir',
-        'Bahsis',
-        'Iptal geliri',
+        'Başlangıç',
+        'Bitiş',
+        'Brüt gelir',
+        'Bahşiş',
+        'İptal geliri',
         'Toplam gelir',
-        'Odeme',
+        'Ödeme',
         'Sefer km',
-        'Bos km',
+        'Boş km',
         'Toplam km',
-        'Yakit',
+        'Yakıt',
         'Paket',
         'Sabit',
-        'Bakim',
+        'Bakım',
         'Amortisman',
-        'Net kar',
+        'Net kâr',
         'Not'
       ],
       ...trips.map((trip) => [
@@ -461,11 +461,11 @@ export class ExportsService {
       [
         'Tarih',
         'Tip',
-        'Kategori',
+        'Kategöri',
         'Tutar',
-        'Dagitim',
-        'Odeme',
-        'Km sayaci',
+        'Dağıtım',
+        'Ödeme',
+        'Km sayacı',
         'Tekrarlayan',
         'Not'
       ],
@@ -489,16 +489,16 @@ export class ExportsService {
     return [
       [
         'Tarih',
-        'Yakit tipi',
+        'Yakıt tipi',
         'Tutar',
         'Litre',
         'Litre fiyati',
-        'Km sayaci',
+        'Km sayacı',
         'Full depo',
-        'Istasyon',
-        'Sehir',
+        'İstasyon',
+        'Şehir',
         'Ilce',
-        'Odeme'
+        'Ödeme'
       ],
       ...fuelEntries.map((fuel) => [
         fuel.created_at,
@@ -524,14 +524,14 @@ export class ExportsService {
     return [
       [
         'Tarih',
-        'Kategori',
+        'Kategöri',
         'Baslik',
         'Tutar',
-        'Km sayaci',
+        'Km sayacı',
         'Beklenen aralik km',
-        'Km basi maliyet',
+        'Km başı maliyet',
         'Servis',
-        'Dagitim',
+        'Dağıtım',
         'Not'
       ],
       ...maintenanceEntries.map((maintenance) => [
@@ -645,7 +645,7 @@ export class ExportsService {
     });
 
     if (!exportJob) {
-      throw new NotFoundException('Export job not found.');
+      throw new NotFoundException('Dışa aktarma talebi bulunamadı.');
     }
 
     return exportJob;

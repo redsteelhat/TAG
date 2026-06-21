@@ -96,7 +96,7 @@ export function MonthlyReport() {
     setAccessToken(token);
 
     if (!token) {
-      setMessage('Aylik raporu gormek icin oturum acmalisin.');
+      setMessage('Aylık raporu görmek için oturum acmalısın.');
       return;
     }
 
@@ -118,25 +118,25 @@ export function MonthlyReport() {
       {
         detail: `${report.tripCount} sefer`,
         icon: WalletCards,
-        label: 'Aylik brut gelir',
+        label: 'Aylık brüt gelir',
         value: formatMoneyValue(report.grossIncome)
       },
       {
         detail: report.netProfit.startsWith('-') ? 'Zarar' : 'Kar',
         icon: TrendingUp,
-        label: 'Aylik net kar',
+        label: 'Aylık net kâr',
         value: formatMoneyValue(report.netProfit)
       },
       {
         detail: `${formatNumber(toNumber(report.totalKm))} km`,
         icon: Route,
-        label: 'Km basi kar',
+        label: 'Km başı kâr',
         value: formatMoneyValue(report.kmProfit)
       },
       {
         detail: formatDuration(report.activeMinutes),
         icon: Clock,
-        label: 'Saatlik kar',
+        label: 'Saatlik kâr',
         value: formatMoneyValue(report.hourlyProfit)
       }
     ];
@@ -148,11 +148,11 @@ export function MonthlyReport() {
     }
 
     return [
-      ['Yakit maliyeti', report.fuelCost],
-      ['Paket / kullanim payi', report.tagPackageCost],
-      ['Degisken giderler', report.variableExpenses],
-      ['Sabit gider payi', report.fixedExpenses],
-      ['Bakim rezervi', report.maintenanceReserve],
+      ['Yakıt maliyeti', report.fuelCost],
+      ['Paket / kullanım payı', report.tagPackageCost],
+      ['Değişken giderler', report.variableExpenses],
+      ['Sabit gider payı', report.fixedExpenses],
+      ['Bakım rezervi', report.maintenanceReserve],
       ['Amortisman', report.depreciation]
     ];
   }, [report]);
@@ -202,7 +202,7 @@ export function MonthlyReport() {
     } catch (error) {
       setReport(null);
       setMessage(
-        error instanceof Error ? error.message : 'Aylik rapor alinamadi.'
+        error instanceof Error ? error.message : 'Aylık rapor alınamadı.'
       );
     } finally {
       setIsLoading(false);
@@ -213,7 +213,7 @@ export function MonthlyReport() {
     event.preventDefault();
 
     if (!accessToken) {
-      setMessage('Aylik raporu gormek icin oturum acmalisin.');
+      setMessage('Aylık raporu görmek için oturum acmalısın.');
       return;
     }
 
@@ -225,11 +225,11 @@ export function MonthlyReport() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Aylik rapor</p>
-            <h2>Aylik net kar raporu</h2>
+            <p className="eyebrow">Aylık rapor</p>
+            <h2>Aylık net kâr raporu</h2>
           </div>
           <span className="status-pill">
-            {selectedVehicle ? selectedVehicle.plateNumber : 'Tum araclar'}
+            {selectedVehicle ? selectedVehicle.plateNumber : 'Tüm araçlar'}
           </span>
         </div>
 
@@ -243,12 +243,12 @@ export function MonthlyReport() {
             />
           </label>
           <label>
-            Arac
+            Araç
             <select
               onChange={(event) => setVehicleId(event.target.value)}
               value={vehicleId}
             >
-              <option value="">Tum araclar</option>
+              <option value="">Tüm araçlar</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {vehicle.plateNumber}
@@ -261,7 +261,7 @@ export function MonthlyReport() {
           </label>
           <button className="primary-button" disabled={isLoading} type="submit">
             <RefreshCw aria-hidden="true" className="button-icon" />
-            {isLoading ? 'Hesaplaniyor' : 'Raporu Yenile'}
+            {isLoading ? 'Hesaplanıyor' : 'Raporu Yenile'}
           </button>
         </form>
 
@@ -295,7 +295,7 @@ export function MonthlyReport() {
               <section className="panel">
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">Aylik kar-zarar</p>
+                    <p className="eyebrow">Aylık kâr-zarar</p>
                     <h2>Gider kirilimi</h2>
                   </div>
                   <ReceiptText aria-hidden="true" className="panel-icon" />
@@ -323,8 +323,8 @@ export function MonthlyReport() {
               <section className="panel">
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">Gelir kaynaklari</p>
-                    <h2>Aylik brut gelir detayi</h2>
+                    <p className="eyebrow">Gelir kaynakları</p>
+                    <h2>Aylık brüt gelir detayı</h2>
                   </div>
                   <WalletCards aria-hidden="true" className="panel-icon" />
                 </div>
@@ -339,7 +339,7 @@ export function MonthlyReport() {
                     value={report.cancellationIncome}
                   />
                   <ReportRow
-                    label="Toplam brut gelir"
+                    label="Toplam brüt gelir"
                     value={report.grossIncome}
                     strong
                   />
@@ -352,7 +352,7 @@ export function MonthlyReport() {
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">Operasyon</p>
-                    <h2>Aylik aktivite</h2>
+                    <h2>Aylık aktivite</h2>
                   </div>
                   <Gauge aria-hidden="true" className="panel-icon" />
                 </div>
@@ -366,7 +366,7 @@ export function MonthlyReport() {
                     <strong>{report.shiftCount}</strong>
                   </div>
                   <div>
-                    <span>Sure</span>
+                    <span>Süre</span>
                     <strong>{formatDuration(report.activeMinutes)}</strong>
                   </div>
                 </div>
@@ -375,22 +375,22 @@ export function MonthlyReport() {
               <section className="panel">
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">Yakit</p>
-                    <h2>Aylik yakit etkisi</h2>
+                    <p className="eyebrow">Yakıt</p>
+                    <h2>Aylık yakıt etkisi</h2>
                   </div>
                   <Fuel aria-hidden="true" className="panel-icon" />
                 </div>
                 <div className="break-even-list">
                   <ReportRow
-                    label="Tahmini sefer yakiti"
+                    label="Tahmini sefer yakıti"
                     value={report.fuelCost}
                   />
                   <ReportRow
-                    label="Fiili yakit alimi"
+                    label="Fiili yakıt alimi"
                     value={report.actualFuelPurchaseCost}
                   />
                   <div className="expense-row">
-                    <span>Fis / kayit</span>
+                    <span>Fiş / kayıt</span>
                     <strong>{report.actualFuelEntryCount}</strong>
                   </div>
                   <div className="expense-row">
@@ -406,7 +406,7 @@ export function MonthlyReport() {
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">Paket</p>
-                    <h2>Aylik paket payi</h2>
+                    <h2>Aylık paket payı</h2>
                   </div>
                   <PackageCheck aria-hidden="true" className="panel-icon" />
                 </div>
@@ -432,14 +432,14 @@ export function MonthlyReport() {
           <section className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Hesaplama guveni</p>
-                <h2>Aylik formul ve veri kapsami</h2>
+                <p className="eyebrow">Hesaplama güveni</p>
+                <h2>Aylık formül ve veri kapsamı</h2>
               </div>
               <CalendarDays aria-hidden="true" className="panel-icon" />
             </div>
-            <div className="report-formula-grid">
+            <div className="report-formüla-grid">
               <div>
-                <span>Net kar formulu</span>
+                <span>Net kâr formülü</span>
                 <strong>{report.formula.netProfit}</strong>
               </div>
               <div>
@@ -449,7 +449,7 @@ export function MonthlyReport() {
                 </strong>
               </div>
               <div>
-                <span>Gider kaydi</span>
+                <span>Gider kaydı</span>
                 <strong>
                   {report.directExpenseCount} direkt,{' '}
                   {report.recurringExpenseCount} sabit
@@ -465,11 +465,11 @@ export function MonthlyReport() {
       ) : (
         <section className="empty-state-panel">
           <div>
-            <p className="eyebrow">Aylik rapor</p>
-            <h2>{isLoading ? 'Rapor hesaplaniyor' : 'Rapor bekleniyor'}</h2>
+            <p className="eyebrow">Aylık rapor</p>
+            <h2>{isLoading ? 'Rapor hesaplanıyor' : 'Rapor bekleniyor'}</h2>
             <p>
-              Ay ve arac filtresini secip aylik net kar, maliyet ve verimlilik
-              metriklerini tek ekranda gorebilirsin.
+              Ay ve araç filtresini seçip aylık net kâr, maliyet ve verimlilik
+              metriklerini tek ekranda görebilirsin.
             </p>
           </div>
         </section>

@@ -109,8 +109,8 @@ interface FixedCostFormState {
 }
 
 const allocationMethodLabels: Record<AllocationMethod, string> = {
-  ACTIVE_DAY: 'Aktif gune bol',
-  CALENDAR_DAY: 'Takvim gunune bol',
+  ACTIVE_DAY: 'Aktif güne bol',
+  CALENDAR_DAY: 'Takvim günune bol',
   PER_KM: 'Km’ye bol'
 };
 
@@ -120,22 +120,22 @@ const expenseTypeLabels: Record<ExpenseType, string> = {
   FIXED: 'Sabit',
   OPERATIONAL: 'Operasyon',
   PLATFORM_PACKAGE: 'Paket',
-  SEMI_VARIABLE: 'Yari degisken',
-  VARIABLE: 'Degisken'
+  SEMI_VARIABLE: 'Yari değişken',
+  VARIABLE: 'Değişken'
 };
 
 const periodLabels: Partial<Record<PeriodType, string>> = {
-  DAILY: 'Gunluk',
-  MONTHLY: 'Aylik',
-  PER_KM: 'Km bazli',
-  YEARLY: 'Yillik'
+  DAILY: 'Günlük',
+  MONTHLY: 'Aylık',
+  PER_KM: 'Km bazlı',
+  YEARLY: 'Yıllık'
 };
 
 const sortOptions: Array<{ label: string; value: FixedCostSortBy }> = [
-  { label: 'Sonraki odeme', value: 'nextDueAt' },
-  { label: 'Baslangic tarihi', value: 'startsAt' },
+  { label: 'Sonraki ödeme', value: 'nextDueAt' },
+  { label: 'Başlangıç tarihi', value: 'startsAt' },
   { label: 'Tutar', value: 'amount' },
-  { label: 'Olusturma tarihi', value: 'createdAt' }
+  { label: 'Oluşturma tarihi', value: 'createdAt' }
 ];
 
 const quickFixedCostPresets: Array<{
@@ -149,7 +149,7 @@ const quickFixedCostPresets: Array<{
     allocationMethod: 'CALENDAR_DAY',
     expenseType: 'FIXED',
     label: 'Sigorta',
-    name: 'Trafik sigortasi',
+    name: 'Trafik sigortası',
     period: 'YEARLY'
   },
   {
@@ -177,28 +177,28 @@ const quickFixedCostPresets: Array<{
     allocationMethod: 'CALENDAR_DAY',
     expenseType: 'FINANCING',
     label: 'Kredi',
-    name: 'Arac kredisi',
+    name: 'Araç kredisi',
     period: 'MONTHLY'
   },
   {
     allocationMethod: 'ACTIVE_DAY',
     expenseType: 'OPERATIONAL',
     label: 'Telefon',
-    name: 'Telefon hatti',
+    name: 'Telefon hattı',
     period: 'MONTHLY'
   },
   {
     allocationMethod: 'ACTIVE_DAY',
     expenseType: 'OPERATIONAL',
-    label: 'Internet',
-    name: 'Internet paketi',
+    label: 'İnternet',
+    name: 'İnternet paketi',
     period: 'MONTHLY'
   },
   {
     allocationMethod: 'CALENDAR_DAY',
     expenseType: 'FIXED',
     label: 'Otopark',
-    name: 'Otopark aboneligi',
+    name: 'Otopark aboneliği',
     period: 'MONTHLY'
   }
 ];
@@ -321,7 +321,7 @@ export function FixedCostPanel() {
       setVehicles(response.data);
     } catch (error) {
       setFormMessage(
-        error instanceof Error ? error.message : 'Araclar yuklenemedi.'
+        error instanceof Error ? error.message : 'Araçlar yüklenemedi.'
       );
     }
   }
@@ -345,7 +345,7 @@ export function FixedCostPanel() {
     }
   ) {
     if (!token) {
-      setMessage('Sabit giderleri gormek icin once giris yapmalisin.');
+      setMessage('Sabit giderleri görmek için önce giriş yapmalısın.');
       return;
     }
 
@@ -380,7 +380,7 @@ export function FixedCostPanel() {
       setMeta(response.meta);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Sabit giderler yuklenemedi.'
+        error instanceof Error ? error.message : 'Sabit giderler yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -391,12 +391,12 @@ export function FixedCostPanel() {
     event.preventDefault();
 
     if (!accessToken) {
-      setFormMessage('Sabit gider kaydetmek icin once giris yapmalisin.');
+      setFormMessage('Sabit gider kaydetmek için önce giriş yapmalısın.');
       return;
     }
 
     if (!fixedCostForm.vehicleId) {
-      setFormMessage('Sabit gider kaydetmek icin once arac secmelisin.');
+      setFormMessage('Sabit gider kaydetmek için önce araç seçmelisin.');
       return;
     }
 
@@ -410,7 +410,7 @@ export function FixedCostPanel() {
         { accessToken }
       );
 
-      setFormMessage('Sabit gider kaydi olusturuldu.');
+      setFormMessage('Sabit gider kaydı oluşturuldu.');
       resetFixedCostForm();
       setPage(1);
       await fetchFixedCosts(accessToken, 1);
@@ -498,11 +498,11 @@ export function FixedCostPanel() {
       <section className="panel empty-state-panel">
         <EmptyState
           actionHref="/login"
-          actionLabel="Giris ekranina git"
-          description="Sigorta, MTV, muayene ve abonelik dagitimlarini gorebilmek icin aktif oturum gerekiyor."
+          actionLabel="Giriş ekranına git"
+          description="Sigorta, MTV, muayene ve abonelik dağıtımlarını görebilmek için aktif oturum gerekiyor."
           eyebrow="Oturum gerekli"
           icon={LockKeyhole}
-          title="Sabit giderleri gormek icin giris yap."
+          title="Sabit giderleri görmek için giriş yap."
         />
       </section>
     );
@@ -512,18 +512,18 @@ export function FixedCostPanel() {
     <section className="income-list-page">
       <section
         className="metric-grid income-metrics"
-        aria-label="Sabit gider ozeti"
+        aria-label="Sabit gider özeti"
       >
         <MetricCard
-          label="Goruntulenen sabit gider"
+          label="Görüntülenen sabit gider"
           value={formatMoney(pageMetrics.totalAmount)}
         />
         <MetricCard
-          label="Aylik karsilik"
+          label="Aylık karşılık"
           value={formatMoney(pageMetrics.monthlyEquivalent)}
         />
         <MetricCard
-          label="Gunluk karsilik"
+          label="Günlük karşılık"
           value={formatMoney(pageMetrics.dailyEquivalent)}
         />
         <MetricCard label="Aktif gider" value={`${pageMetrics.activeCount}`} />
@@ -532,11 +532,11 @@ export function FixedCostPanel() {
       <section className="panel data-form quick-expense-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Sabit gider girisi</p>
+            <p className="eyebrow">Sabit gider girişi</p>
             <h2>Sabit gider ekle</h2>
           </div>
           <span className="status-pill">
-            {formatMoney(toDailyEquivalentFromForm(fixedCostForm))} / gun
+            {formatMoney(toDailyEquivalentFromForm(fixedCostForm))} / gün
           </span>
         </div>
 
@@ -556,7 +556,7 @@ export function FixedCostPanel() {
         <form className="quick-expense-form" onSubmit={handleFixedCostSubmit}>
           <div className="fixed-cost-entry-grid">
             <label>
-              Arac
+              Araç
               <select
                 disabled={vehicles.length === 0}
                 onChange={(event) =>
@@ -565,7 +565,7 @@ export function FixedCostPanel() {
                 required
                 value={fixedCostForm.vehicleId}
               >
-                <option value="">Arac sec</option>
+                <option value="">Araç seç</option>
                 {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {formatVehicleLabel(vehicle)}
@@ -575,12 +575,12 @@ export function FixedCostPanel() {
             </label>
 
             <label>
-              Gider adi
+              Gider adı
               <input
                 onChange={(event) =>
                   updateFixedCostForm('name', event.target.value)
                 }
-                placeholder="Trafik sigortasi"
+                placeholder="Trafik sigortası"
                 required
                 value={fixedCostForm.name}
               />
@@ -600,7 +600,7 @@ export function FixedCostPanel() {
             </label>
 
             <label>
-              Donem
+              Dönem
               <select
                 onChange={(event) =>
                   updateFixedCostForm(
@@ -638,7 +638,7 @@ export function FixedCostPanel() {
             </label>
 
             <label>
-              Dagitim
+              Dağıtım
               <select
                 onChange={(event) =>
                   updateFixedCostForm(
@@ -659,7 +659,7 @@ export function FixedCostPanel() {
             </label>
 
             <label>
-              Baslangic
+              Başlangıç
               <input
                 onChange={(event) =>
                   updateFixedCostForm('startsAt', event.target.value)
@@ -671,7 +671,7 @@ export function FixedCostPanel() {
             </label>
 
             <label>
-              Sonraki odeme
+              Sonraki ödeme
               <input
                 onChange={(event) =>
                   updateFixedCostForm('nextDueAt', event.target.value)
@@ -682,7 +682,7 @@ export function FixedCostPanel() {
             </label>
 
             <label>
-              Bitis
+              Bitiş
               <input
                 onChange={(event) =>
                   updateFixedCostForm('endsAt', event.target.value)
@@ -700,7 +700,7 @@ export function FixedCostPanel() {
                 onChange={(event) =>
                   updateFixedCostForm('note', event.target.value)
                 }
-                placeholder="Yillik sigorta, aylik kredi, telefon hatti"
+                placeholder="Yıllık sigorta, aylık kredi, telefon hattı"
                 value={fixedCostForm.note}
               />
             </label>
@@ -720,7 +720,7 @@ export function FixedCostPanel() {
           {formMessage ? (
             <p
               className={
-                formMessage.includes('olusturuldu')
+                formMessage.includes('oluşturuldu')
                   ? 'form-success'
                   : 'form-alert'
               }
@@ -754,18 +754,18 @@ export function FixedCostPanel() {
             <Search aria-hidden="true" />
             <input
               onChange={(event) => setQ(event.target.value)}
-              placeholder="Gider adi veya not ara"
+              placeholder="Gider adı veya not ara"
               value={q}
             />
           </label>
 
           <label>
-            Arac
+            Araç
             <select
               onChange={(event) => setVehicleId(event.target.value)}
               value={vehicleId}
             >
-              <option value="">Tum araclar</option>
+              <option value="">Tüm araçlar</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {formatVehicleLabel(vehicle)}
@@ -780,7 +780,7 @@ export function FixedCostPanel() {
               onChange={(event) => setExpenseType(event.target.value)}
               value={expenseType}
             >
-              <option value="">Tum tipler</option>
+              <option value="">Tüm tipler</option>
               {Object.entries(expenseTypeLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -790,12 +790,12 @@ export function FixedCostPanel() {
           </label>
 
           <label>
-            Donem
+            Dönem
             <select
               onChange={(event) => setPeriod(event.target.value)}
               value={period}
             >
-              <option value="">Tum donemler</option>
+              <option value="">Tüm donemler</option>
               {Object.entries(periodLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -805,12 +805,12 @@ export function FixedCostPanel() {
           </label>
 
           <label>
-            Dagitim
+            Dağıtım
             <select
               onChange={(event) => setAllocationMethod(event.target.value)}
               value={allocationMethod}
             >
-              <option value="">Tum dagitimlar</option>
+              <option value="">Tüm dağıtımlar</option>
               {Object.entries(allocationMethodLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -825,14 +825,14 @@ export function FixedCostPanel() {
               onChange={(event) => setIsActive(event.target.value)}
               value={isActive}
             >
-              <option value="">Tum durumlar</option>
+              <option value="">Tüm durumlar</option>
               <option value="true">Aktif</option>
               <option value="false">Pasif</option>
             </select>
           </label>
 
           <label>
-            Baslangic
+            Başlangıç
             <input
               onChange={(event) => setStartDate(event.target.value)}
               type="date"
@@ -841,7 +841,7 @@ export function FixedCostPanel() {
           </label>
 
           <label>
-            Bitis
+            Bitiş
             <input
               onChange={(event) => setEndDate(event.target.value)}
               type="date"
@@ -886,7 +886,7 @@ export function FixedCostPanel() {
           </label>
 
           <label>
-            Yon
+            Yön
             <select
               onChange={(event) =>
                 setSortDirection(event.target.value as SortDirection)
@@ -909,7 +909,7 @@ export function FixedCostPanel() {
             </button>
             <button className="primary-button" disabled={isLoading}>
               <RefreshCw aria-hidden="true" className="button-icon" />
-              {isLoading ? 'Yukleniyor' : 'Filtrele'}
+              {isLoading ? 'Yükleniyor' : 'Filtrele'}
             </button>
           </div>
         </form>
@@ -918,11 +918,11 @@ export function FixedCostPanel() {
       <section className="panel income-table-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Sabit gider kayitlari</p>
+            <p className="eyebrow">Sabit gider kayıtları</p>
             <h2>Sabit giderler</h2>
           </div>
           <span className="status-pill">
-            {meta ? `${meta.total} kayit` : 'Hazirlaniyor'}
+            {meta ? `${meta.total} kayıt` : 'Hazırlanıyor'}
           </span>
         </div>
 
@@ -935,11 +935,11 @@ export function FixedCostPanel() {
               role="row"
             >
               <span>Gider</span>
-              <span>Arac</span>
-              <span>Donem</span>
-              <span>Dagitim</span>
+              <span>Araç</span>
+              <span>Dönem</span>
+              <span>Dağıtım</span>
               <span>Sonraki</span>
-              <span>Aylik</span>
+              <span>Aylık</span>
               <span>Durum</span>
               <span>Tutar</span>
             </div>
@@ -986,22 +986,22 @@ export function FixedCostPanel() {
             <EmptyState
               description={
                 hasActiveFilters
-                  ? 'Bu filtrelerle eslesen sabit gider bulunamadi. Donem, durum veya arac filtresini temizleyerek tekrar deneyebilirsin.'
-                  : 'Sigorta, MTV, muayene, kredi, telefon ve abonelik giderleri eklendikce gunluk ve aylik pay burada gorunur.'
+                  ? 'Bu filtrelerle eşleşen sabit gider bulunamadı. Dönem, durum veya araç filtresini temizleyerek tekrar deneyebilirsin.'
+                  : 'Sigorta, MTV, muayene, kredi, telefon ve abonelik giderleri eklendikce günlük ve aylık pay burada görünür.'
               }
               icon={hasActiveFilters ? FileSearch : CalendarClock}
               title={
                 hasActiveFilters
                   ? 'Filtreye uygun sabit gider yok.'
-                  : 'Henuz sabit gider kaydi yok.'
+                  : 'Henüz sabit gider kaydı yok.'
               }
               tips={
                 hasActiveFilters
-                  ? ['Durum filtresini kaldir', 'Tutar araligini genislet']
+                  ? ['Durum filtresini kaldır', 'Tutar aralığını genişlet']
                   : [
-                      'Preset sec',
-                      'Odeme donemini belirle',
-                      'Dagitim metodunu sec'
+                      'Preset seç',
+                      'Ödeme donemini belirle',
+                      'Dağıtım metodunu seç'
                     ]
               }
             />
@@ -1018,7 +1018,7 @@ export function FixedCostPanel() {
             type="button"
           >
             <ChevronLeft aria-hidden="true" className="button-icon" />
-            Onceki
+            Önceki
           </button>
           <span>
             Sayfa {meta?.page ?? page} / {meta?.totalPages || 1}
@@ -1125,7 +1125,7 @@ function formatVehicleLabel(vehicle: Vehicle) {
 function vehicleNameById(vehicles: Vehicle[], vehicleId: string) {
   const vehicle = vehicles.find((item) => item.id === vehicleId);
 
-  return vehicle ? formatVehicleLabel(vehicle) : 'Arac';
+  return vehicle ? formatVehicleLabel(vehicle) : 'Araç';
 }
 
 function formatDate(value: string) {

@@ -3,7 +3,7 @@ import { ReminderPanel } from '../../components/reminder-panel';
 
 export default function RemindersPage() {
   return (
-    <AppShell eyebrow="Hatirlaticilar" title="Hatirlatici Yonetimi">
+    <AppShell eyebrow="Hatırlatıcılar" title="Hatırlatıcı Yönetimi">
       <ReminderPanel />
     </AppShell>
   );

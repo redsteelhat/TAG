@@ -96,7 +96,7 @@ export function DailyReport() {
     setAccessToken(token);
 
     if (!token) {
-      setMessage('Gunluk raporu gormek icin oturum acmalisin.');
+      setMessage('Günlük raporu görmek için oturum acmalısın.');
       return;
     }
 
@@ -118,25 +118,25 @@ export function DailyReport() {
       {
         detail: `${report.tripCount} sefer`,
         icon: WalletCards,
-        label: 'Brut gelir',
+        label: 'Brüt gelir',
         value: formatMoneyValue(report.grossIncome)
       },
       {
         detail: report.netProfit.startsWith('-') ? 'Zarar' : 'Kar',
         icon: TrendingUp,
-        label: 'Gercek net kar',
+        label: 'Gerçek net kâr',
         value: formatMoneyValue(report.netProfit)
       },
       {
         detail: `${formatNumber(toNumber(report.totalKm))} km`,
         icon: Route,
-        label: 'Km basi kar',
+        label: 'Km başı kâr',
         value: formatMoneyValue(report.kmProfit)
       },
       {
         detail: formatDuration(report.activeMinutes),
         icon: Clock,
-        label: 'Saatlik kar',
+        label: 'Saatlik kâr',
         value: formatMoneyValue(report.hourlyProfit)
       }
     ];
@@ -148,11 +148,11 @@ export function DailyReport() {
     }
 
     return [
-      ['Yakit maliyeti', report.fuelCost],
-      ['Paket / kullanim payi', report.tagPackageCost],
-      ['Degisken giderler', report.variableExpenses],
-      ['Sabit gider payi', report.fixedExpenses],
-      ['Bakim rezervi', report.maintenanceReserve],
+      ['Yakıt maliyeti', report.fuelCost],
+      ['Paket / kullanım payı', report.tagPackageCost],
+      ['Değişken giderler', report.variableExpenses],
+      ['Sabit gider payı', report.fixedExpenses],
+      ['Bakım rezervi', report.maintenanceReserve],
       ['Amortisman', report.depreciation]
     ];
   }, [report]);
@@ -202,7 +202,7 @@ export function DailyReport() {
     } catch (error) {
       setReport(null);
       setMessage(
-        error instanceof Error ? error.message : 'Gunluk rapor alinamadi.'
+        error instanceof Error ? error.message : 'Günlük rapor alınamadı.'
       );
     } finally {
       setIsLoading(false);
@@ -213,7 +213,7 @@ export function DailyReport() {
     event.preventDefault();
 
     if (!accessToken) {
-      setMessage('Gunluk raporu gormek icin oturum acmalisin.');
+      setMessage('Günlük raporu görmek için oturum acmalısın.');
       return;
     }
 
@@ -226,10 +226,10 @@ export function DailyReport() {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Rapor filtresi</p>
-            <h2>Gunluk net kar raporu</h2>
+            <h2>Günlük net kâr raporu</h2>
           </div>
           <span className="status-pill">
-            {selectedVehicle ? selectedVehicle.plateNumber : 'Tum araclar'}
+            {selectedVehicle ? selectedVehicle.plateNumber : 'Tüm araçlar'}
           </span>
         </div>
 
@@ -243,12 +243,12 @@ export function DailyReport() {
             />
           </label>
           <label>
-            Arac
+            Araç
             <select
               onChange={(event) => setVehicleId(event.target.value)}
               value={vehicleId}
             >
-              <option value="">Tum araclar</option>
+              <option value="">Tüm araçlar</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {vehicle.plateNumber}
@@ -261,7 +261,7 @@ export function DailyReport() {
           </label>
           <button className="primary-button" disabled={isLoading} type="submit">
             <RefreshCw aria-hidden="true" className="button-icon" />
-            {isLoading ? 'Hesaplaniyor' : 'Raporu Yenile'}
+            {isLoading ? 'Hesaplanıyor' : 'Raporu yenile'}
           </button>
         </form>
 
@@ -282,7 +282,7 @@ export function DailyReport() {
                   </div>
                   <strong>{metric.value}</strong>
                   <span>{metric.detail}</span>
-                  <small>Gunluk rapor</small>
+                  <small>Günlük rapor</small>
                 </article>
               );
             })}
@@ -293,7 +293,7 @@ export function DailyReport() {
               <section className="panel">
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">Kar-zarar motoru</p>
+                    <p className="eyebrow">Kâr-zarar motoru</p>
                     <h2>Gider kirilimi</h2>
                   </div>
                   <ReceiptText aria-hidden="true" className="panel-icon" />
@@ -321,8 +321,8 @@ export function DailyReport() {
               <section className="panel">
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">Gelir kaynaklari</p>
-                    <h2>Brut gelir detayi</h2>
+                    <p className="eyebrow">Gelir kaynakları</p>
+                    <h2>Brüt gelir detayı</h2>
                   </div>
                   <WalletCards aria-hidden="true" className="panel-icon" />
                 </div>
@@ -331,13 +331,13 @@ export function DailyReport() {
                     label="Sefer geliri"
                     value={report.tripGrossIncome}
                   />
-                  <ReportRow label="Bahsis / ekstra" value={report.tipAmount} />
+                  <ReportRow label="Bahşiş / ekstra" value={report.tipAmount} />
                   <ReportRow
-                    label="Iptal geliri"
+                    label="İptal geliri"
                     value={report.cancellationIncome}
                   />
                   <ReportRow
-                    label="Toplam brut gelir"
+                    label="Toplam brüt gelir"
                     value={report.grossIncome}
                     strong
                   />
@@ -350,7 +350,7 @@ export function DailyReport() {
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">Operasyon</p>
-                    <h2>Gunluk aktivite</h2>
+                    <h2>Günlük aktivite</h2>
                   </div>
                   <Gauge aria-hidden="true" className="panel-icon" />
                 </div>
@@ -364,7 +364,7 @@ export function DailyReport() {
                     <strong>{report.shiftCount}</strong>
                   </div>
                   <div>
-                    <span>Sure</span>
+                    <span>Süre</span>
                     <strong>{formatDuration(report.activeMinutes)}</strong>
                   </div>
                 </div>
@@ -373,22 +373,22 @@ export function DailyReport() {
               <section className="panel">
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">Yakit</p>
+                    <p className="eyebrow">Yakıt</p>
                     <h2>Fiili ve tahmini maliyet</h2>
                   </div>
                   <Fuel aria-hidden="true" className="panel-icon" />
                 </div>
                 <div className="break-even-list">
                   <ReportRow
-                    label="Tahmini sefer yakiti"
+                    label="Tahmini sefer yakıti"
                     value={report.fuelCost}
                   />
                   <ReportRow
-                    label="Fiili yakit alimi"
+                    label="Fiili yakıt alimi"
                     value={report.actualFuelPurchaseCost}
                   />
                   <div className="expense-row">
-                    <span>Fis / kayit</span>
+                    <span>Fiş / kayıt</span>
                     <strong>{report.actualFuelEntryCount}</strong>
                   </div>
                   <div className="expense-row">
@@ -404,7 +404,7 @@ export function DailyReport() {
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">Paket</p>
-                    <h2>Dagitim kaynagi</h2>
+                    <h2>Dağıtım kaynagi</h2>
                   </div>
                   <PackageCheck aria-hidden="true" className="panel-icon" />
                 </div>
@@ -430,14 +430,14 @@ export function DailyReport() {
           <section className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Hesaplama guveni</p>
-                <h2>Formul ve veri kapsami</h2>
+                <p className="eyebrow">Hesaplama güveni</p>
+                <h2>Formül ve veri kapsamı</h2>
               </div>
               <CalendarDays aria-hidden="true" className="panel-icon" />
             </div>
-            <div className="report-formula-grid">
+            <div className="report-formüla-grid">
               <div>
-                <span>Net kar formulu</span>
+                <span>Net kâr formülü</span>
                 <strong>{report.formula.netProfit}</strong>
               </div>
               <div>
@@ -447,7 +447,7 @@ export function DailyReport() {
                 </strong>
               </div>
               <div>
-                <span>Gider kaydi</span>
+                <span>Gider kaydı</span>
                 <strong>
                   {report.directExpenseCount} direkt,{' '}
                   {report.recurringExpenseCount} sabit
@@ -463,11 +463,11 @@ export function DailyReport() {
       ) : (
         <section className="empty-state-panel">
           <div>
-            <p className="eyebrow">Gunluk rapor</p>
-            <h2>{isLoading ? 'Rapor hesaplaniyor' : 'Rapor bekleniyor'}</h2>
+            <p className="eyebrow">Günlük rapor</p>
+            <h2>{isLoading ? 'Rapor hesaplanıyor' : 'Rapor bekleniyor'}</h2>
             <p>
-              Tarih ve arac filtresini secip gunluk net kar, maliyet ve
-              verimlilik metriklerini tek ekranda gorebilirsin.
+              Tarih ve araç filtresini seçip günlük net kâr, maliyet ve
+              verimlilik metriklerini tek ekranda görebilirsin.
             </p>
           </div>
         </section>

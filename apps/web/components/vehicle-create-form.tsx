@@ -26,7 +26,7 @@ const fuelOptions: Array<{ label: string; value: FuelType }> = [
   { label: 'LPG', value: 'LPG' },
   { label: 'Hibrit', value: 'HYBRID' },
   { label: 'Elektrik', value: 'ELECTRIC' },
-  { label: 'Diger', value: 'OTHER' }
+  { label: 'Diğer', value: 'OTHER' }
 ];
 
 export function VehicleCreateForm() {
@@ -60,7 +60,7 @@ export function VehicleCreateForm() {
     const accessToken = getAccessToken();
 
     if (!accessToken) {
-      setMessage('Arac olusturmak icin once giris yapmalisin.');
+      setMessage('Araç oluşturmak için önce giriş yapmalısın.');
       return;
     }
 
@@ -93,7 +93,7 @@ export function VehicleCreateForm() {
       resetForm();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Arac olusturulamadi.'
+        error instanceof Error ? error.message : 'Araç oluşturulamadı.'
       );
     } finally {
       setIsSubmitting(false);
@@ -120,9 +120,9 @@ export function VehicleCreateForm() {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Zorunlu bilgiler</p>
-            <h2>Arac profili</h2>
+            <h2>Araç profili</h2>
           </div>
-          <span className="status-pill">Ilk arac aktif olur</span>
+          <span className="status-pill">İlk araç aktif olur</span>
         </div>
 
         <div className="form-grid">
@@ -139,7 +139,7 @@ export function VehicleCreateForm() {
           </label>
 
           <label>
-            Yakit tipi
+            Yakıt tipi
             <select
               name="fuelType"
               onChange={(event) => setFuelType(event.target.value as FuelType)}
@@ -154,7 +154,7 @@ export function VehicleCreateForm() {
           </label>
 
           <label>
-            Ortalama tuketim
+            Ortalama tüketim
             <input
               inputMode="decimal"
               name="averageConsumption"
@@ -166,7 +166,7 @@ export function VehicleCreateForm() {
           </label>
 
           <label>
-            Km sayaci
+            Km sayacı
             <input
               inputMode="decimal"
               name="odometerKm"
@@ -217,7 +217,7 @@ export function VehicleCreateForm() {
             onChange={(event) => setDepreciationEnabled(event.target.checked)}
             type="checkbox"
           />
-          Amortisman maliyetini kar hesabina dahil et
+          Amortisman maliyetini kâr hesabına dahil et
         </label>
 
         {depreciationEnabled ? (
@@ -231,13 +231,13 @@ export function VehicleCreateForm() {
                 }
                 value={depreciationModel}
               >
-                <option value="PER_KM">Km bazli</option>
-                <option value="MONTHLY">Aylik</option>
+                <option value="PER_KM">Km bazlı</option>
+                <option value="MONTHLY">Aylık</option>
               </select>
             </label>
 
             <label>
-              Yillik deger kaybi
+              Yıllık değer kaybı
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -249,7 +249,7 @@ export function VehicleCreateForm() {
             </label>
 
             <label>
-              Yillik tahmini km
+              Yıllık tahmini km
               <input
                 inputMode="decimal"
                 onChange={(event) => setAnnualEstimatedKm(event.target.value)}
@@ -264,27 +264,27 @@ export function VehicleCreateForm() {
 
         {createdVehicle ? (
           <p className="form-success">
-            {createdVehicle.plateNumber} plakali arac olusturuldu.
+            {createdVehicle.plateNumber} plakali araç oluşturuldu.
           </p>
         ) : null}
 
         <div className="form-actions">
           <Link className="secondary-button button-link" href="/">
-            Dashboard
+            Ana Panel
           </Link>
           <button className="primary-button" disabled={isSubmitting}>
-            {isSubmitting ? 'Kaydediliyor' : 'Arac Olustur'}
+            {isSubmitting ? 'Kaydediliyor' : 'Araç Oluştur'}
           </button>
         </div>
       </form>
 
       <aside className="panel form-summary">
         <p className="eyebrow">Hesaplama etkisi</p>
-        <h2>Arac verisi kar motorunun temelidir.</h2>
+        <h2>Araç verisi kâr motorunun temelidir.</h2>
         <ul>
-          <li>Yakit tipi ve ortalama tuketim sefer yakit maliyetini hesaplar.</li>
-          <li>Km sayaci bakim ve amortisman dagitimlarina zemin hazirlar.</li>
-          <li>Aktif arac, yeni sefer ve gider kayitlarinda varsayilan olur.</li>
+          <li>Yakıt tipi ve ortalama tüketim sefer yakıt maliyetini hesaplar.</li>
+          <li>Km sayacı bakım ve amortisman dağıtımlarina zemin hazırlar.</li>
+          <li>Aktif araç, yeni sefer ve gider kayıtlarında varsayılan olur.</li>
         </ul>
       </aside>
     </section>

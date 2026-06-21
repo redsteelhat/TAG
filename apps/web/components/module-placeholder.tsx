@@ -19,7 +19,7 @@ export function ModulePlaceholder({
       actions={
         <>
           <Link className="secondary-button button-link" href="/">
-            Dashboard
+            Ana Panel
           </Link>
           <button className="primary-button" type="button">
             {primaryActionLabel}

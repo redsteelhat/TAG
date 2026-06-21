@@ -3,7 +3,7 @@ import { MaintenancePanel } from '../../components/maintenance-panel';
 
 export default function MaintenancePage() {
   return (
-    <AppShell eyebrow="Servis takibi" title="Bakim">
+    <AppShell eyebrow="Servis takibi" title="Bakım">
       <MaintenancePanel />
     </AppShell>
   );

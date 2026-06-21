@@ -38,7 +38,7 @@ export function KmProfitTrendChart() {
     const accessToken = getAccessToken();
 
     if (!accessToken) {
-      setMessage('Km basi kar trendini gormek icin oturum acmalisin.');
+      setMessage('Km başı kâr trendini görmek için oturum acmalısın.');
       return;
     }
 
@@ -98,7 +98,7 @@ export function KmProfitTrendChart() {
     } catch (error) {
       setPoints([]);
       setMessage(
-        error instanceof Error ? error.message : 'Km basi kar trendi alinamadi.'
+        error instanceof Error ? error.message : 'Km başı kâr trendi alınamadı.'
       );
     } finally {
       setIsLoading(false);
@@ -109,19 +109,19 @@ export function KmProfitTrendChart() {
     <section className="panel fuel-trend-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Km basi kar trendi</p>
-          <h2>Son 30 gun km verimliligi</h2>
+          <p className="eyebrow">Km başı kâr trendi</p>
+          <h2>Son 30 gün km verimliligi</h2>
         </div>
         <Route aria-hidden="true" className="panel-icon" />
       </div>
 
       <div className="fuel-trend-summary">
         <div>
-          <span>Agirlikli km kari</span>
+          <span>Ağırlıklı km kârı</span>
           <strong>{formatMoney(weightedNetProfitPerKm)}</strong>
         </div>
         <div>
-          <span>Toplam net kar</span>
+          <span>Toplam net kâr</span>
           <strong>{formatMoney(totalNetProfit)}</strong>
         </div>
         <div>
@@ -138,7 +138,7 @@ export function KmProfitTrendChart() {
 
       <div
         className="fuel-trend-chart"
-        aria-label="Son 30 gun km basi kar trendi"
+        aria-label="Son 30 gün km başı kâr trendi"
       >
         <div className="fuel-trend-bars">
           {trend.map((point, index) => {
@@ -153,7 +153,7 @@ export function KmProfitTrendChart() {
               <div className="fuel-trend-day" key={point.date}>
                 <div className="fuel-trend-bar-slot">
                   <span
-                    aria-label={`${formatDateLabel(point.date)} toplam km ${formatNumber(point.totalKm, 1)}, km basi kar ${formatMoney(point.netProfitPerKm)}`}
+                    aria-label={`${formatDateLabel(point.date)} toplam km ${formatNumber(point.totalKm, 1)}, km başı kâr ${formatMoney(point.netProfitPerKm)}`}
                     className={
                       point.netProfitPerKm < 0
                         ? 'fuel-trend-bar negative'
@@ -184,22 +184,22 @@ export function KmProfitTrendChart() {
       <div className="fuel-trend-legend">
         <span>
           <i className="legend-swatch fuel-cost" />
-          Gunluk toplam km
+          Günlük toplam km
         </span>
         <span>
           <i className="legend-swatch km-profit" />
-          Km basi net kar
+          Km başı net kâr
         </span>
         {bestPoint ? (
           <span>
-            En iyi gun: {formatShortDate(bestPoint.date)} /{' '}
+            En iyi gün: {formatShortDate(bestPoint.date)} /{' '}
             {formatMoney(bestPoint.netProfitPerKm)}
           </span>
         ) : null}
         {isLoading ? (
           <span>
             <RefreshCw aria-hidden="true" className="inline-icon" />
-            Yukleniyor
+            Yükleniyor
           </span>
         ) : null}
       </div>

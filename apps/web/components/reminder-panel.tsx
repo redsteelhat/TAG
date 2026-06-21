@@ -65,19 +65,19 @@ interface MarkAllReadResponse {
 }
 
 const typeLabels: Record<NotificationType, string> = {
-  EXPORT_READY: 'Export hazir',
+  EXPORT_READY: 'Dışa aktarma hazır',
   INSURANCE_REMINDER: 'Sigorta',
-  MAINTENANCE_REMINDER: 'Bakim',
-  PACKAGE_ENDING: 'Paket bitisi',
+  MAINTENANCE_REMINDER: 'Bakım',
+  PACKAGE_ENDING: 'Paket bitişi',
   SYSTEM_ANNOUNCEMENT: 'Sistem',
   TAX_REMINDER: 'MTV / vergi'
 };
 
 const statusLabels: Record<NotificationStatus, string> = {
-  FAILED: 'Hatali',
+  FAILED: 'Hatalı',
   PENDING: 'Bekliyor',
   READ: 'Okundu',
-  SENT: 'Okunmadi'
+  SENT: 'Okunmadı'
 };
 
 export function ReminderPanel() {
@@ -125,7 +125,7 @@ export function ReminderPanel() {
 
   async function fetchNotifications(token = accessToken, pageToLoad = page) {
     if (!token) {
-      setMessage('Hatirlaticilari gormek icin once giris yapmalisin.');
+      setMessage('Hatırlatıcıları görmek için önce giriş yapmalısın.');
       return;
     }
 
@@ -148,7 +148,7 @@ export function ReminderPanel() {
       setMeta(response.meta);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Hatirlaticilar yuklenemedi.'
+        error instanceof Error ? error.message : 'Hatırlatıcılar yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -188,7 +188,7 @@ export function ReminderPanel() {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Hatirlatici okundu olarak isaretlenemedi.'
+          : 'Hatırlatıcı okundu olarak işaretlenemedi.'
       );
     } finally {
       setUpdatingId(null);
@@ -212,14 +212,14 @@ export function ReminderPanel() {
         }
       );
 
-      setMessage(`${response.data.updatedCount} hatirlatici okundu yapildi.`);
+      setMessage(`${response.data.updatedCount} hatırlatıcı okundu yapıldı.`);
       await fetchNotifications(accessToken, 1);
       setPage(1);
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Hatirlaticilar okundu olarak isaretlenemedi.'
+          : 'Hatırlatıcılar okundu olarak işaretlenemedi.'
       );
     } finally {
       setIsMarkingAll(false);
@@ -230,7 +230,7 @@ export function ReminderPanel() {
     <div className="reminder-page">
       <section className="metric-grid reminder-metrics">
         <article className="metric-card">
-          <span>Okunmadi</span>
+          <span>Okunmadı</span>
           <strong>{meta?.unreadCount ?? metrics.pending}</strong>
         </article>
         <article className="metric-card">
@@ -242,7 +242,7 @@ export function ReminderPanel() {
           <strong>{metrics.read}</strong>
         </article>
         <article className="metric-card">
-          <span>Hatali</span>
+          <span>Hatalı</span>
           <strong>{metrics.failed}</strong>
         </article>
       </section>
@@ -250,8 +250,8 @@ export function ReminderPanel() {
       <section className="panel income-table-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Hatirlaticilar</p>
-            <h2>Bildirim ve hatirlatici gecmisi</h2>
+            <p className="eyebrow">Hatırlatıcılar</p>
+            <h2>Bildirim ve hatırlatıcı geçmişi</h2>
           </div>
           <div className="panel-actions">
             <button
@@ -270,7 +270,7 @@ export function ReminderPanel() {
               type="button"
             >
               <CheckCheck aria-hidden="true" className="inline-icon" />
-              Tumunu okundu yap
+              Tümünü okundu yap
             </button>
           </div>
         </div>
@@ -282,7 +282,7 @@ export function ReminderPanel() {
               value={typeFilter}
               onChange={(event) => setTypeFilter(event.target.value)}
             >
-              <option value="">Tumu</option>
+              <option value="">Tümü</option>
               {Object.entries(typeLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -297,11 +297,11 @@ export function ReminderPanel() {
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
-              <option value="">Tumu</option>
+              <option value="">Tümü</option>
               <option value="PENDING">Bekliyor</option>
-              <option value="SENT">Okunmadi</option>
+              <option value="SENT">Okunmadı</option>
               <option value="READ">Okundu</option>
-              <option value="FAILED">Hatali</option>
+              <option value="FAILED">Hatalı</option>
             </select>
           </label>
 
@@ -311,7 +311,7 @@ export function ReminderPanel() {
               onChange={(event) => setUnreadOnly(event.target.checked)}
               type="checkbox"
             />
-            Sadece okunmamis
+            Sadece okunmamış
           </label>
 
           <button className="secondary-button" type="submit">
@@ -323,34 +323,34 @@ export function ReminderPanel() {
         {message ? <p className="form-message">{message}</p> : null}
 
         {isLoading ? (
-          <div className="data-table-empty">Hatirlaticilar yukleniyor.</div>
+          <div className="data-table-empty">Hatırlatıcılar yükleniyor.</div>
         ) : items.length === 0 ? (
           <div className="empty-state-panel compact">
             <EmptyState
               description={
                 hasActiveFilters
-                  ? 'Bu filtrelerle eslesen hatirlatici bulunamadi. Tip, durum veya okunmamis filtresini temizleyebilirsin.'
-                  : 'Yaklasan bakim, sigorta, MTV, paket bitisi ve export hazir bildirimleri burada listelenir.'
+                  ? 'Bu filtrelerle eşleşen hatırlatıcı bulunamadı. Tip, durum veya okunmamış filtresini temizleyebilirsin.'
+                  : 'Yaklaşan bakım, sigorta, MTV, paket bitişi ve dışa aktarma hazır bildirimleri burada listelenir.'
               }
               icon={hasActiveFilters ? FileSearch : BellRing}
               title={
                 hasActiveFilters
-                  ? 'Filtreye uygun hatirlatici yok.'
-                  : 'Henuz hatirlatici yok.'
+                  ? 'Filtreye uygun hatırlatıcı yok.'
+                  : 'Henüz hatırlatıcı yok.'
               }
               tips={
                 hasActiveFilters
-                  ? ['Tip filtresini kaldir', 'Durum filtresini kaldir']
+                  ? ['Tip filtresini kaldır', 'Durum filtresini kaldır']
                   : [
-                      'Bakim kaydi ekle',
+                      'Bakım kaydı ekle',
                       'Sabit gider vadesi gir',
-                      'Export talebi olustur'
+                      'Dışa aktarma talebi oluştur'
                     ]
               }
             />
           </div>
         ) : (
-          <div className="data-table" role="table" aria-label="Hatirlaticilar">
+          <div className="data-table" role="table" aria-label="Hatırlatıcılar">
             <div
               className="data-table-row data-table-head reminder-table-row"
               role="row"
@@ -424,7 +424,7 @@ export function ReminderPanel() {
             type="button"
           >
             <ChevronLeft aria-hidden="true" className="inline-icon" />
-            Onceki
+            Önceki
           </button>
           <span>
             Sayfa {meta?.page ?? page} / {meta?.totalPages ?? 1}

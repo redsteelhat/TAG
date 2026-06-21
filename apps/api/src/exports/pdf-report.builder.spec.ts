@@ -4,14 +4,14 @@ describe('PdfReportBuilder', () => {
   it('builds a valid pdf buffer with report text', () => {
     const builder = new PdfReportBuilder();
     const pdf = builder.build({
-      title: 'TAG Surucu Finans Raporu',
+      title: 'TAG Sürücü Finans Raporu',
       subtitle: '2026-06-01 - 2026-06-30',
       sections: [
         {
-          title: 'Finans Ozeti',
+          title: 'Finans Özeti',
           rows: [
-            ['Brut gelir', '10000.00'],
-            ['Net kar', '7300.00']
+            ['Brüt gelir', '10000.00'],
+            ['Net kâr', '7300.00']
           ]
         }
       ]
@@ -20,7 +20,7 @@ describe('PdfReportBuilder', () => {
 
     expect(content.startsWith('%PDF-1.4')).toBe(true);
     expect(content).toContain('/Type /Catalog');
-    expect(content).toContain('TAG Surucu Finans Raporu');
+    expect(content).toContain('TAG Sürücü Finans Raporu');
     expect(content.trimEnd().endsWith('%%EOF')).toBe(true);
   });
 });

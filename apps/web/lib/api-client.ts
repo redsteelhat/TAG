@@ -113,5 +113,5 @@ function formatApiError(payload: unknown) {
     return error.message.join(' ');
   }
 
-  return error?.message ?? 'Islem tamamlanamadi.';
+  return error?.message ?? 'İşlem tamamlanamadı.';
 }

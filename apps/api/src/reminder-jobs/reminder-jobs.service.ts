@@ -49,7 +49,7 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
     );
 
     this.interval = setInterval(() => {
-      void this.runOnce().catch((error) => {
+      void this.runÖnce().catch((error) => {
         this.logger.error(
           maskLogMessage(
             error instanceof Error ? error.message : 'Reminder job failed.'
@@ -67,7 +67,7 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async runOnce(now = new Date()): Promise<ReminderRunResult> {
+  async runÖnce(now = new Date()): Promise<ReminderRunResult> {
     const dueNotifications =
       await this.notificationsService.dispatchDueNotifications(now);
     const [
@@ -109,7 +109,7 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
         entityId: tagPackage.id,
         entityType: 'tag_package',
         reminderKey: `package-ending:${tagPackage.id}:${this.formatDate(tagPackage.ends_at)}`,
-        title: 'Paket bitisi yaklasiyor',
+        title: 'Paket bitisi yaklaşıyor',
         type: NotificationType.PACKAGE_ENDING,
         userId: tagPackage.user_id
       });
@@ -144,7 +144,7 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
 
       const type = this.resolveRecurringReminderType(recurringExpense);
       const wasCreated = await this.createReminderIfMissing({
-        body: `${recurringExpense.name} odemesi ${this.formatDate(recurringExpense.next_due_at)} tarihinde vadesine geliyor.`,
+        body: `${recurringExpense.name} ödemesi ${this.formatDate(recurringExpense.next_due_at)} tarihinde vadesine geliyor.`,
         entityId: recurringExpense.id,
         entityType: 'recurring_expense',
         reminderKey: `recurring-due:${recurringExpense.id}:${this.formatDate(recurringExpense.next_due_at)}`,
@@ -206,12 +206,12 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
 
       const wasCreated = await this.createReminderIfMissing({
         body: remainingKm.gte(0)
-          ? `${entry.title} bakimina ${remainingKm.toDecimalPlaces(0).toFixed(0)} km kaldi.`
-          : `${entry.title} bakimi ${remainingKm.abs().toDecimalPlaces(0).toFixed(0)} km gecikti.`,
+          ? `${entry.title} bakımina ${remainingKm.toDecimalPlaces(0).toFixed(0)} km kaldi.`
+          : `${entry.title} bakımi ${remainingKm.abs().toDecimalPlaces(0).toFixed(0)} km geçıktı.`,
         entityId: entry.id,
         entityType: 'maintenance_entry',
         reminderKey: `maintenance-km:${entry.id}:${dueAtKm.toDecimalPlaces(1).toFixed(1)}`,
-        title: 'Bakim zamani yaklasiyor',
+        title: 'Bakım zamani yaklaşıyor',
         type: NotificationType.MAINTENANCE_REMINDER,
         userId: entry.user_id
       });
@@ -286,14 +286,14 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
 
   private titleForRecurringReminderType(type: NotificationType) {
     if (type === NotificationType.INSURANCE_REMINDER) {
-      return 'Sigorta odemesi yaklasiyor';
+      return 'Sigörta ödemesi yaklaşıyor';
     }
 
     if (type === NotificationType.TAX_REMINDER) {
-      return 'Vergi veya muayene odemesi yaklasiyor';
+      return 'Vergi veya muayene ödemesi yaklaşıyor';
     }
 
-    return 'Tekrarlayan gider vadesi yaklasiyor';
+    return 'Tekrarlayan gider vadesi yaklaşıyor';
   }
 
   private addDays(date: Date, days: number) {

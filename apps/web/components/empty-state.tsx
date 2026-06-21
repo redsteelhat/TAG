@@ -30,7 +30,7 @@ export function EmptyState({
       <p>{description}</p>
 
       {tips.length > 0 ? (
-        <div className="empty-state-tips" aria-label="Sonraki adimlar">
+        <div className="empty-state-tips" aria-label="Sonraki adımlar">
           {tips.map((tip) => (
             <span key={tip}>{tip}</span>
           ))}

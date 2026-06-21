@@ -33,7 +33,7 @@ export default function RegisterPage() {
       router.push('/onboarding');
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Kayit olusturulamadi.'
+        error instanceof Error ? error.message : 'Kayıt oluşturulamadı.'
       );
     } finally {
       setIsSubmitting(false);
@@ -49,11 +49,11 @@ export default function RegisterPage() {
         </Link>
 
         <div className="auth-heading">
-          <p className="eyebrow">Ilk kurulum</p>
-          <h1>Surucu hesabini olustur</h1>
+          <p className="eyebrow">İlk kurulum</p>
+          <h1>Sürücü hesabıni oluştur</h1>
           <p>
-            Aracini, yakit tuketimini ve paket giderini tanimlayarak gercek net
-            kar takibine basla.
+            Aracını, yakıt tüketimini ve paket giderini tanımlayarak gerçek net
+            kâr takibine başla.
           </p>
         </div>
 
@@ -77,7 +77,7 @@ export default function RegisterPage() {
               inputMode="email"
               name="email"
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="surucu@example.com"
+              placeholder="sürücü@example.com"
               required
               type="email"
               value={email}
@@ -98,7 +98,7 @@ export default function RegisterPage() {
           </label>
 
           <label>
-            Sifre
+            Şifre
             <input
               autoComplete="new-password"
               minLength={8}
@@ -114,22 +114,22 @@ export default function RegisterPage() {
           {message ? <p className="form-alert">{message}</p> : null}
 
           <button className="primary-button full-width" disabled={isSubmitting}>
-            {isSubmitting ? 'Hesap olusturuluyor' : 'Kayit Ol'}
+            {isSubmitting ? 'Hesap oluşturuluyor' : 'Kayıt Ol'}
           </button>
         </form>
 
         <p className="auth-switch">
-          Zaten hesabin var mi? <Link href="/login">Giris yap</Link>
+          Zaten hesabın var mi? <Link href="/login">Giriş yap</Link>
         </p>
       </section>
 
       <aside className="auth-aside">
         <div>
-          <p className="eyebrow">10 saniyelik kayit akisi</p>
-          <h2>Once hesap, sonra arac profili.</h2>
+          <p className="eyebrow">10 saniyelik kayıt akışı</p>
+          <h2>Önce hesap, sonra araç profili.</h2>
           <p>
-            MVP akisi kayit, arac tanimi, yakit varsayimi ve paket gideri ile
-            baslayacak sekilde hazirlandi.
+            MVP akışı kayıt, araç tanımi, yakıt varsayimi ve paket gideri ile
+            başlayacak sekilde hazırlandi.
           </p>
         </div>
       </aside>

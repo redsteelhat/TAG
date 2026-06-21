@@ -3,7 +3,7 @@ import { FuelPanel } from '../../components/fuel-panel';
 
 export default function FuelPage() {
   return (
-    <AppShell eyebrow="Yakit analizi" title="Yakit">
+    <AppShell eyebrow="Yakıt analizi" title="Yakıt">
       <FuelPanel />
     </AppShell>
   );

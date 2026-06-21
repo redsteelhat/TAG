@@ -92,15 +92,15 @@ const fuelOptions: Array<{ label: string; value: FuelType }> = [
   { label: 'LPG', value: 'LPG' },
   { label: 'Hibrit', value: 'HYBRID' },
   { label: 'Elektrik', value: 'ELECTRIC' },
-  { label: 'Diger', value: 'OTHER' }
+  { label: 'Diğer', value: 'OTHER' }
 ];
 
 const fixedAllocationOptions: Array<{
   label: string;
   value: FixedCostAllocationMethod;
 }> = [
-  { label: 'Aktif calisilan gunlere bol', value: 'ACTIVE_DAY' },
-  { label: 'Takvim gunlerine bol', value: 'CALENDAR_DAY' },
+  { label: 'Aktif calisilan günlere bol', value: 'ACTIVE_DAY' },
+  { label: 'Takvim günlerine bol', value: 'CALENDAR_DAY' },
   { label: 'Km’ye bol', value: 'PER_KM' }
 ];
 
@@ -139,7 +139,7 @@ const initialPackageForm: PackageFormState = {
   breakEvenTarget: '',
   durationDays: '7',
   endsAt: addDays(today, 6),
-  name: 'Haftalik TAG paketi',
+  name: 'Haftalık operasyon paketi',
   startsAt: today
 };
 
@@ -227,7 +227,7 @@ export function OnboardingFlow() {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Onboarding verileri yuklenemedi.'
+          : 'Onboarding verileri yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -238,7 +238,7 @@ export function OnboardingFlow() {
     event.preventDefault();
 
     if (!accessToken) {
-      setMessage('Arac olusturmak icin once giris yapmalisin.');
+      setMessage('Araç oluşturmak için önce giriş yapmalısın.');
       return;
     }
 
@@ -278,10 +278,10 @@ export function OnboardingFlow() {
       setSelectedVehicleId(response.data.id);
       setVehicleForm(initialVehicleForm);
       setCompletedSteps((current) => ({ ...current, vehicle: true }));
-      setMessage(`${response.data.plateNumber} plakali arac hazir.`);
+      setMessage(`${response.data.plateNumber} plakali araç hazır.`);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Arac kaydedilemedi.'
+        error instanceof Error ? error.message : 'Araç kaydedilemedi.'
       );
     } finally {
       setIsSavingVehicle(false);
@@ -292,12 +292,12 @@ export function OnboardingFlow() {
     event.preventDefault();
 
     if (!accessToken) {
-      setMessage('Tercihleri kaydetmek icin once giris yapmalisin.');
+      setMessage('Tercihleri kaydetmek için önce giriş yapmalısın.');
       return;
     }
 
     if (!selectedVehicleId) {
-      setMessage('Once varsayilan arac sec veya yeni arac olustur.');
+      setMessage('Önce varsayılan araç seç veya yeni araç oluştur.');
       return;
     }
 
@@ -337,18 +337,18 @@ export function OnboardingFlow() {
     if (!packageForm.amount.trim()) {
       setCompletedSteps((current) => ({ ...current, package: true }));
       setMessage(
-        'Paket adimi atlandi. Daha sonra Paketler ekranindan eklenebilir.'
+        'Paket adımi atlandi. Daha sonra Paketler ekranindan eklenebilir.'
       );
       return;
     }
 
     if (!accessToken) {
-      setMessage('Paket kaydetmek icin once giris yapmalisin.');
+      setMessage('Paket kaydetmek için önce giriş yapmalısın.');
       return;
     }
 
     if (!selectedVehicleId) {
-      setMessage('Paket kaydetmek icin once arac secmelisin.');
+      setMessage('Paket kaydetmek için önce araç seçmelisin.');
       return;
     }
 
@@ -415,13 +415,13 @@ export function OnboardingFlow() {
     return (
       <section className="panel empty-state-panel">
         <p className="eyebrow">Oturum gerekli</p>
-        <h2>Kurulum akisini baslatmak icin giris yap.</h2>
+        <h2>Kurulum akışıni başlatmak için giriş yap.</h2>
         <p>
-          Hesap olusturduktan sonra arac ve finans ayarlarini burada
-          tamamlarsin.
+          Hesap oluşturduktan sonra araç ve finans ayarlarini burada
+          tamamlayabilirsin.
         </p>
         <Link className="primary-button" href="/login">
-          Giris yap
+          Giriş yap
         </Link>
       </section>
     );
@@ -431,11 +431,11 @@ export function OnboardingFlow() {
     <section className="onboarding-page">
       <section className="panel onboarding-hero">
         <div>
-          <p className="eyebrow">Ilk kurulum</p>
-          <h2>Net kar motorunu kullanmadan once 3 temel bilgiyi tamamla.</h2>
+          <p className="eyebrow">İlk kurulum</p>
+          <h2>Net kâr motorunu kullanmadan önce 3 temel bilgiyi tamamla.</h2>
           <p>
-            Arac, hedef ve paket bilgisi tamamlandiginda dashboard gunluk net
-            kar, km basi kar ve break-even durumunu anlamli hesaplar.
+            Araç, hedef ve paket bilgisi tamamlandığında ana panel günlük net
+            kâr, km başı kâr ve başabaş durumunu anlamlı hesaplar.
           </p>
         </div>
         <div className="onboarding-progress">
@@ -451,21 +451,21 @@ export function OnboardingFlow() {
         <p className="form-message onboarding-message">{message}</p>
       ) : null}
 
-      <section className="onboarding-steps" aria-label="Kurulum adimlari">
+      <section className="onboarding-steps" aria-label="Kurulum adımları">
         <StepCard
-          description="Yakit ve km hesaplari icin zorunlu."
+          description="Yakıt ve km hesapları için zorunlu."
           done={completedSteps.vehicle}
           icon={Car}
-          label="Arac"
+          label="Araç"
         />
         <StepCard
-          description="Hedef, amortisman ve sabit gider dagitimi."
+          description="Hedef, amortisman ve sabit gider dağıtımı."
           done={completedSteps.preferences}
           icon={Target}
           label="Finans"
         />
         <StepCard
-          description="Paket payi ve break-even icin opsiyonel."
+          description="Paket payı ve başabaş için opsiyonel."
           done={completedSteps.package}
           icon={Package}
           label="Paket"
@@ -476,15 +476,15 @@ export function OnboardingFlow() {
         <form className="panel data-form" onSubmit={handleVehicleSubmit}>
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">1. Adim</p>
-              <h2>Aracini tanimla</h2>
+              <p className="eyebrow">1. Adım</p>
+              <h2>Aracını tanımla</h2>
             </div>
             <Fuel aria-hidden="true" className="panel-icon" />
           </div>
 
           {vehicles.length > 0 ? (
             <label>
-              Mevcut arac
+              Mevcut araç
               <select
                 onChange={(event) => setSelectedVehicleId(event.target.value)}
                 value={selectedVehicleId}
@@ -513,7 +513,7 @@ export function OnboardingFlow() {
             </label>
 
             <label>
-              Yakit tipi
+              Yakıt tipi
               <select
                 onChange={(event) =>
                   updateVehicleForm('fuelType', event.target.value as FuelType)
@@ -529,7 +529,7 @@ export function OnboardingFlow() {
             </label>
 
             <label>
-              Ortalama tuketim
+              Ortalama tüketim
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -542,7 +542,7 @@ export function OnboardingFlow() {
             </label>
 
             <label>
-              Km sayaci
+              Km sayacı
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -584,7 +584,7 @@ export function OnboardingFlow() {
               }
               type="checkbox"
             />
-            Arac amortismanini simdiden tanimla
+            Araç amortismanını şimdiden tanımla
           </label>
 
           {vehicleForm.depreciationEnabled ? (
@@ -600,13 +600,13 @@ export function OnboardingFlow() {
                   }
                   value={vehicleForm.depreciationModel}
                 >
-                  <option value="PER_KM">Km bazli</option>
-                  <option value="MONTHLY">Aylik</option>
+                  <option value="PER_KM">Km bazlı</option>
+                  <option value="MONTHLY">Aylık</option>
                 </select>
               </label>
 
               <label>
-                Yillik deger kaybi
+                Yıllık değer kaybı
                 <input
                   inputMode="decimal"
                   onChange={(event) =>
@@ -621,7 +621,7 @@ export function OnboardingFlow() {
               </label>
 
               <label>
-                Yillik tahmini km
+                Yıllık tahmini km
                 <input
                   inputMode="decimal"
                   onChange={(event) =>
@@ -638,28 +638,28 @@ export function OnboardingFlow() {
             className="primary-button"
             disabled={isSavingVehicle || isLoading}
           >
-            {isSavingVehicle ? 'Kaydediliyor' : 'Araci kaydet'}
+            {isSavingVehicle ? 'Kaydediliyor' : 'Aracı kaydet'}
           </button>
         </form>
 
         <form className="panel data-form" onSubmit={handlePreferenceSubmit}>
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">2. Adim</p>
+              <p className="eyebrow">2. Adım</p>
               <h2>Finans tercihleri</h2>
             </div>
             <Calculator aria-hidden="true" className="panel-icon" />
           </div>
 
           <label>
-            Varsayilan arac
+            Varsayılan araç
             <select
               disabled={vehicles.length === 0}
               onChange={(event) => setSelectedVehicleId(event.target.value)}
               required
               value={selectedVehicleId}
             >
-              <option value="">Arac sec</option>
+              <option value="">Araç seç</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {formatVehicleLabel(vehicle)}
@@ -670,7 +670,7 @@ export function OnboardingFlow() {
 
           <div className="form-grid">
             <label>
-              Gunluk net kar hedefi
+              Günlük net kâr hedefi
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -685,7 +685,7 @@ export function OnboardingFlow() {
             </label>
 
             <label>
-              Sabit gider dagitimi
+              Sabit gider dağıtımı
               <select
                 onChange={(event) =>
                   updatePreferenceForm(
@@ -715,7 +715,7 @@ export function OnboardingFlow() {
               }
               type="checkbox"
             />
-            Amortisman gercek net kar hesabina dahil edilsin
+            Amortisman gerçek net kâr hesabına dahil edilsin
           </label>
 
           <button
@@ -729,19 +729,19 @@ export function OnboardingFlow() {
         <form className="panel data-form" onSubmit={handlePackageSubmit}>
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">3. Adim</p>
+              <p className="eyebrow">3. Adım</p>
               <h2>Paket gideri</h2>
             </div>
             <Package aria-hidden="true" className="panel-icon" />
           </div>
 
           <p className="form-message">
-            Paket kullanmiyorsan tutari bos birakip bu adimi atlayabilirsin.
+            Paket kullanmıyorsan tutarı boş bırakıp bu adımı atlayabilirsin.
           </p>
 
           <div className="form-grid">
             <label>
-              Paket adi
+              Paket adı
               <input
                 onChange={(event) =>
                   updatePackageForm('name', event.target.value)
@@ -751,7 +751,7 @@ export function OnboardingFlow() {
             </label>
 
             <label>
-              Paket tutari
+              Paket tutarı
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -763,7 +763,7 @@ export function OnboardingFlow() {
             </label>
 
             <label>
-              Baslangic
+              Başlangıç
               <input
                 onChange={(event) =>
                   updatePackageForm('startsAt', event.target.value)
@@ -774,7 +774,7 @@ export function OnboardingFlow() {
             </label>
 
             <label>
-              Bitis
+              Bitiş
               <input
                 onChange={(event) =>
                   updatePackageForm('endsAt', event.target.value)
@@ -785,7 +785,7 @@ export function OnboardingFlow() {
             </label>
 
             <label>
-              Gun sayisi
+              Gün sayısı
               <input
                 inputMode="numeric"
                 onChange={(event) =>
@@ -796,7 +796,7 @@ export function OnboardingFlow() {
             </label>
 
             <label>
-              Dagitim
+              Dağıtım
               <select
                 onChange={(event) =>
                   updatePackageForm(
@@ -815,7 +815,7 @@ export function OnboardingFlow() {
             </label>
 
             <label>
-              Break-even hedefi
+              Başabaş hedefi
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -841,12 +841,12 @@ export function OnboardingFlow() {
           <p className="eyebrow">Kurulum sonucu</p>
           <h2>
             {selectedVehicle
-              ? `${selectedVehicle.plateNumber} icin hesaplama hazir.`
-              : 'Arac secildiginde hesaplama hazir olacak.'}
+              ? `${selectedVehicle.plateNumber} için hesaplama hazır.`
+              : 'Araç seçildiğinde hesaplama hazır olacak.'}
           </h2>
           <p>
-            Eksik kalan giderleri daha sonra sabit gider, yakit ve bakim
-            ekranlarindan tamamlayabilirsin.
+            Eksik kalan giderleri daha sonra sabit gider, yakıt ve bakım
+            ekranlarından tamamlayabilirsin.
           </p>
         </div>
         <button
@@ -855,7 +855,7 @@ export function OnboardingFlow() {
           onClick={finishOnboarding}
           type="button"
         >
-          Dashboard’a gec
+          Ana panele geç
         </button>
       </section>
     </section>

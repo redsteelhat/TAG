@@ -147,27 +147,10 @@ export class PdfReportBuilder {
   }
 
   private escapePdfText(value: string) {
-    return this.toWinAnsi(value)
+    return value
       .replace(/\\/g, '\\\\')
       .replace(/\(/g, '\\(')
       .replace(/\)/g, '\\)')
       .slice(0, 120);
-  }
-
-  private toWinAnsi(value: string) {
-    return value
-      .replace(/ç/g, 'c')
-      .replace(/Ç/g, 'C')
-      .replace(/ğ/g, 'g')
-      .replace(/Ğ/g, 'G')
-      .replace(/ı/g, 'i')
-      .replace(/İ/g, 'I')
-      .replace(/ö/g, 'o')
-      .replace(/Ö/g, 'O')
-      .replace(/ş/g, 's')
-      .replace(/Ş/g, 'S')
-      .replace(/ü/g, 'u')
-      .replace(/Ü/g, 'U')
-      .replace(/[^\x09\x0a\x0d\x20-\x7e]/g, '');
   }
 }

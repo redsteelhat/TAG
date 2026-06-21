@@ -74,15 +74,15 @@ interface ShiftFilterValues {
 const statusLabels: Record<ShiftStatus, string> = {
   ACTIVE: 'Aktif',
   CANCELED: 'Iptal',
-  COMPLETED: 'Tamamlandi'
+  COMPLETED: 'Tamamlandı'
 };
 
 const shiftSortOptions: Array<{ label: string; value: ShiftSortBy }> = [
-  { label: 'Baslangic', value: 'startedAt' },
-  { label: 'Olusturma', value: 'createdAt' },
-  { label: 'Brut gelir', value: 'grossIncome' },
+  { label: 'Başlangıç', value: 'startedAt' },
+  { label: 'Oluşturma', value: 'createdAt' },
+  { label: 'Brüt gelir', value: 'grossIncome' },
   { label: 'Toplam km', value: 'totalKm' },
-  { label: 'Net kar', value: 'trueNetProfit' }
+  { label: 'Net kâr', value: 'trueNetProfit' }
 ];
 
 export function IncomeShiftList() {
@@ -171,7 +171,7 @@ export function IncomeShiftList() {
     }
   ) {
     if (!token) {
-      setMessage('Vardiya listesini gormek icin once giris yapmalisin.');
+      setMessage('Vardiya listesini görmek için önce giriş yapmalısın.');
       return;
     }
 
@@ -198,7 +198,7 @@ export function IncomeShiftList() {
       setMeta(response.meta);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Vardiyalar yuklenemedi.'
+        error instanceof Error ? error.message : 'Vardiyalar yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -241,21 +241,21 @@ export function IncomeShiftList() {
     <section className="panel income-table-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Vardiya kayitlari</p>
+          <p className="eyebrow">Vardiya kayıtları</p>
           <h2>Vardiya listesi</h2>
         </div>
         <span className="status-pill">
-          {meta ? `${meta.total} kayit` : 'Hazirlaniyor'}
+          {meta ? `${meta.total} kayıt` : 'Hazırlanıyor'}
         </span>
       </div>
 
-      <section className="shift-metric-grid" aria-label="Vardiya sayfa ozeti">
+      <section className="shift-metric-grid" aria-label="Vardiya sayfa özeti">
         <MiniMetric
-          label="Brut gelir"
+          label="Brüt gelir"
           value={formatMoney(pageMetrics.grossIncome)}
         />
         <MiniMetric
-          label="Net kar"
+          label="Net kâr"
           value={formatMoney(pageMetrics.trueNetProfit)}
         />
         <MiniMetric
@@ -263,7 +263,7 @@ export function IncomeShiftList() {
           value={`${formatNumber(pageMetrics.totalKm)} km`}
         />
         <MiniMetric
-          label="Aktif sure"
+          label="Aktif süre"
           value={formatDuration(pageMetrics.activeMinutes)}
         />
       </section>
@@ -282,12 +282,12 @@ export function IncomeShiftList() {
         </label>
 
         <label>
-          Arac
+          Araç
           <select
             onChange={(event) => setVehicleId(event.target.value)}
             value={vehicleId}
           >
-            <option value="">Tum araclar</option>
+            <option value="">Tüm araçlar</option>
             {vehicles.map((vehicle) => (
               <option key={vehicle.id} value={vehicle.id}>
                 {formatVehicleLabel(vehicle)}
@@ -302,7 +302,7 @@ export function IncomeShiftList() {
             onChange={(event) => setStatus(event.target.value)}
             value={status}
           >
-            <option value="">Aktif + tamamlandi</option>
+            <option value="">Aktif + tamamlandı</option>
             {Object.entries(statusLabels).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -312,7 +312,7 @@ export function IncomeShiftList() {
         </label>
 
         <label>
-          Baslangic
+          Başlangıç
           <input
             onChange={(event) => setStartDate(event.target.value)}
             type="date"
@@ -321,7 +321,7 @@ export function IncomeShiftList() {
         </label>
 
         <label>
-          Bitis
+          Bitiş
           <input
             onChange={(event) => setEndDate(event.target.value)}
             type="date"
@@ -344,7 +344,7 @@ export function IncomeShiftList() {
         </label>
 
         <label>
-          Yon
+          Yön
           <select
             onChange={(event) =>
               setSortDirection(event.target.value as SortDirection)
@@ -367,7 +367,7 @@ export function IncomeShiftList() {
           </button>
           <button className="primary-button" disabled={isLoading}>
             <RefreshCw aria-hidden="true" className="button-icon" />
-            {isLoading ? 'Yukleniyor' : 'Filtrele'}
+            {isLoading ? 'Yükleniyor' : 'Filtrele'}
           </button>
         </div>
       </form>
@@ -380,14 +380,14 @@ export function IncomeShiftList() {
             className="data-table-row shift-table-row data-table-head"
             role="row"
           >
-            <span>Baslangic</span>
-            <span>Bitis</span>
-            <span>Arac</span>
+            <span>Başlangıç</span>
+            <span>Bitiş</span>
+            <span>Araç</span>
             <span>Durum</span>
-            <span>Sure</span>
+            <span>Süre</span>
             <span>Km</span>
             <span>Gelir</span>
-            <span>Net kar</span>
+            <span>Net kâr</span>
           </div>
 
           {shifts.map((shift) => (
@@ -423,19 +423,19 @@ export function IncomeShiftList() {
           <EmptyState
             description={
               hasActiveFilters
-                ? 'Bu filtrelerle eslesen vardiya bulunamadi. Durum, arac veya tarih filtresini temizleyebilirsin.'
-                : 'Vardiya baslatip bitirdiginde sure, km, gelir ve net kar bu listede gorunur.'
+                ? 'Bu filtrelerle eşleşen vardiya bulunamadı. Durum, araç veya tarih filtresini temizleyebilirsin.'
+                : 'Vardiya başlatip bitirdiginde süre, km, gelir ve net kâr bu listede görünür.'
             }
             icon={hasActiveFilters ? FileSearch : CalendarClock}
             title={
               hasActiveFilters
                 ? 'Filtreye uygun vardiya yok.'
-                : 'Henuz vardiya kaydi yok.'
+                : 'Henüz vardiya kaydı yok.'
             }
             tips={
               hasActiveFilters
-                ? ['Tarih araligini genislet', 'Durum filtresini kaldir']
-                : ['Vardiyaya basla', 'Seferleri ekle', 'Vardiyayi bitir']
+                ? ['Tarih aralığını genişlet', 'Durum filtresini kaldır']
+                : ['Vardiyaya başla', 'Seferleri ekle', 'Vardiyayi bitir']
             }
           />
         </div>
@@ -449,7 +449,7 @@ export function IncomeShiftList() {
           type="button"
         >
           <ChevronLeft aria-hidden="true" className="button-icon" />
-          Onceki
+          Önceki
         </button>
         <span>
           Sayfa {meta?.page ?? page} / {meta?.totalPages || 1}

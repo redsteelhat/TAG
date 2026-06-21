@@ -3,7 +3,7 @@ import { DepreciationSettingsPanel } from '../../components/depreciation-setting
 
 export default function DepreciationPage() {
   return (
-    <AppShell eyebrow="Yipranma maliyeti" title="Amortisman">
+    <AppShell eyebrow="Yıpranma maliyeti" title="Amortisman">
       <DepreciationSettingsPanel />
     </AppShell>
   );

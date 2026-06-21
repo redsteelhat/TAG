@@ -3,7 +3,7 @@ import { VehicleCreateForm } from '../../components/vehicle-create-form';
 
 export default function VehiclesPage() {
   return (
-    <AppShell eyebrow="Arac yonetimi" title="Arac olusturma">
+    <AppShell eyebrow="Araç yönetimi" title="Araç oluşturma">
       <VehicleCreateForm />
     </AppShell>
   );

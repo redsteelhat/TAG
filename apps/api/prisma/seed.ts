@@ -24,18 +24,18 @@ const systemCategories = [
     expense_type: ExpenseType.OPERATIONAL
   },
   {
-    id: 'cat_yakit',
-    name: 'Yakit',
+    id: 'cat_yakıt',
+    name: 'Yakıt',
     expense_type: ExpenseType.VARIABLE
   },
   {
     id: 'cat_paket',
-    name: 'Paket / Kullanim Bedeli',
+    name: 'Paket / Kullanım Bedeli',
     expense_type: ExpenseType.PLATFORM_PACKAGE
   },
   {
-    id: 'cat_periyodik_bakim',
-    name: 'Periyodik Bakim',
+    id: 'cat_periyodik_bakım',
+    name: 'Periyodik Bakım',
     expense_type: ExpenseType.SEMI_VARIABLE
   },
   {
@@ -69,8 +69,8 @@ const systemCategories = [
     expense_type: ExpenseType.OPERATIONAL
   },
   {
-    id: 'cat_trafik_sigortasi',
-    name: 'Trafik Sigortasi',
+    id: 'cat_trafik_sigortası',
+    name: 'Trafik Sigörtasi',
     expense_type: ExpenseType.FIXED
   },
   {
@@ -94,28 +94,28 @@ const systemCategories = [
     expense_type: ExpenseType.FIXED
   },
   {
-    id: 'cat_arac_kredisi',
-    name: 'Arac Kredisi',
+    id: 'cat_araç_kredisi',
+    name: 'Araç Kredisi',
     expense_type: ExpenseType.FINANCING
   },
   {
     id: 'cat_otopark_aboneligi',
-    name: 'Otopark Aboneligi',
+    name: 'Otopark Aboneliği',
     expense_type: ExpenseType.FIXED
   },
   {
     id: 'cat_telefon',
-    name: 'Telefon Hatti',
+    name: 'Telefon Hattı',
     expense_type: ExpenseType.OPERATIONAL
   },
   {
     id: 'cat_internet',
-    name: 'Internet Paketi',
+    name: 'İnternet Paketi',
     expense_type: ExpenseType.OPERATIONAL
   },
   {
-    id: 'cat_diger',
-    name: 'Diger',
+    id: 'cat_diğer',
+    name: 'Diğer',
     expense_type: ExpenseType.VARIABLE
   }
 ];
@@ -147,7 +147,7 @@ const systemPaymentMethods = [
   },
   {
     id: 'pay_other',
-    name: 'Diger',
+    name: 'Diğer',
     type: PaymentMethodType.OTHER,
     is_default: false
   }

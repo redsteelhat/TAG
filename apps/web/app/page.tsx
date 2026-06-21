@@ -12,31 +12,31 @@ import { AppShell } from '../components/app-shell';
 import { DailyIncomeDashboard } from '../components/daily-income-dashboard';
 
 const breakEvenItems = [
-  ['Paket payi', '700 TL'],
-  ['Yakit', '820 TL'],
+  ['Paket payı', '700 TL'],
+  ['Yakıt', '820 TL'],
   ['Sabit gider', '420 TL'],
-  ['Bakim rezervi', '340 TL']
+  ['Bakım rezervi', '340 TL']
 ];
 
 const expenses = [
-  ['Yakit', '820 TL', 36],
-  ['Paket payi', '700 TL', 31],
+  ['Yakıt', '820 TL', 36],
+  ['Paket payı', '700 TL', 31],
   ['Sabit gider', '420 TL', 18],
-  ['Bakim rezervi', '340 TL', 15]
+  ['Bakım rezervi', '340 TL', 15]
 ];
 
 const trips = [
-  ['09:20', 'Kadikoy - Atasehir', '18 km', '620 TL', '312 TL'],
-  ['11:05', 'Uskudar - Besiktas', '12 km', '480 TL', '249 TL'],
-  ['14:40', 'Sisli - Bakirkoy', '27 km', '910 TL', '396 TL'],
+  ['09:20', 'Kadıköy - Ataşehir', '18 km', '620 TL', '312 TL'],
+  ['11:05', 'Üsküdar - Beşiktaş', '12 km', '480 TL', '249 TL'],
+  ['14:40', 'Şişli - Bakırköy', '27 km', '910 TL', '396 TL'],
   ['18:15', 'Levent - Maltepe', '31 km', '1.040 TL', '426 TL']
 ];
 
 const quickActions = [
   { label: 'Sefer ekle', href: '/income', icon: Plus },
   { label: 'Gider ekle', href: '/expenses', icon: ReceiptText },
-  { label: 'Yakit ekle', href: '/fuel', icon: Fuel },
-  { label: 'Bakim ekle', href: '/maintenance', icon: Wrench }
+  { label: 'Yakıt ekle', href: '/fuel', icon: Fuel },
+  { label: 'Bakım ekle', href: '/maintenance', icon: Wrench }
 ];
 
 const profitableWindows = [
@@ -51,14 +51,14 @@ export default function HomePage() {
       actions={
         <>
           <Link className="secondary-button button-link" href="/login">
-            Giris
+            Giriş
           </Link>
           <Link className="secondary-button button-link" href="/register">
-            Kayit
+            Kayıt
           </Link>
           <Link className="secondary-button button-link" href="/income">
             <Play aria-hidden="true" className="button-icon" />
-            Vardiya Baslat
+            Vardiya Başlat
           </Link>
           <Link className="primary-button button-link" href="/income">
             <Plus aria-hidden="true" className="button-icon" />
@@ -66,8 +66,8 @@ export default function HomePage() {
           </Link>
         </>
       }
-      eyebrow="Bugun"
-      title="Gercek net kar ozeti"
+      eyebrow="Bugün"
+      title="Gerçek net kâr özeti"
     >
       <DailyIncomeDashboard />
 
@@ -76,18 +76,18 @@ export default function HomePage() {
           <section className="panel break-even-panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Break-even</p>
-                <h2>Paket ve gunluk maliyet esigi</h2>
+                <p className="eyebrow">Başabaş</p>
+                <h2>Paket ve günlük maliyet eşiği</h2>
               </div>
-              <span className="status-pill">Asildi</span>
+              <span className="status-pill">Aşıldı</span>
             </div>
 
             <div className="break-even-summary">
               <strong>1.240 TL</strong>
-              <span>Bugun kara gecmek icin gereken minimum gelir</span>
+              <span>Bugün kâra geçmek için gereken minimum gelir</span>
             </div>
             <div
-              aria-label="Break-even ilerlemesi"
+              aria-label="Başabaş ilerlemesi"
               className="progress-track"
               role="progressbar"
               aria-valuemax={100}
@@ -109,11 +109,11 @@ export default function HomePage() {
           <section className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Son kayitlar</p>
-                <h2>Sefer karliligi</h2>
+                <p className="eyebrow">Son kayıtlar</p>
+                <h2>Sefer kârlılığı</h2>
               </div>
               <Link className="text-link" href="/income">
-                Tum gelirler
+                Tüm gelirler
               </Link>
             </div>
             <div className="trip-table" role="table" aria-label="Seferler">
@@ -134,8 +134,8 @@ export default function HomePage() {
           <section className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Hizli kayit</p>
-                <h2>Operasyon aksiyonlari</h2>
+                <p className="eyebrow">Hızlı kayıt</p>
+                <h2>Operasyon aksiyonları</h2>
               </div>
             </div>
             <div className="quick-action-grid">
@@ -156,7 +156,7 @@ export default function HomePage() {
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">Gider etkisi</p>
-                <h2>Kar eriten kalemler</h2>
+                <h2>Kâr eriten kalemler</h2>
               </div>
             </div>
             <div className="cost-stack">
@@ -178,13 +178,13 @@ export default function HomePage() {
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">Vardiya</p>
-                <h2>Aktif calisma ozeti</h2>
+                <h2>Aktif çalışma özeti</h2>
               </div>
               <Gauge aria-hidden="true" className="panel-icon" />
             </div>
             <div className="shift-summary">
               <div>
-                <span>Sure</span>
+                <span>Süre</span>
                 <strong>6s 00d</strong>
               </div>
               <div>
@@ -204,12 +204,12 @@ export default function HomePage() {
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Haftalik trend</p>
-              <h2>Net kar iskeleti</h2>
+              <p className="eyebrow">Haftalık trend</p>
+              <h2>Net kâr iskeleti</h2>
             </div>
             <CalendarClock aria-hidden="true" className="panel-icon" />
           </div>
-          <div className="trend-bars" aria-label="Haftalik net kar grafigi">
+          <div className="trend-bars" aria-label="Haftalık net kâr grafiği">
             {[42, 58, 35, 72, 88, 64, 76].map((height, index) => (
               <span key={index} style={{ height: `${height}%` }} />
             ))}
@@ -219,8 +219,8 @@ export default function HomePage() {
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Gun/saat analizi</p>
-              <h2>Kazanc pencereleri</h2>
+              <p className="eyebrow">Gün/saat analizi</p>
+              <h2>Kazanç pencereleri</h2>
             </div>
           </div>
           <div className="profit-window-list">

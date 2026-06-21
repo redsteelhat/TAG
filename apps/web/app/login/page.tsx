@@ -28,7 +28,7 @@ export default function LoginPage() {
       persistAuthSession(response);
       router.push('/');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Giris yapilamadi.');
+      setMessage(error instanceof Error ? error.message : 'Giriş yapılamadı.');
     } finally {
       setIsSubmitting(false);
     }
@@ -44,9 +44,9 @@ export default function LoginPage() {
 
         <div className="auth-heading">
           <p className="eyebrow">Web panel</p>
-          <h1>Hesabina giris yap</h1>
+          <h1>Hesabına giriş yap</h1>
           <p>
-            Gunluk net karini, paket kirilimini ve arac maliyetini tek panelden
+            Günlük net kârını, paket kirilimini ve araç maliyetini tek panelden
             takip et.
           </p>
         </div>
@@ -59,7 +59,7 @@ export default function LoginPage() {
               inputMode="email"
               name="email"
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="surucu@example.com"
+              placeholder="sürücü@example.com"
               required
               type="email"
               value={email}
@@ -67,7 +67,7 @@ export default function LoginPage() {
           </label>
 
           <label>
-            Sifre
+            Şifre
             <input
               autoComplete="current-password"
               minLength={8}
@@ -83,22 +83,22 @@ export default function LoginPage() {
           {message ? <p className="form-alert">{message}</p> : null}
 
           <button className="primary-button full-width" disabled={isSubmitting}>
-            {isSubmitting ? 'Giris yapiliyor' : 'Giris Yap'}
+            {isSubmitting ? 'Giriş yapılıyor' : 'Giriş Yap'}
           </button>
         </form>
 
         <p className="auth-switch">
-          Hesabin yok mu? <Link href="/register">Kayit ol</Link>
+          Hesabın yok mu? <Link href="/register">Kayıt ol</Link>
         </p>
       </section>
 
       <aside className="auth-aside">
         <div>
-          <p className="eyebrow">Gercek kar motoru</p>
-          <h2>Brut geliri kar sanma.</h2>
+          <p className="eyebrow">Gerçek kâr motoru</p>
+          <h2>Brüt geliri kâr sanma.</h2>
           <p>
-            Yakit, paket, sabit gider, bakim ve amortisman payini duserek sefer
-            bazli net sonucu gor.
+            Yakıt, paket, sabit gider, bakım ve amortisman payını düşerek sefer
+            bazli net sonucu gör.
           </p>
         </div>
       </aside>

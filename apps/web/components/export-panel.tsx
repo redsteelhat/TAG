@@ -85,10 +85,10 @@ const emptyForm: ExportFormState = {
 };
 
 const statusLabels: Record<ExportStatus, string> = {
-  COMPLETED: 'Tamamlandi',
-  FAILED: 'Hatali',
+  COMPLETED: 'Tamamlandı',
+  FAILED: 'Hatalı',
   PENDING: 'Bekliyor',
-  PROCESSING: 'Isleniyor'
+  PROCESSING: 'İşleniyor'
 };
 
 export function ExportPanel() {
@@ -163,7 +163,7 @@ export function ExportPanel() {
 
   async function fetchJobs(token = accessToken, pageToLoad = page) {
     if (!token) {
-      setMessage('Export gecmisini gormek icin once giris yapmalisin.');
+      setMessage('Dışa aktarma geçmişini görmek için önce giriş yapmalısın.');
       return;
     }
 
@@ -186,7 +186,7 @@ export function ExportPanel() {
       setMeta(response.meta);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Export gecmisi yuklenemedi.'
+        error instanceof Error ? error.message : 'Dışa aktarma geçmişi yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -197,7 +197,7 @@ export function ExportPanel() {
     event.preventDefault();
 
     if (!accessToken) {
-      setMessage('Export almak icin once giris yapmalisin.');
+      setMessage('Dışa aktarmak için önce giriş yapmalısın.');
       return;
     }
 
@@ -221,11 +221,11 @@ export function ExportPanel() {
       );
 
       setJobs((currentJobs) => [response.data, ...currentJobs].slice(0, 10));
-      setMessage('Export talebi kuyruga alindi.');
+      setMessage('Dışa aktarma talebi kuyruğa alındı.');
       setPage(1);
       await fetchJobs(accessToken, 1);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Export alinamadi.');
+      setMessage(error instanceof Error ? error.message : 'Dışa aktarma alınamadı.');
     } finally {
       setIsSubmitting(false);
     }
@@ -283,15 +283,15 @@ export function ExportPanel() {
           <strong>{metrics.completed}</strong>
         </article>
         <article className="metric-card">
-          <span>Kuyrukta / isleniyor</span>
+          <span>Kuyrukta / işleniyor</span>
           <strong>{metrics.pending}</strong>
         </article>
         <article className="metric-card">
-          <span>Hatali</span>
+          <span>Hatalı</span>
           <strong>{metrics.failed}</strong>
         </article>
         <article className="metric-card">
-          <span>Toplam kayit</span>
+          <span>Toplam kayıt</span>
           <strong>{meta?.total ?? jobs.length}</strong>
         </article>
       </section>
@@ -299,16 +299,16 @@ export function ExportPanel() {
       <section className="panel export-request-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Rapor dosyasi</p>
-            <h2>Export talebi olustur</h2>
+            <p className="eyebrow">Rapor dosyası</p>
+            <h2>Dışa aktarma talebi oluştur</h2>
           </div>
-          <span className="status-pill">Queue ile islenir</span>
+          <span className="status-pill">Kuyrukta işlenir</span>
         </div>
 
         <form className="export-request-form data-form" onSubmit={handleSubmit}>
           <div className="export-request-grid">
             <label>
-              Format
+              Dosya formatı
               <select
                 value={form.format}
                 onChange={(event) =>
@@ -324,7 +324,7 @@ export function ExportPanel() {
             </label>
 
             <label>
-              Donem
+              Dönem
               <select
                 value={form.period}
                 onChange={(event) =>
@@ -334,9 +334,9 @@ export function ExportPanel() {
                   }))
                 }
               >
-                <option value="DAILY">Gunluk</option>
-                <option value="WEEKLY">Haftalik</option>
-                <option value="MONTHLY">Aylik</option>
+                <option value="DAILY">Günlük</option>
+                <option value="WEEKLY">Haftalık</option>
+                <option value="MONTHLY">Aylık</option>
               </select>
             </label>
 
@@ -358,7 +358,7 @@ export function ExportPanel() {
 
             {form.period === 'WEEKLY' ? (
               <label>
-                Hafta baslangici
+                Hafta başlangici
                 <input
                   type="date"
                   value={form.weekStart}
@@ -389,7 +389,7 @@ export function ExportPanel() {
             ) : null}
 
             <label>
-              Arac
+              Araç
               <select
                 value={form.vehicleId}
                 onChange={(event) =>
@@ -399,7 +399,7 @@ export function ExportPanel() {
                   }))
                 }
               >
-                <option value="">Tum araclar</option>
+                <option value="">Tüm araçlar</option>
                 {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {vehicle.plateNumber} {vehicle.brand ?? ''}{' '}
@@ -422,7 +422,7 @@ export function ExportPanel() {
                 }
                 type="checkbox"
               />
-              Ham sefer, gider, yakit ve bakim verilerini dahil et
+              Ham sefer, gider, yakıt ve bakım verilerini dahil et
             </label>
 
             <button
@@ -431,7 +431,7 @@ export function ExportPanel() {
               type="submit"
             >
               <Save aria-hidden="true" className="inline-icon" />
-              {isSubmitting ? 'Kuyruga aliniyor' : 'Export al'}
+              {isSubmitting ? 'Kuyruğa alınıyor' : 'Dışa aktar'}
             </button>
           </div>
         </form>
@@ -440,7 +440,7 @@ export function ExportPanel() {
       <section className="panel income-table-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Export gecmisi</p>
+            <p className="eyebrow">Dışa aktarma geçmişi</p>
             <h2>Dosyalar</h2>
           </div>
           <button
@@ -456,12 +456,12 @@ export function ExportPanel() {
 
         <form className="export-list-toolbar" onSubmit={handleFilterSubmit}>
           <label>
-            Format
+            Dosya formatı
             <select
               value={formatFilter}
               onChange={(event) => setFormatFilter(event.target.value)}
             >
-              <option value="">Tumu</option>
+              <option value="">Tümü</option>
               <option value="XLSX">Excel</option>
               <option value="PDF">PDF</option>
             </select>
@@ -473,24 +473,24 @@ export function ExportPanel() {
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
-              <option value="">Tumu</option>
+              <option value="">Tümü</option>
               <option value="PENDING">Bekliyor</option>
-              <option value="PROCESSING">Isleniyor</option>
-              <option value="COMPLETED">Tamamlandi</option>
-              <option value="FAILED">Hatali</option>
+              <option value="PROCESSING">İşleniyor</option>
+              <option value="COMPLETED">Tamamlandı</option>
+              <option value="FAILED">Hatalı</option>
             </select>
           </label>
 
           <label>
-            Yon
+            Yön
             <select
               value={sortDirection}
               onChange={(event) =>
                 setSortDirection(event.target.value as SortDirection)
               }
             >
-              <option value="desc">Yeni once</option>
-              <option value="asc">Eski once</option>
+              <option value="desc">Yeni önce</option>
+              <option value="asc">Eski önce</option>
             </select>
           </label>
 
@@ -503,41 +503,41 @@ export function ExportPanel() {
         {message ? <p className="form-message">{message}</p> : null}
 
         {isLoading ? (
-          <div className="data-table-empty">Export gecmisi yukleniyor.</div>
+          <div className="data-table-empty">Dışa aktarma geçmişi yükleniyor.</div>
         ) : jobs.length === 0 ? (
           <div className="empty-state-panel compact">
             <EmptyState
               description={
                 hasActiveFilters
-                  ? 'Bu filtrelerle eslesen export dosyasi bulunamadi. Format veya durum filtresini temizleyebilirsin.'
-                  : 'PDF veya Excel export talebi olusturdugunda kuyruk durumu ve indirme aksiyonu burada gorunur.'
+                  ? 'Bu filtrelerle eşleşen dışa aktarma dosyası bulunamadı. Dosya formatı veya durum filtresini temizleyebilirsin.'
+                  : 'PDF veya Excel dışa aktarma talebi oluşturduğunda kuyruk durumu ve indirme aksiyonu burada görünür.'
               }
               icon={hasActiveFilters ? FileSearch : FileSpreadsheet}
               title={
                 hasActiveFilters
-                  ? 'Filtreye uygun export yok.'
-                  : 'Henuz export kaydi yok.'
+                  ? 'Filtreye uygun dışa aktarma yok.'
+                  : 'Henüz export kaydı yok.'
               }
               tips={
                 hasActiveFilters
-                  ? ['Format filtresini kaldir', 'Durum filtresini kaldir']
-                  : ['Donem sec', 'Format belirle', 'Export al']
+                  ? ['Dosya formatı filtresini kaldır', 'Durum filtresini kaldır']
+                  : ['Dönem seç', 'Dosya formatı belirle', 'Dışa aktar']
               }
             />
           </div>
         ) : (
-          <div className="data-table" role="table" aria-label="Export gecmisi">
+          <div className="data-table" role="table" aria-label="Dışa aktarma geçmişi">
             <div
               className="data-table-row data-table-head export-table-row"
               role="row"
             >
-              <span>Format</span>
-              <span>Donem</span>
+              <span>Dosya formatı</span>
+              <span>Dönem</span>
               <span>Durum</span>
-              <span>Olusturma</span>
+              <span>Oluşturma</span>
               <span>Tamamlanma</span>
               <span>Hata</span>
-              <span>Indir</span>
+              <span>İndir</span>
             </div>
 
             {jobs.map((job) => (
@@ -573,7 +573,7 @@ export function ExportPanel() {
                 <span>{job.errorMessage ?? '-'}</span>
                 <span>
                   <button
-                    aria-label="Export indir"
+                    aria-label="İndir"
                     className="icon-button"
                     disabled={
                       job.status !== 'COMPLETED' || downloadingId === job.id
@@ -599,7 +599,7 @@ export function ExportPanel() {
             type="button"
           >
             <ChevronLeft aria-hidden="true" className="inline-icon" />
-            Onceki
+            Önceki
           </button>
           <span>
             Sayfa {meta?.page ?? page} / {meta?.totalPages ?? 1}

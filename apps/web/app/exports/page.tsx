@@ -3,7 +3,7 @@ import { ExportPanel } from '../../components/export-panel';
 
 export default function ExportsPage() {
   return (
-    <AppShell eyebrow="Disa aktarma" title="Disa Aktar">
+    <AppShell eyebrow="Dışa aktarma" title="Dışa Aktar">
       <ExportPanel />
     </AppShell>
   );

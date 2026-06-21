@@ -81,7 +81,7 @@ export function DepreciationSettingsPanel() {
 
   async function fetchVehicles(token = accessToken) {
     if (!token) {
-      setMessage('Amortisman ayarlarini gormek icin once giris yapmalisin.');
+      setMessage('Amortisman ayarlarini görmek için önce giriş yapmalısın.');
       return;
     }
 
@@ -99,7 +99,7 @@ export function DepreciationSettingsPanel() {
       );
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Araclar yuklenemedi.'
+        error instanceof Error ? error.message : 'Araçlar yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -125,12 +125,12 @@ export function DepreciationSettingsPanel() {
     event.preventDefault();
 
     if (!accessToken) {
-      setMessage('Amortisman ayari icin once giris yapmalisin.');
+      setMessage('Amortisman ayari için önce giriş yapmalısın.');
       return;
     }
 
     if (!form.vehicleId) {
-      setMessage('Once arac secmelisin.');
+      setMessage('Önce araç seçmelisin.');
       return;
     }
 
@@ -177,15 +177,15 @@ export function DepreciationSettingsPanel() {
     <div className="depreciation-settings-page">
       <section className="metric-grid depreciation-metrics">
         <article className="metric-card">
-          <span>Aylik amortisman</span>
+          <span>Aylık amortisman</span>
           <strong>{formatMoney(monthlyDepreciation)}</strong>
         </article>
         <article className="metric-card">
-          <span>Km basi amortisman</span>
+          <span>Km başı amortisman</span>
           <strong>{formatMoney(perKmDepreciation)}</strong>
         </article>
         <article className="metric-card">
-          <span>120 km ornek gun maliyeti</span>
+          <span>120 km ornek gün maliyeti</span>
           <strong>{formatMoney(sampleDailyCost)}</strong>
         </article>
         <article className="metric-card">
@@ -198,17 +198,17 @@ export function DepreciationSettingsPanel() {
         <form className="panel data-form" onSubmit={handleSubmit}>
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Arac yipranma maliyeti</p>
+              <p className="eyebrow">Araç yıpranma maliyeti</p>
               <h2>Amortisman ayari</h2>
             </div>
             <span className="status-pill">
-              {selectedVehicle?.plateNumber ?? 'Arac sec'}
+              {selectedVehicle?.plateNumber ?? 'Araç seç'}
             </span>
           </div>
 
           <div className="depreciation-settings-grid">
             <label>
-              Arac
+              Araç
               <select
                 disabled={isLoading}
                 value={form.vehicleId}
@@ -220,7 +220,7 @@ export function DepreciationSettingsPanel() {
                   hydrateFormFromVehicle(vehicle);
                 }}
               >
-                <option value="">Arac sec</option>
+                <option value="">Araç seç</option>
                 {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {vehicle.plateNumber} {vehicle.brand ?? ''} {vehicle.model ?? ''}
@@ -241,13 +241,13 @@ export function DepreciationSettingsPanel() {
                   }))
                 }
               >
-                <option value="PER_KM">Km bazli</option>
-                <option value="MONTHLY">Aylik</option>
+                <option value="PER_KM">Km bazlı</option>
+                <option value="MONTHLY">Aylık</option>
               </select>
             </label>
 
             <label>
-              Yillik deger kaybi
+              Yıllık değer kaybı
               <input
                 disabled={!form.depreciationEnabled}
                 inputMode="decimal"
@@ -263,7 +263,7 @@ export function DepreciationSettingsPanel() {
             </label>
 
             <label>
-              Yillik tahmini km
+              Yıllık tahmini km
               <input
                 disabled={!form.depreciationEnabled}
                 inputMode="decimal"
@@ -290,7 +290,7 @@ export function DepreciationSettingsPanel() {
               }
               type="checkbox"
             />
-            Bu aracin amortismanini net kar hesabina dahil et
+            Bu araçin amortismanini net kâr hesabına dahil et
           </label>
 
           {message ? <p className="form-message">{message}</p> : null}
@@ -314,16 +314,16 @@ export function DepreciationSettingsPanel() {
 
         <aside className="panel form-summary">
           <p className="eyebrow">Hesaplama etkisi</p>
-          <h2>Amortisman nakit cikisi degil, gercek kar maliyetidir.</h2>
+          <h2>Amortisman nakit çıkışı değil, gerçek kâr maliyetidir.</h2>
           <ul>
-            <li>Km bazli modelde her seferin toplam km’si kadar pay ayrilir.</li>
-            <li>Aylik modelde aylik deger kaybi seferlere dagitilir.</li>
-            <li>Ayar kapaliyken sefer ve rapor net karinda amortisman sifirlanir.</li>
+            <li>Km bazlı modelde her seferin toplam km’si kadar pay ayrilir.</li>
+            <li>Aylık modelde aylık değer kaybı seferlere dağıtılır.</li>
+            <li>Ayar kapaliyken sefer ve rapor net kârında amortisman sıfırlanir.</li>
           </ul>
           <div className="depreciation-preview">
             <Calculator aria-hidden="true" />
             <div>
-              <span>Ornek gun</span>
+              <span>Ornek gün</span>
               <strong>{formatMoney(sampleDailyCost)}</strong>
             </div>
           </div>

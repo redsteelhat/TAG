@@ -39,7 +39,7 @@ export function FuelTrendChart() {
     const accessToken = getAccessToken();
 
     if (!accessToken) {
-      setMessage('Yakit trendini gormek icin oturum acmalisin.');
+      setMessage('Yakıt trendini görmek için oturum acmalısın.');
       return;
     }
 
@@ -80,7 +80,7 @@ export function FuelTrendChart() {
     } catch (error) {
       setEntries([]);
       setMessage(
-        error instanceof Error ? error.message : 'Yakit trendi alinamadi.'
+        error instanceof Error ? error.message : 'Yakıt trendi alınamadı.'
       );
     } finally {
       setIsLoading(false);
@@ -91,15 +91,15 @@ export function FuelTrendChart() {
     <section className="panel fuel-trend-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Yakit trendi</p>
-          <h2>Son 30 gun yakit maliyeti</h2>
+          <p className="eyebrow">Yakıt trendi</p>
+          <h2>Son 30 gün yakıt maliyeti</h2>
         </div>
         <Fuel aria-hidden="true" className="panel-icon" />
       </div>
 
       <div className="fuel-trend-summary">
         <div>
-          <span>Toplam yakit</span>
+          <span>Toplam yakıt</span>
           <strong>{formatMoney(totalAmount)}</strong>
         </div>
         <div>
@@ -111,14 +111,14 @@ export function FuelTrendChart() {
           <strong>{formatMoney(weightedAveragePrice)}</strong>
         </div>
         <div>
-          <span>Kayit</span>
+          <span>Kayıt</span>
           <strong>{totalEntryCount}</strong>
         </div>
       </div>
 
       {message ? <p className="form-message">{message}</p> : null}
 
-      <div className="fuel-trend-chart" aria-label="Son 30 gun yakit trendi">
+      <div className="fuel-trend-chart" aria-label="Son 30 gün yakıt trendi">
         <div className="fuel-trend-bars">
           {trend.map((point, index) => {
             const height =
@@ -132,7 +132,7 @@ export function FuelTrendChart() {
               <div className="fuel-trend-day" key={point.date}>
                 <div className="fuel-trend-bar-slot">
                   <span
-                    aria-label={`${formatDateLabel(point.date)} yakit maliyeti ${formatMoney(point.amount)}`}
+                    aria-label={`${formatDateLabel(point.date)} yakıt maliyeti ${formatMoney(point.amount)}`}
                     className="fuel-trend-bar"
                     style={{ height: `${height}%` }}
                     title={`${formatDateLabel(point.date)} - ${formatMoney(point.amount)}`}
@@ -159,7 +159,7 @@ export function FuelTrendChart() {
       <div className="fuel-trend-legend">
         <span>
           <i className="legend-swatch fuel-cost" />
-          Gunluk yakit tutari
+          Günlük yakıt tutarı
         </span>
         <span>
           <i className="legend-swatch fuel-price" />
@@ -168,7 +168,7 @@ export function FuelTrendChart() {
         {isLoading ? (
           <span>
             <RefreshCw aria-hidden="true" className="inline-icon" />
-            Yukleniyor
+            Yükleniyor
           </span>
         ) : null}
       </div>

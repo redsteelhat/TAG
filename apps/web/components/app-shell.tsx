@@ -45,7 +45,7 @@ const navSections: NavSection[] = [
   {
     title: 'Genel',
     items: [
-      { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { label: 'Ana Panel', href: '/', icon: LayoutDashboard },
       { label: 'Kurulum', href: '/onboarding', icon: ListChecks }
     ]
   },
@@ -56,10 +56,10 @@ const navSections: NavSection[] = [
       { label: 'Giderler', href: '/expenses', icon: Receipt },
       { label: 'Sabit Gider', href: '/fixed-costs', icon: CalendarClock },
       { label: 'Amortisman', href: '/depreciation', icon: Calculator },
-      { label: 'Yakit', href: '/fuel', icon: Fuel },
-      { label: 'Araclar', href: '/vehicles', icon: Car },
+      { label: 'Yakıt', href: '/fuel', icon: Fuel },
+      { label: 'Araçlar', href: '/vehicles', icon: Car },
       { label: 'Paketler', href: '/packages', icon: Package },
-      { label: 'Bakim', href: '/maintenance', icon: Wrench }
+      { label: 'Bakım', href: '/maintenance', icon: Wrench }
     ]
   },
   {
@@ -67,8 +67,8 @@ const navSections: NavSection[] = [
     items: [
       { label: 'Raporlar', href: '/reports', icon: ReceiptText },
       { label: 'Hedefler', href: '/goals', icon: Target },
-      { label: 'Hatirlaticilar', href: '/reminders', icon: BellRing },
-      { label: 'Disa Aktar', href: '/exports', icon: Download }
+      { label: 'Hatırlatıcılar', href: '/reminders', icon: BellRing },
+      { label: 'Dışa Aktar', href: '/exports', icon: Download }
     ]
   },
   {
@@ -90,7 +90,7 @@ export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
           <span className="brand-mark">TF</span>
           <div>
             <p className="brand-name">TAG Finans</p>
-            <p className="brand-subtitle">Surucu operasyon paneli</p>
+            <p className="brand-subtitle">Sürücü operasyon paneli</p>
           </div>
         </Link>
 
@@ -121,8 +121,8 @@ export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
         </nav>
 
         <div className="sidebar-footer">
-          <span className="sidebar-footer-label">MVP odagi</span>
-          <strong>Gercek net kar hesabi</strong>
+          <span className="sidebar-footer-label">MVP odağı</span>
+          <strong>Gerçek net kâr hesabı</strong>
         </div>
       </aside>
 

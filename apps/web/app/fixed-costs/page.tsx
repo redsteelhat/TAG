@@ -3,7 +3,7 @@ import { FixedCostPanel } from '../../components/fixed-cost-panel';
 
 export default function FixedCostsPage() {
   return (
-    <AppShell eyebrow="Sabit gider dagitimi" title="Sabit Gider">
+    <AppShell eyebrow="Sabit gider dağıtımı" title="Sabit Gider">
       <FixedCostPanel />
     </AppShell>
   );

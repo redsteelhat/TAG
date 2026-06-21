@@ -14,7 +14,7 @@ export default function ReportsPage() {
         <>
           <Link className="secondary-button button-link" href="/exports">
             <Download aria-hidden="true" className="button-icon" />
-            Disa Aktar
+            Dışa Aktar
           </Link>
           <Link className="primary-button button-link" href="/income">
             <Plus aria-hidden="true" className="button-icon" />

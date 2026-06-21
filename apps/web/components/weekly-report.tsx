@@ -96,7 +96,7 @@ export function WeeklyReport() {
     setAccessToken(token);
 
     if (!token) {
-      setMessage('Haftalik raporu gormek icin oturum acmalisin.');
+      setMessage('Haftalık raporu görmek için oturum acmalısın.');
       return;
     }
 
@@ -118,25 +118,25 @@ export function WeeklyReport() {
       {
         detail: `${report.tripCount} sefer`,
         icon: WalletCards,
-        label: 'Haftalik brut gelir',
+        label: 'Haftalık brüt gelir',
         value: formatMoneyValue(report.grossIncome)
       },
       {
         detail: report.netProfit.startsWith('-') ? 'Zarar' : 'Kar',
         icon: TrendingUp,
-        label: 'Haftalik net kar',
+        label: 'Haftalık net kâr',
         value: formatMoneyValue(report.netProfit)
       },
       {
         detail: `${formatNumber(toNumber(report.totalKm))} km`,
         icon: Route,
-        label: 'Km basi kar',
+        label: 'Km başı kâr',
         value: formatMoneyValue(report.kmProfit)
       },
       {
         detail: formatDuration(report.activeMinutes),
         icon: Clock,
-        label: 'Saatlik kar',
+        label: 'Saatlik kâr',
         value: formatMoneyValue(report.hourlyProfit)
       }
     ];
@@ -148,11 +148,11 @@ export function WeeklyReport() {
     }
 
     return [
-      ['Yakit maliyeti', report.fuelCost],
-      ['Paket / kullanim payi', report.tagPackageCost],
-      ['Degisken giderler', report.variableExpenses],
-      ['Sabit gider payi', report.fixedExpenses],
-      ['Bakim rezervi', report.maintenanceReserve],
+      ['Yakıt maliyeti', report.fuelCost],
+      ['Paket / kullanım payı', report.tagPackageCost],
+      ['Değişken giderler', report.variableExpenses],
+      ['Sabit gider payı', report.fixedExpenses],
+      ['Bakım rezervi', report.maintenanceReserve],
       ['Amortisman', report.depreciation]
     ];
   }, [report]);
@@ -202,7 +202,7 @@ export function WeeklyReport() {
     } catch (error) {
       setReport(null);
       setMessage(
-        error instanceof Error ? error.message : 'Haftalik rapor alinamadi.'
+        error instanceof Error ? error.message : 'Haftalık rapor alınamadı.'
       );
     } finally {
       setIsLoading(false);
@@ -213,7 +213,7 @@ export function WeeklyReport() {
     event.preventDefault();
 
     if (!accessToken) {
-      setMessage('Haftalik raporu gormek icin oturum acmalisin.');
+      setMessage('Haftalık raporu görmek için oturum acmalısın.');
       return;
     }
 
@@ -225,17 +225,17 @@ export function WeeklyReport() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Haftalik rapor</p>
-            <h2>Haftalik net kar raporu</h2>
+            <p className="eyebrow">Haftalık rapor</p>
+            <h2>Haftalık net kâr raporu</h2>
           </div>
           <span className="status-pill">
-            {selectedVehicle ? selectedVehicle.plateNumber : 'Tum araclar'}
+            {selectedVehicle ? selectedVehicle.plateNumber : 'Tüm araçlar'}
           </span>
         </div>
 
         <form className="report-filter-grid data-form" onSubmit={handleSubmit}>
           <label>
-            Hafta baslangici
+            Hafta başlangici
             <input
               onChange={(event) => setWeekStart(event.target.value)}
               type="date"
@@ -243,12 +243,12 @@ export function WeeklyReport() {
             />
           </label>
           <label>
-            Arac
+            Araç
             <select
               onChange={(event) => setVehicleId(event.target.value)}
               value={vehicleId}
             >
-              <option value="">Tum araclar</option>
+              <option value="">Tüm araçlar</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {vehicle.plateNumber}
@@ -261,7 +261,7 @@ export function WeeklyReport() {
           </label>
           <button className="primary-button" disabled={isLoading} type="submit">
             <RefreshCw aria-hidden="true" className="button-icon" />
-            {isLoading ? 'Hesaplaniyor' : 'Raporu Yenile'}
+            {isLoading ? 'Hesaplanıyor' : 'Raporu yenile'}
           </button>
         </form>
 
@@ -295,7 +295,7 @@ export function WeeklyReport() {
               <section className="panel">
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">Haftalik kar-zarar</p>
+                    <p className="eyebrow">Haftalık kâr-zarar</p>
                     <h2>Gider kirilimi</h2>
                   </div>
                   <ReceiptText aria-hidden="true" className="panel-icon" />
@@ -323,8 +323,8 @@ export function WeeklyReport() {
               <section className="panel">
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">Gelir kaynaklari</p>
-                    <h2>Haftalik brut gelir detayi</h2>
+                    <p className="eyebrow">Gelir kaynakları</p>
+                    <h2>Haftalık brüt gelir detayı</h2>
                   </div>
                   <WalletCards aria-hidden="true" className="panel-icon" />
                 </div>
@@ -339,7 +339,7 @@ export function WeeklyReport() {
                     value={report.cancellationIncome}
                   />
                   <ReportRow
-                    label="Toplam brut gelir"
+                    label="Toplam brüt gelir"
                     value={report.grossIncome}
                     strong
                   />
@@ -352,7 +352,7 @@ export function WeeklyReport() {
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">Operasyon</p>
-                    <h2>Haftalik aktivite</h2>
+                    <h2>Haftalık aktivite</h2>
                   </div>
                   <Gauge aria-hidden="true" className="panel-icon" />
                 </div>
@@ -366,7 +366,7 @@ export function WeeklyReport() {
                     <strong>{report.shiftCount}</strong>
                   </div>
                   <div>
-                    <span>Sure</span>
+                    <span>Süre</span>
                     <strong>{formatDuration(report.activeMinutes)}</strong>
                   </div>
                 </div>
@@ -375,22 +375,22 @@ export function WeeklyReport() {
               <section className="panel">
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">Yakit</p>
-                    <h2>Haftalik yakit etkisi</h2>
+                    <p className="eyebrow">Yakıt</p>
+                    <h2>Haftalık yakıt etkisi</h2>
                   </div>
                   <Fuel aria-hidden="true" className="panel-icon" />
                 </div>
                 <div className="break-even-list">
                   <ReportRow
-                    label="Tahmini sefer yakiti"
+                    label="Tahmini sefer yakıti"
                     value={report.fuelCost}
                   />
                   <ReportRow
-                    label="Fiili yakit alimi"
+                    label="Fiili yakıt alimi"
                     value={report.actualFuelPurchaseCost}
                   />
                   <div className="expense-row">
-                    <span>Fis / kayit</span>
+                    <span>Fiş / kayıt</span>
                     <strong>{report.actualFuelEntryCount}</strong>
                   </div>
                   <div className="expense-row">
@@ -406,7 +406,7 @@ export function WeeklyReport() {
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">Paket</p>
-                    <h2>Haftalik paket payi</h2>
+                    <h2>Haftalık paket payı</h2>
                   </div>
                   <PackageCheck aria-hidden="true" className="panel-icon" />
                 </div>
@@ -432,14 +432,14 @@ export function WeeklyReport() {
           <section className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Hesaplama guveni</p>
-                <h2>Haftalik formul ve veri kapsami</h2>
+                <p className="eyebrow">Hesaplama güveni</p>
+                <h2>Haftalık formül ve veri kapsamı</h2>
               </div>
               <CalendarDays aria-hidden="true" className="panel-icon" />
             </div>
-            <div className="report-formula-grid">
+            <div className="report-formüla-grid">
               <div>
-                <span>Net kar formulu</span>
+                <span>Net kâr formülü</span>
                 <strong>{report.formula.netProfit}</strong>
               </div>
               <div>
@@ -449,7 +449,7 @@ export function WeeklyReport() {
                 </strong>
               </div>
               <div>
-                <span>Gider kaydi</span>
+                <span>Gider kaydı</span>
                 <strong>
                   {report.directExpenseCount} direkt,{' '}
                   {report.recurringExpenseCount} sabit
@@ -465,11 +465,11 @@ export function WeeklyReport() {
       ) : (
         <section className="empty-state-panel">
           <div>
-            <p className="eyebrow">Haftalik rapor</p>
-            <h2>{isLoading ? 'Rapor hesaplaniyor' : 'Rapor bekleniyor'}</h2>
+            <p className="eyebrow">Haftalık rapor</p>
+            <h2>{isLoading ? 'Rapor hesaplanıyor' : 'Rapor bekleniyor'}</h2>
             <p>
-              Hafta baslangici ve arac filtresini secip haftalik net kar,
-              maliyet ve verimlilik metriklerini tek ekranda gorebilirsin.
+              Hafta başlangici ve araç filtresini seçip haftalık net kâr,
+              maliyet ve verimlilik metriklerini tek ekranda görebilirsin.
             </p>
           </div>
         </section>

@@ -110,8 +110,8 @@ const emptyMaintenanceForm: MaintenanceFormState = {
   vehicleId: ''
 };
 
-const categoryPresets = [
-  'Periyodik bakim',
+const categöryPresets = [
+  'Periyodik bakım',
   'Mekanik',
   'Elektrik',
   'Lastik',
@@ -121,19 +121,19 @@ const categoryPresets = [
 ];
 
 const allocationTypeLabels: Record<AllocationType, string> = {
-  DAILY: 'Gunluk',
+  DAILY: 'Günlük',
   IMMEDIATE: 'Tek sefer',
-  MONTHLY: 'Aylik',
+  MONTHLY: 'Aylık',
   PER_KM: 'Km bazli',
-  YEARLY: 'Yillik'
+  YEARLY: 'Yıllık'
 };
 
 const sortOptions: Array<{ label: string; value: MaintenanceSortBy }> = [
-  { label: 'Bakim tarihi', value: 'maintenanceDate' },
+  { label: 'Bakım tarihi', value: 'maintenanceDate' },
   { label: 'Tutar', value: 'amount' },
-  { label: 'Km basi maliyet', value: 'costPerKm' },
-  { label: 'Km sayaci', value: 'odometerKm' },
-  { label: 'Olusturma tarihi', value: 'createdAt' }
+  { label: 'Km başı maliyet', value: 'costPerKm' },
+  { label: 'Km sayacı', value: 'odometerKm' },
+  { label: 'Oluşturma tarihi', value: 'createdAt' }
 ];
 
 export function MaintenancePanel() {
@@ -239,7 +239,7 @@ export function MaintenancePanel() {
       setVehicles(response.data);
     } catch (error) {
       setFormMessage(
-        error instanceof Error ? error.message : 'Araclar yuklenemedi.'
+        error instanceof Error ? error.message : 'Araçlar yüklenemedi.'
       );
     }
   }
@@ -263,7 +263,7 @@ export function MaintenancePanel() {
     }
   ) {
     if (!token) {
-      setMessage('Bakim kayitlarini gormek icin once giris yapmalisin.');
+      setMessage('Bakım kayıtlarını görmek için önce giriş yapmalısın.');
       return;
     }
 
@@ -298,7 +298,7 @@ export function MaintenancePanel() {
       setMeta(response.meta);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Bakim kayitlari yuklenemedi.'
+        error instanceof Error ? error.message : 'Bakım kayıtları yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -309,7 +309,7 @@ export function MaintenancePanel() {
     event.preventDefault();
 
     if (!accessToken) {
-      setFormMessage('Bakim kaydi eklemek icin once giris yapmalisin.');
+      setFormMessage('Bakım kaydı eklemek için önce giriş yapmalısın.');
       return;
     }
 
@@ -343,12 +343,12 @@ export function MaintenancePanel() {
         ...emptyMaintenanceForm,
         vehicleId: currentForm.vehicleId
       }));
-      setFormMessage('Bakim kaydi eklendi.');
+      setFormMessage('Bakım kaydı eklendi.');
       setPage(1);
       await fetchEntries(accessToken, 1);
     } catch (error) {
       setFormMessage(
-        error instanceof Error ? error.message : 'Bakim kaydi eklenemedi.'
+        error instanceof Error ? error.message : 'Bakım kaydı eklenemedi.'
       );
     } finally {
       setIsSaving(false);
@@ -411,19 +411,19 @@ export function MaintenancePanel() {
     <div className="maintenance-page">
       <section className="metric-grid maintenance-metrics">
         <article className="metric-card">
-          <span>Sayfadaki toplam bakim</span>
+          <span>Sayfadaki toplam bakım</span>
           <strong>{formatMoney(pageMetrics.totalAmount)}</strong>
         </article>
         <article className="metric-card">
-          <span>Ortalama km basi maliyet</span>
+          <span>Ortalama km başı maliyet</span>
           <strong>{formatMoney(averageCostPerKm)}</strong>
         </article>
         <article className="metric-card">
-          <span>Takip edilen bakim araligi</span>
+          <span>Takip edilen bakım araligi</span>
           <strong>{formatKm(pageMetrics.reserveKm)}</strong>
         </article>
         <article className="metric-card">
-          <span>Kayit sayisi</span>
+          <span>Kayıt sayisi</span>
           <strong>{meta?.total ?? entries.length}</strong>
         </article>
       </section>
@@ -431,21 +431,21 @@ export function MaintenancePanel() {
       <section className="panel quick-expense-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Servis ve yipranma</p>
-            <h2>Bakim ekle</h2>
+            <p className="eyebrow">Servis ve yıpranma</p>
+            <h2>Bakım ekle</h2>
           </div>
           <span className="status-pill">Km bazli rezerv</span>
         </div>
 
-        <div className="quick-expense-presets" aria-label="Bakim kategorileri">
-          {categoryPresets.map((preset) => (
+        <div className="quick-expense-presets" aria-label="Bakım kategorileri">
+          {categöryPresets.map((preset) => (
             <button
               className="quick-expense-preset"
               key={preset}
               onClick={() =>
                 setForm((currentForm) => ({
                   ...currentForm,
-                  category: preset,
+                  categöry: preset,
                   title:
                     preset === 'Lastik'
                       ? 'Lastik, balans ve rot'
@@ -464,7 +464,7 @@ export function MaintenancePanel() {
         <form className="quick-expense-form data-form" onSubmit={handleSubmit}>
           <div className="maintenance-entry-grid">
             <label>
-              Arac
+              Araç
               <select
                 required
                 value={form.vehicleId}
@@ -475,7 +475,7 @@ export function MaintenancePanel() {
                   }))
                 }
               >
-                <option value="">Arac sec</option>
+                <option value="">Araç seç</option>
                 {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {vehicle.plateNumber} {vehicle.brand ?? ''}{' '}
@@ -486,14 +486,14 @@ export function MaintenancePanel() {
             </label>
 
             <label>
-              Kategori
+              Kategöri
               <input
                 required
                 value={form.category}
                 onChange={(event) =>
                   setForm((currentForm) => ({
                     ...currentForm,
-                    category: event.target.value
+                    categöry: event.target.value
                   }))
                 }
               />
@@ -530,7 +530,7 @@ export function MaintenancePanel() {
             </label>
 
             <label>
-              Bakim tarihi
+              Bakım tarihi
               <input
                 required
                 type="date"
@@ -545,7 +545,7 @@ export function MaintenancePanel() {
             </label>
 
             <label>
-              Km sayaci
+              Km sayacı
               <input
                 inputMode="decimal"
                 placeholder="85120.5"
@@ -560,7 +560,7 @@ export function MaintenancePanel() {
             </label>
 
             <label>
-              Bakim araligi km
+              Bakım araligi km
               <input
                 inputMode="decimal"
                 placeholder="10000"
@@ -575,7 +575,7 @@ export function MaintenancePanel() {
             </label>
 
             <label>
-              Dagitim
+              Dağıtım
               <select
                 value={form.allocationType}
                 onChange={(event) =>
@@ -628,7 +628,7 @@ export function MaintenancePanel() {
               type="submit"
             >
               <Save aria-hidden="true" className="inline-icon" />
-              {isSaving ? 'Kaydediliyor' : 'Bakim kaydet'}
+              {isSaving ? 'Kaydediliyor' : 'Bakım kaydet'}
             </button>
           </div>
 
@@ -639,8 +639,8 @@ export function MaintenancePanel() {
       <section className="panel income-table-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Bakim gecmisi</p>
-            <h2>Servis kayitlari</h2>
+            <p className="eyebrow">Bakım geçmişi</p>
+            <h2>Servis kayıtlari</h2>
           </div>
           <button
             className="secondary-button"
@@ -668,12 +668,12 @@ export function MaintenancePanel() {
           </label>
 
           <label>
-            Arac
+            Araç
             <select
               value={vehicleId}
               onChange={(event) => setVehicleId(event.target.value)}
             >
-              <option value="">Tum araclar</option>
+              <option value="">Tüm araçlar</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {vehicle.plateNumber}
@@ -691,12 +691,12 @@ export function MaintenancePanel() {
           </label>
 
           <label>
-            Dagitim
+            Dağıtım
             <select
               value={allocationType}
               onChange={(event) => setAllocationType(event.target.value)}
             >
-              <option value="">Tumu</option>
+              <option value="">Tümü</option>
               {Object.entries(allocationTypeLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -706,7 +706,7 @@ export function MaintenancePanel() {
           </label>
 
           <label>
-            Baslangic
+            Başlangıç
             <input
               type="date"
               value={startDate}
@@ -715,7 +715,7 @@ export function MaintenancePanel() {
           </label>
 
           <label>
-            Bitis
+            Bitiş
             <input
               type="date"
               value={endDate}
@@ -776,7 +776,7 @@ export function MaintenancePanel() {
           </label>
 
           <label>
-            Yon
+            Yön
             <select
               value={sortDirection}
               onChange={(event) =>
@@ -806,28 +806,28 @@ export function MaintenancePanel() {
         {message ? <p className="form-message">{message}</p> : null}
 
         {isLoading ? (
-          <div className="data-table-empty">Bakim kayitlari yukleniyor.</div>
+          <div className="data-table-empty">Bakım kayıtlari yükleniyor.</div>
         ) : entries.length === 0 ? (
           <div className="empty-state-panel compact">
             <EmptyState
               description={
                 hasActiveFilters
-                  ? 'Bu filtrelerle eslesen bakim kaydi bulunamadi. Km, tutar veya kategori filtresini genisletebilirsin.'
-                  : 'Periyodik bakim, lastik, mekanik ve temizlik kayitlari eklendikce km basi yipranma maliyeti burada hesaplanir.'
+                  ? 'Bu filtrelerle eşleşen bakım kaydı bulunamadı. Km, tutar veya kategori filtresini genişletebilirsin.'
+                  : 'Periyodik bakım, lastik, mekanik ve temizlik kayıtlari eklendikce km başı yıpranma maliyeti burada hesaplanir.'
               }
               icon={hasActiveFilters ? FileSearch : Wrench}
               title={
                 hasActiveFilters
-                  ? 'Filtreye uygun bakim kaydi yok.'
-                  : 'Henuz bakim kaydi yok.'
+                  ? 'Filtreye uygun bakım kaydı yok.'
+                  : 'Henüz bakım kaydı yok.'
               }
               tips={
                 hasActiveFilters
-                  ? ['Kategori filtresini kaldir', 'Km araligini genislet']
+                  ? ['Kategöri filtresini kaldır', 'Km araligini genislet']
                   : [
-                      'Bakim tutarini gir',
+                      'Bakım tutarını gir',
                       'Aralik km ekle',
-                      'Km basi maliyeti izle'
+                      'Km başı maliyeti izle'
                     ]
               }
             />
@@ -839,13 +839,13 @@ export function MaintenancePanel() {
               role="row"
             >
               <span>Tarih</span>
-              <span>Bakim</span>
-              <span>Arac</span>
+              <span>Bakım</span>
+              <span>Araç</span>
               <span>Tutar</span>
               <span>Km</span>
-              <span>Km basi</span>
+              <span>Km başı</span>
               <span>Sonraki</span>
-              <span>Dagitim</span>
+              <span>Dağıtım</span>
             </div>
 
             {entries.map((item) => (
@@ -890,7 +890,7 @@ export function MaintenancePanel() {
             type="button"
           >
             <ChevronLeft aria-hidden="true" className="inline-icon" />
-            Onceki
+            Önceki
           </button>
           <span>
             Sayfa {meta?.page ?? page} / {meta?.totalPages ?? 1}
@@ -947,7 +947,7 @@ function formatDate(value: string) {
 function vehicleLabel(vehicles: Vehicle[], vehicleId: string) {
   const vehicle = vehicles.find((item) => item.id === vehicleId);
 
-  return vehicle?.plateNumber ?? 'Arac';
+  return vehicle?.plateNumber ?? 'Araç';
 }
 
 function nextMaintenanceKm(item: MaintenanceEntry) {

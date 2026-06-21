@@ -5,10 +5,10 @@ describe('XlsxWorkbookBuilder', () => {
     const builder = new XlsxWorkbookBuilder();
     const workbook = builder.build([
       {
-        name: 'Ozet',
+        name: 'Özet',
         rows: [
-          ['Metrik', 'Deger'],
-          ['Net kar', '1200.00']
+          ['Metrik', 'Değer'],
+          ['Net kâr', '1200.00']
         ]
       }
     ]);

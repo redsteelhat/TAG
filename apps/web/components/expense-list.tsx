@@ -32,7 +32,7 @@ type ExpenseSortBy = 'amount' | 'createdAt' | 'expenseDate';
 interface Expense {
   id: string;
   vehicleId: string;
-  categoryId?: string | null;
+  categöryId?: string | null;
   expenseType: ExpenseType;
   amount: string;
   expenseDate: string;
@@ -54,7 +54,7 @@ interface Vehicle {
   isActive: boolean;
 }
 
-interface Category {
+interface Categöry {
   id: string;
   name: string;
   expenseType?: ExpenseType | null;
@@ -77,13 +77,13 @@ interface VehiclesResponse {
   data: Vehicle[];
 }
 
-interface CategoriesResponse {
-  data: Category[];
+interface CategöriesResponse {
+  data: Categöry[];
 }
 
 interface ExpenseFilterValues {
   allocationType: string;
-  categoryId: string;
+  categöryId: string;
   endDate: string;
   expenseType: string;
   maxAmount: string;
@@ -99,7 +99,7 @@ interface ExpenseFilterValues {
 interface QuickExpenseFormState {
   allocationType: AllocationType;
   amount: string;
-  categoryId: string;
+  categöryId: string;
   expenseDate: string;
   expenseType: ExpenseType;
   isRecurring: boolean;
@@ -114,10 +114,10 @@ interface ExpenseResponse {
 }
 
 const allocationTypeLabels: Record<AllocationType, string> = {
-  DAILY: 'Gunluk',
+  DAILY: 'Günlük',
   IMMEDIATE: 'Anlik',
-  MONTHLY: 'Aylik',
-  PER_KM: 'Km bazli'
+  MONTHLY: 'Aylık',
+  PER_KM: 'Km bazlı'
 };
 
 const expenseTypeLabels: Record<ExpenseType, string> = {
@@ -126,8 +126,8 @@ const expenseTypeLabels: Record<ExpenseType, string> = {
   FIXED: 'Sabit',
   OPERATIONAL: 'Operasyon',
   PLATFORM_PACKAGE: 'Paket',
-  SEMI_VARIABLE: 'Yari degisken',
-  VARIABLE: 'Degisken'
+  SEMI_VARIABLE: 'Yari değişken',
+  VARIABLE: 'Değişken'
 };
 
 const paymentMethodLabels: Record<PaymentMethod, string> = {
@@ -135,68 +135,68 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
   CASH: 'Nakit',
   DIGITAL: 'Dijital',
   MIXED: 'Karma',
-  OTHER: 'Diger'
+  OTHER: 'Diğer'
 };
 
 const sortOptions: Array<{ label: string; value: ExpenseSortBy }> = [
   { label: 'Gider tarihi', value: 'expenseDate' },
   { label: 'Tutar', value: 'amount' },
-  { label: 'Olusturma tarihi', value: 'createdAt' }
+  { label: 'Oluşturma tarihi', value: 'createdAt' }
 ];
 
 const quickExpensePresets: Array<{
   allocationType: AllocationType;
-  categoryName?: string;
+  categöryName?: string;
   expenseType: ExpenseType;
   label: string;
   note: string;
 }> = [
   {
     allocationType: 'IMMEDIATE',
-    categoryName: 'Otopark',
+    categöryName: 'Otopark',
     expenseType: 'VARIABLE',
     label: 'Otopark',
-    note: 'Otopark ucreti'
+    note: 'Otopark ücreti'
   },
   {
     allocationType: 'IMMEDIATE',
-    categoryName: 'HGS',
+    categöryName: 'HGS',
     expenseType: 'VARIABLE',
     label: 'HGS',
     note: 'HGS gecisi'
   },
   {
     allocationType: 'IMMEDIATE',
-    categoryName: 'Yikama',
+    categöryName: 'Yikama',
     expenseType: 'OPERATIONAL',
     label: 'Yikama',
-    note: 'Arac yikama'
+    note: 'Araç yikama'
   },
   {
     allocationType: 'PER_KM',
-    categoryName: 'Periyodik Bakim',
+    categöryName: 'Periyodik Bakım',
     expenseType: 'SEMI_VARIABLE',
-    label: 'Bakim',
-    note: 'Bakim gideri'
+    label: 'Bakım',
+    note: 'Bakım gideri'
   },
   {
     allocationType: 'IMMEDIATE',
-    categoryName: 'Ceza',
+    categöryName: 'Ceza',
     expenseType: 'VARIABLE',
     label: 'Ceza',
     note: 'Ceza gideri'
   },
   {
     allocationType: 'DAILY',
-    categoryName: 'Paket / Kullanim Bedeli',
+    categöryName: 'Paket / Kullanım Bedeli',
     expenseType: 'PLATFORM_PACKAGE',
     label: 'Paket',
-    note: 'Paket / kullanim bedeli'
+    note: 'Paket / kullanım bedeli'
   },
   {
     allocationType: 'IMMEDIATE',
     expenseType: 'VARIABLE',
-    label: 'Diger',
+    label: 'Diğer',
     note: ''
   }
 ];
@@ -204,7 +204,7 @@ const quickExpensePresets: Array<{
 const emptyQuickExpenseForm: QuickExpenseFormState = {
   allocationType: 'IMMEDIATE',
   amount: '',
-  categoryId: '',
+  categöryId: '',
   expenseDate: new Date().toISOString().slice(0, 10),
   expenseType: 'VARIABLE',
   isRecurring: false,
@@ -217,11 +217,11 @@ const emptyQuickExpenseForm: QuickExpenseFormState = {
 export function ExpenseList() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categöries, setCategöries] = useState<Categöry[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [meta, setMeta] = useState<ExpensesResponse['meta'] | null>(null);
   const [vehicleId, setVehicleId] = useState('');
-  const [categoryId, setCategoryId] = useState('');
+  const [categöryId, setCategöryId] = useState('');
   const [expenseType, setExpenseType] = useState('');
   const [allocationType, setAllocationType] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
@@ -263,7 +263,7 @@ export function ExpenseList() {
   }, [expenses]);
   const hasActiveFilters = Boolean(
     vehicleId ||
-    categoryId ||
+    categöryId ||
     expenseType ||
     allocationType ||
     paymentMethod ||
@@ -307,14 +307,14 @@ export function ExpenseList() {
     }));
   }, [quickExpenseForm.vehicleId, vehicles]);
 
-  const quickExpenseCategories = useMemo(
+  const quickExpenseCategöries = useMemo(
     () =>
-      categories.filter(
-        (category) =>
-          !category.expenseType ||
-          category.expenseType === quickExpenseForm.expenseType
+      categöries.filter(
+        (categöry) =>
+          !categöry.expenseType ||
+          categöry.expenseType === quickExpenseForm.expenseType
       ),
-    [categories, quickExpenseForm.expenseType]
+    [categöries, quickExpenseForm.expenseType]
   );
 
   async function fetchReferenceData(token = accessToken) {
@@ -323,11 +323,11 @@ export function ExpenseList() {
     }
 
     try {
-      const [vehiclesResponse, categoriesResponse] = await Promise.all([
+      const [vehiclesResponse, categöriesResponse] = await Promise.all([
         getJson<VehiclesResponse>('/vehicles', {
           accessToken: token
         }),
-        getJson<CategoriesResponse>('/categories', {
+        getJson<CategöriesResponse>('/categöries', {
           accessToken: token,
           query: {
             pageSize: 100,
@@ -338,10 +338,10 @@ export function ExpenseList() {
       ]);
 
       setVehicles(vehiclesResponse.data);
-      setCategories(categoriesResponse.data);
+      setCategöries(categöriesResponse.data);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Filtre verileri yuklenemedi.'
+        error instanceof Error ? error.message : 'Filtre verileri yüklenemedi.'
       );
     }
   }
@@ -351,7 +351,7 @@ export function ExpenseList() {
     pageToLoad = page,
     filters: ExpenseFilterValues = {
       allocationType,
-      categoryId,
+      categöryId,
       endDate,
       expenseType,
       maxAmount,
@@ -365,7 +365,7 @@ export function ExpenseList() {
     }
   ) {
     if (!token) {
-      setMessage('Gider listesini gormek icin once giris yapmalisin.');
+      setMessage('Gider listesini görmek için önce giriş yapmalısın.');
       return;
     }
 
@@ -377,7 +377,7 @@ export function ExpenseList() {
         accessToken: token,
         query: {
           allocationType: filters.allocationType || undefined,
-          categoryId: filters.categoryId || undefined,
+          categöryId: filters.categöryId || undefined,
           endDate: filters.endDate,
           expenseType: filters.expenseType || undefined,
           maxAmount: normalizeDecimal(filters.maxAmount),
@@ -397,7 +397,7 @@ export function ExpenseList() {
       setMeta(response.meta);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Giderler yuklenemedi.'
+        error instanceof Error ? error.message : 'Giderler yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -413,7 +413,7 @@ export function ExpenseList() {
   function clearFilters() {
     const clearedFilters: ExpenseFilterValues = {
       allocationType: '',
-      categoryId: '',
+      categöryId: '',
       endDate: '',
       expenseType: '',
       maxAmount: '',
@@ -427,7 +427,7 @@ export function ExpenseList() {
     };
 
     setVehicleId('');
-    setCategoryId('');
+    setCategöryId('');
     setExpenseType('');
     setAllocationType('');
     setPaymentMethod('');
@@ -446,12 +446,12 @@ export function ExpenseList() {
     event.preventDefault();
 
     if (!accessToken) {
-      setFormMessage('Gider kaydetmek icin once giris yapmalisin.');
+      setFormMessage('Gider kaydetmek için önce giriş yapmalısın.');
       return;
     }
 
     if (!quickExpenseForm.vehicleId) {
-      setFormMessage('Gider kaydetmek icin once arac secmelisin.');
+      setFormMessage('Gider kaydetmek için önce araç seçmelisin.');
       return;
     }
 
@@ -467,7 +467,7 @@ export function ExpenseList() {
         }
       );
 
-      setFormMessage('Gider kaydi olusturuldu.');
+      setFormMessage('Gider kaydı oluşturuldu.');
       resetQuickExpenseForm();
       setPage(1);
       await fetchExpenses(accessToken, 1);
@@ -481,14 +481,14 @@ export function ExpenseList() {
   }
 
   function applyQuickPreset(preset: (typeof quickExpensePresets)[number]) {
-    const categoryId = preset.categoryName
-      ? findCategoryIdByName(categories, preset.categoryName)
+    const categöryId = preset.categöryName
+      ? findCategöryIdByName(categöries, preset.categöryName)
       : '';
 
     setQuickExpenseForm((currentForm) => ({
       ...currentForm,
       allocationType: preset.allocationType,
-      categoryId,
+      categöryId,
       expenseType: preset.expenseType,
       note: preset.note
     }));
@@ -512,7 +512,7 @@ export function ExpenseList() {
     setQuickExpenseForm((currentForm) => ({
       ...currentForm,
       [key]: value,
-      ...(key === 'expenseType' ? { categoryId: '' } : {})
+      ...(key === 'expenseType' ? { categöryId: '' } : {})
     }));
   }
 
@@ -521,11 +521,11 @@ export function ExpenseList() {
       <section className="panel empty-state-panel">
         <EmptyState
           actionHref="/login"
-          actionLabel="Giris ekranina git"
-          description="Gider, yakit disi maliyet ve sabit gider verilerini gorebilmek icin aktif oturum gerekiyor."
+          actionLabel="Giriş ekranına git"
+          description="Gider, yakıt disi maliyet ve sabit gider verilerini görebilmek için aktif oturum gerekiyor."
           eyebrow="Oturum gerekli"
           icon={LockKeyhole}
-          title="Gider listesini gormek icin giris yap."
+          title="Gider listesini görmek için giriş yap."
         />
       </section>
     );
@@ -533,32 +533,32 @@ export function ExpenseList() {
 
   return (
     <section className="income-list-page">
-      <section className="metric-grid income-metrics" aria-label="Gider ozeti">
+      <section className="metric-grid income-metrics" aria-label="Gider özeti">
         <MetricCard
-          label="Goruntulenen gider"
+          label="Görüntülenen gider"
           value={formatMoney(pageMetrics.totalAmount)}
         />
         <MetricCard
-          label="Degisken gider"
+          label="Değişken gider"
           value={formatMoney(pageMetrics.variableTotal)}
         />
         <MetricCard
           label="Tekrarlayan gider"
           value={formatMoney(pageMetrics.recurringTotal)}
         />
-        <MetricCard label="Kayit sayisi" value={`${expenses.length}`} />
+        <MetricCard label="Kayıt sayisi" value={`${expenses.length}`} />
       </section>
 
       <section className="panel data-form quick-expense-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Hizli gider</p>
+            <p className="eyebrow">Hızlı gider</p>
             <h2>Gider ekle</h2>
           </div>
-          <span className="status-pill">10 saniye kayit</span>
+          <span className="status-pill">10 saniye kayıt</span>
         </div>
 
-        <div className="quick-expense-presets" aria-label="Hizli gider tipleri">
+        <div className="quick-expense-presets" aria-label="Hızlı gider tipleri">
           {quickExpensePresets.map((preset) => (
             <button
               className="quick-expense-preset"
@@ -577,7 +577,7 @@ export function ExpenseList() {
         >
           <div className="quick-expense-grid">
             <label>
-              Arac
+              Araç
               <select
                 disabled={vehicles.length === 0}
                 onChange={(event) =>
@@ -586,7 +586,7 @@ export function ExpenseList() {
                 required
                 value={quickExpenseForm.vehicleId}
               >
-                <option value="">Arac sec</option>
+                <option value="">Araç seç</option>
                 {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {formatVehicleLabel(vehicle)}
@@ -640,24 +640,24 @@ export function ExpenseList() {
             </label>
 
             <label>
-              Kategori
+              Kategöri
               <select
                 onChange={(event) =>
-                  updateQuickExpenseForm('categoryId', event.target.value)
+                  updateQuickExpenseForm('categöryId', event.target.value)
                 }
-                value={quickExpenseForm.categoryId}
+                value={quickExpenseForm.categöryId}
               >
-                <option value="">Kategori yok</option>
-                {quickExpenseCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
+                <option value="">Kategöri yok</option>
+                {quickExpenseCategöries.map((categöry) => (
+                  <option key={categöry.id} value={categöry.id}>
+                    {categöry.name}
                   </option>
                 ))}
               </select>
             </label>
 
             <label>
-              Dagitim
+              Dağıtım
               <select
                 onChange={(event) =>
                   updateQuickExpenseForm(
@@ -676,7 +676,7 @@ export function ExpenseList() {
             </label>
 
             <label>
-              Odeme
+              Ödeme
               <select
                 onChange={(event) =>
                   updateQuickExpenseForm(
@@ -695,7 +695,7 @@ export function ExpenseList() {
             </label>
 
             <label>
-              Km sayaci
+              Km sayacı
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -734,7 +734,7 @@ export function ExpenseList() {
           {formMessage ? (
             <p
               className={
-                formMessage.includes('olusturuldu')
+                formMessage.includes('oluşturuldu')
                   ? 'form-success'
                   : 'form-alert'
               }
@@ -768,18 +768,18 @@ export function ExpenseList() {
             <Search aria-hidden="true" />
             <input
               onChange={(event) => setQ(event.target.value)}
-              placeholder="Not veya fis ara"
+              placeholder="Not veya fiş ara"
               value={q}
             />
           </label>
 
           <label>
-            Arac
+            Araç
             <select
               onChange={(event) => setVehicleId(event.target.value)}
               value={vehicleId}
             >
-              <option value="">Tum araclar</option>
+              <option value="">Tüm araçlar</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {formatVehicleLabel(vehicle)}
@@ -789,15 +789,15 @@ export function ExpenseList() {
           </label>
 
           <label>
-            Kategori
+            Kategöri
             <select
-              onChange={(event) => setCategoryId(event.target.value)}
-              value={categoryId}
+              onChange={(event) => setCategöryId(event.target.value)}
+              value={categöryId}
             >
-              <option value="">Tum kategoriler</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
+              <option value="">Tüm kategoriler</option>
+              {categöries.map((categöry) => (
+                <option key={categöry.id} value={categöry.id}>
+                  {categöry.name}
                 </option>
               ))}
             </select>
@@ -809,7 +809,7 @@ export function ExpenseList() {
               onChange={(event) => setExpenseType(event.target.value)}
               value={expenseType}
             >
-              <option value="">Tum tipler</option>
+              <option value="">Tüm tipler</option>
               {Object.entries(expenseTypeLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -819,12 +819,12 @@ export function ExpenseList() {
           </label>
 
           <label>
-            Dagitim
+            Dağıtım
             <select
               onChange={(event) => setAllocationType(event.target.value)}
               value={allocationType}
             >
-              <option value="">Tum dagitimlar</option>
+              <option value="">Tüm dağıtımlar</option>
               {Object.entries(allocationTypeLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -834,12 +834,12 @@ export function ExpenseList() {
           </label>
 
           <label>
-            Odeme
+            Ödeme
             <select
               onChange={(event) => setPaymentMethod(event.target.value)}
               value={paymentMethod}
             >
-              <option value="">Tum odemeler</option>
+              <option value="">Tüm ödemeler</option>
               {Object.entries(paymentMethodLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -849,7 +849,7 @@ export function ExpenseList() {
           </label>
 
           <label>
-            Baslangic
+            Başlangıç
             <input
               onChange={(event) => setStartDate(event.target.value)}
               type="date"
@@ -858,7 +858,7 @@ export function ExpenseList() {
           </label>
 
           <label>
-            Bitis
+            Bitiş
             <input
               onChange={(event) => setEndDate(event.target.value)}
               type="date"
@@ -903,7 +903,7 @@ export function ExpenseList() {
           </label>
 
           <label>
-            Yon
+            Yön
             <select
               onChange={(event) =>
                 setSortDirection(event.target.value as SortDirection)
@@ -926,7 +926,7 @@ export function ExpenseList() {
             </button>
             <button className="primary-button" disabled={isLoading}>
               <RefreshCw aria-hidden="true" className="button-icon" />
-              {isLoading ? 'Yukleniyor' : 'Filtrele'}
+              {isLoading ? 'Yükleniyor' : 'Filtrele'}
             </button>
           </div>
         </form>
@@ -935,11 +935,11 @@ export function ExpenseList() {
       <section className="panel income-table-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Gider kayitlari</p>
+            <p className="eyebrow">Gider kayıtları</p>
             <h2>Gider listesi</h2>
           </div>
           <span className="status-pill">
-            {meta ? `${meta.total} kayit` : 'Hazirlaniyor'}
+            {meta ? `${meta.total} kayıt` : 'Hazırlanıyor'}
           </span>
         </div>
 
@@ -952,11 +952,11 @@ export function ExpenseList() {
               role="row"
             >
               <span>Tarih</span>
-              <span>Kategori</span>
+              <span>Kategöri</span>
               <span>Tip</span>
-              <span>Dagitim</span>
-              <span>Odeme</span>
-              <span>Arac</span>
+              <span>Dağıtım</span>
+              <span>Ödeme</span>
+              <span>Araç</span>
               <span>Durum</span>
               <span>Tutar</span>
             </div>
@@ -973,7 +973,7 @@ export function ExpenseList() {
                 </span>
                 <span>
                   <strong>
-                    {categoryNameById(categories, expense.categoryId)}
+                    {categöryNameById(categöries, expense.categöryId)}
                   </strong>
                   <small>{expense.note || 'Not yok'}</small>
                 </span>
@@ -1005,19 +1005,19 @@ export function ExpenseList() {
             <EmptyState
               description={
                 hasActiveFilters
-                  ? 'Bu filtrelerle eslesen gider bulunamadi. Filtreleri temizleyerek tum gider kayitlarini kontrol edebilirsin.'
-                  : 'Otopark, HGS, yikama, ceza ve diger operasyon giderlerini eklediginde maliyet dagilimi burada gorunur.'
+                  ? 'Bu filtrelerle eşleşen gider bulunamadı. Filtreleri temizleyerek tüm gider kayıtlarını kontrol edebilirsin.'
+                  : 'Otopark, HGS, yikama, ceza ve diğer operasyon giderlerini eklediğinde maliyet dagilimi burada görünür.'
               }
               icon={hasActiveFilters ? FileSearch : Plus}
               title={
                 hasActiveFilters
                   ? 'Filtreye uygun gider yok.'
-                  : 'Henuz gider kaydi yok.'
+                  : 'Henüz gider kaydı yok.'
               }
               tips={
                 hasActiveFilters
-                  ? ['Kategori filtresini kaldir', 'Tutar araligini genislet']
-                  : ['Hizli preset sec', 'Tutar gir', 'Dagitim tipini belirle']
+                  ? ['Kategöri filtresini kaldır', 'Tutar aralığını genişlet']
+                  : ['Hızlı preset seç', 'Tutar gir', 'Dağıtım tipini belirle']
               }
             />
           </div>
@@ -1033,7 +1033,7 @@ export function ExpenseList() {
             type="button"
           >
             <ChevronLeft aria-hidden="true" className="button-icon" />
-            Onceki
+            Önceki
           </button>
           <span>
             Sayfa {meta?.page ?? page} / {meta?.totalPages || 1}
@@ -1065,23 +1065,23 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function categoryNameById(categories: Category[], categoryId?: string | null) {
-  if (!categoryId) {
-    return 'Kategori yok';
+function categöryNameById(categöries: Categöry[], categöryId?: string | null) {
+  if (!categöryId) {
+    return 'Kategöri yok';
   }
 
   return (
-    categories.find((category) => category.id === categoryId)?.name ??
-    'Kategori'
+    categöries.find((categöry) => categöry.id === categöryId)?.name ??
+    'Kategöri'
   );
 }
 
-function findCategoryIdByName(categories: Category[], name: string) {
+function findCategöryIdByName(categöries: Categöry[], name: string) {
   const normalizedName = normalizeSearchText(name);
 
   return (
-    categories.find(
-      (category) => normalizeSearchText(category.name) === normalizedName
+    categöries.find(
+      (categöry) => normalizeSearchText(categöry.name) === normalizedName
     )?.id ?? ''
   );
 }
@@ -1089,7 +1089,7 @@ function findCategoryIdByName(categories: Category[], name: string) {
 function vehicleNameById(vehicles: Vehicle[], vehicleId: string) {
   const vehicle = vehicles.find((item) => item.id === vehicleId);
 
-  return vehicle ? formatVehicleLabel(vehicle) : 'Arac';
+  return vehicle ? formatVehicleLabel(vehicle) : 'Araç';
 }
 
 function formatVehicleLabel(vehicle: Vehicle) {
@@ -1143,7 +1143,7 @@ function buildQuickExpensePayload(form: QuickExpenseFormState) {
   return removeEmptyValues({
     allocationType: form.allocationType,
     amount: normalizeDecimal(form.amount),
-    categoryId: form.categoryId,
+    categöryId: form.categöryId,
     expenseDate: form.expenseDate,
     expenseType: form.expenseType,
     isRecurring: form.isRecurring,

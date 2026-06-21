@@ -96,10 +96,10 @@ const allocationMethodLabels: Record<AllocationMethod, string> = {
 };
 
 const sortOptions: Array<{ label: string; value: PackageSortBy }> = [
-  { label: 'Baslangic tarihi', value: 'startsAt' },
-  { label: 'Bitis tarihi', value: 'endsAt' },
+  { label: 'Başlangıç tarihi', value: 'startsAt' },
+  { label: 'Bitiş tarihi', value: 'endsAt' },
   { label: 'Tutar', value: 'amount' },
-  { label: 'Olusturma tarihi', value: 'createdAt' }
+  { label: 'Oluşturma tarihi', value: 'createdAt' }
 ];
 
 const today = new Date().toISOString().slice(0, 10);
@@ -112,7 +112,7 @@ const emptyPackageForm: PackageFormState = {
   durationDays: '',
   endsAt: defaultEndDate,
   isActive: true,
-  name: 'Haftalik TAG paketi',
+  name: 'Haftalık operasyon paketi',
   note: '',
   startsAt: today,
   vehicleId: ''
@@ -215,7 +215,7 @@ export function PackagePanel() {
       setVehicles(response.data);
     } catch (error) {
       setFormMessage(
-        error instanceof Error ? error.message : 'Araclar yuklenemedi.'
+        error instanceof Error ? error.message : 'Araçlar yüklenemedi.'
       );
     }
   }
@@ -237,7 +237,7 @@ export function PackagePanel() {
     }
   ) {
     if (!token) {
-      setMessage('Paket giderlerini gormek icin once giris yapmalisin.');
+      setMessage('Paket giderlerini görmek için önce giriş yapmalısın.');
       return;
     }
 
@@ -267,7 +267,7 @@ export function PackagePanel() {
       setMeta(response.meta);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Paketler yuklenemedi.'
+        error instanceof Error ? error.message : 'Paketler yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -278,12 +278,12 @@ export function PackagePanel() {
     event.preventDefault();
 
     if (!accessToken) {
-      setFormMessage('Paket kaydetmek icin once giris yapmalisin.');
+      setFormMessage('Paket kaydetmek için önce giriş yapmalısın.');
       return;
     }
 
     if (!packageForm.vehicleId) {
-      setFormMessage('Paket kaydetmek icin once arac secmelisin.');
+      setFormMessage('Paket kaydetmek için önce araç seçmelisin.');
       return;
     }
 
@@ -297,7 +297,7 @@ export function PackagePanel() {
         { accessToken }
       );
 
-      setFormMessage('Paket kaydi olusturuldu.');
+      setFormMessage('Paket kaydı oluşturuldu.');
       resetPackageForm();
       setPage(1);
       await fetchPackages(accessToken, 1);
@@ -370,11 +370,11 @@ export function PackagePanel() {
       <section className="panel empty-state-panel">
         <EmptyState
           actionHref="/login"
-          actionLabel="Giris ekranina git"
-          description="Paket payi, gunluk dagitim ve break-even hesaplarini gorebilmek icin aktif oturum gerekiyor."
+          actionLabel="Giriş ekranına git"
+          description="Paket payı, günlük dağıtım ve başabaş hesaplarını görebilmek için aktif oturum gerekiyor."
           eyebrow="Oturum gerekli"
           icon={LockKeyhole}
-          title="Paket giderlerini gormek icin giris yap."
+          title="Paket giderlerini görmek için giriş yap."
         />
       </section>
     );
@@ -382,17 +382,17 @@ export function PackagePanel() {
 
   return (
     <section className="income-list-page">
-      <section className="metric-grid income-metrics" aria-label="Paket ozeti">
+      <section className="metric-grid income-metrics" aria-label="Paket özeti">
         <MetricCard
-          label="Goruntulenen paket"
+          label="Görüntülenen paket"
           value={formatMoney(pageMetrics.totalAmount)}
         />
         <MetricCard
-          label="Gunluk paket payi"
+          label="Günlük paket payı"
           value={formatMoney(pageMetrics.dailyCost)}
         />
         <MetricCard
-          label="Break-even hedefi"
+          label="Başabaş hedefi"
           value={formatMoney(pageMetrics.breakEvenTarget)}
         />
         <MetricCard label="Aktif paket" value={`${pageMetrics.activeCount}`} />
@@ -401,20 +401,20 @@ export function PackagePanel() {
       <section className="panel data-form quick-expense-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Paket girisi</p>
+            <p className="eyebrow">Paket girişi</p>
             <h2>Paket gideri ekle</h2>
           </div>
           <span className="status-pill">
             {packageForm.amount && packageForm.startsAt && packageForm.endsAt
-              ? `${formatMoney(calculateDailyCost(packageForm))} / gun`
-              : 'Dagitim bekliyor'}
+              ? `${formatMoney(calculateDailyCost(packageForm))} / gün`
+              : 'Dağıtım bekliyor'}
           </span>
         </div>
 
         <form className="quick-expense-form" onSubmit={handlePackageSubmit}>
           <div className="package-entry-grid">
             <label>
-              Arac
+              Araç
               <select
                 disabled={vehicles.length === 0}
                 onChange={(event) =>
@@ -423,7 +423,7 @@ export function PackagePanel() {
                 required
                 value={packageForm.vehicleId}
               >
-                <option value="">Arac sec</option>
+                <option value="">Araç seç</option>
                 {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {formatVehicleLabel(vehicle)}
@@ -433,19 +433,19 @@ export function PackagePanel() {
             </label>
 
             <label>
-              Paket adi
+              Paket adı
               <input
                 onChange={(event) =>
                   updatePackageForm('name', event.target.value)
                 }
-                placeholder="Haftalik TAG paketi"
+                placeholder="Haftalık operasyon paketi"
                 required
                 value={packageForm.name}
               />
             </label>
 
             <label>
-              Paket tutari
+              Paket tutarı
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -458,7 +458,7 @@ export function PackagePanel() {
             </label>
 
             <label>
-              Baslangic
+              Başlangıç
               <input
                 onChange={(event) =>
                   updatePackageForm('startsAt', event.target.value)
@@ -470,7 +470,7 @@ export function PackagePanel() {
             </label>
 
             <label>
-              Bitis
+              Bitiş
               <input
                 onChange={(event) =>
                   updatePackageForm('endsAt', event.target.value)
@@ -482,7 +482,7 @@ export function PackagePanel() {
             </label>
 
             <label>
-              Gecerlilik gunu
+              Geçerlilik günü
               <input
                 inputMode="numeric"
                 onChange={(event) =>
@@ -494,7 +494,7 @@ export function PackagePanel() {
             </label>
 
             <label>
-              Dagitim
+              Dağıtım
               <select
                 onChange={(event) =>
                   updatePackageForm(
@@ -515,7 +515,7 @@ export function PackagePanel() {
             </label>
 
             <label>
-              Break-even hedefi
+              Başabaş hedefi
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -534,7 +534,7 @@ export function PackagePanel() {
                 onChange={(event) =>
                   updatePackageForm('note', event.target.value)
                 }
-                placeholder="Haftalik operasyon paketi"
+                placeholder="Haftalık operasyon paketi"
                 value={packageForm.note}
               />
             </label>
@@ -554,7 +554,7 @@ export function PackagePanel() {
           {formMessage ? (
             <p
               className={
-                formMessage.includes('olusturuldu')
+                formMessage.includes('oluşturuldu')
                   ? 'form-success'
                   : 'form-alert'
               }
@@ -588,18 +588,18 @@ export function PackagePanel() {
             <Search aria-hidden="true" />
             <input
               onChange={(event) => setQ(event.target.value)}
-              placeholder="Paket adi veya not ara"
+              placeholder="Paket adı veya not ara"
               value={q}
             />
           </label>
 
           <label>
-            Arac
+            Araç
             <select
               onChange={(event) => setVehicleId(event.target.value)}
               value={vehicleId}
             >
-              <option value="">Tum araclar</option>
+              <option value="">Tüm araçlar</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {formatVehicleLabel(vehicle)}
@@ -609,12 +609,12 @@ export function PackagePanel() {
           </label>
 
           <label>
-            Dagitim
+            Dağıtım
             <select
               onChange={(event) => setAllocationMethod(event.target.value)}
               value={allocationMethod}
             >
-              <option value="">Tum dagitimlar</option>
+              <option value="">Tüm dağıtımlar</option>
               {Object.entries(allocationMethodLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -629,14 +629,14 @@ export function PackagePanel() {
               onChange={(event) => setIsActive(event.target.value)}
               value={isActive}
             >
-              <option value="">Tum durumlar</option>
+              <option value="">Tüm durumlar</option>
               <option value="true">Aktif</option>
               <option value="false">Pasif</option>
             </select>
           </label>
 
           <label>
-            Baslangic
+            Başlangıç
             <input
               onChange={(event) => setStartDate(event.target.value)}
               type="date"
@@ -645,7 +645,7 @@ export function PackagePanel() {
           </label>
 
           <label>
-            Bitis
+            Bitiş
             <input
               onChange={(event) => setEndDate(event.target.value)}
               type="date"
@@ -690,7 +690,7 @@ export function PackagePanel() {
           </label>
 
           <label>
-            Yon
+            Yön
             <select
               onChange={(event) =>
                 setSortDirection(event.target.value as SortDirection)
@@ -713,7 +713,7 @@ export function PackagePanel() {
             </button>
             <button className="primary-button" disabled={isLoading}>
               <RefreshCw aria-hidden="true" className="button-icon" />
-              {isLoading ? 'Yukleniyor' : 'Filtrele'}
+              {isLoading ? 'Yükleniyor' : 'Filtrele'}
             </button>
           </div>
         </form>
@@ -722,11 +722,11 @@ export function PackagePanel() {
       <section className="panel income-table-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Paket kayitlari</p>
+            <p className="eyebrow">Paket kayıtları</p>
             <h2>Paket giderleri</h2>
           </div>
           <span className="status-pill">
-            {meta ? `${meta.total} kayit` : 'Hazirlaniyor'}
+            {meta ? `${meta.total} kayıt` : 'Hazırlanıyor'}
           </span>
         </div>
 
@@ -739,11 +739,11 @@ export function PackagePanel() {
               role="row"
             >
               <span>Paket</span>
-              <span>Arac</span>
-              <span>Donem</span>
-              <span>Dagitim</span>
-              <span>Gunluk</span>
-              <span>Break-even</span>
+              <span>Araç</span>
+              <span>Dönem</span>
+              <span>Dağıtım</span>
+              <span>Günlük</span>
+              <span>Başabaş</span>
               <span>Durum</span>
               <span>Tutar</span>
             </div>
@@ -762,7 +762,7 @@ export function PackagePanel() {
                 <span>
                   <strong>{formatDate(item.startsAt)}</strong>
                   <small>
-                    {formatDate(item.endsAt)} - {item.durationDays} gun
+                    {formatDate(item.endsAt)} - {item.durationDays} gün
                   </small>
                 </span>
                 <span>{allocationMethodLabels[item.allocationMethod]}</span>
@@ -792,25 +792,25 @@ export function PackagePanel() {
             <EmptyState
               description={
                 hasActiveFilters
-                  ? 'Bu filtrelerle eslesen paket bulunamadi. Donem veya durum filtresini temizleyerek tekrar deneyebilirsin.'
-                  : 'TAG paket, uyelik veya operasyonel kullanim bedellerini eklediginde gunluk pay ve break-even etkisi burada gorunur.'
+                  ? 'Bu filtrelerle eşleşen paket bulunamadı. Dönem veya durum filtresini temizleyerek tekrar deneyebilirsin.'
+                  : 'Operasyon paketi, üyelik veya kullanım bedellerini eklediğinde günlük pay ve başabaş etkisi burada görünür.'
               }
               icon={hasActiveFilters ? FileSearch : Package}
               title={
                 hasActiveFilters
                   ? 'Filtreye uygun paket yok.'
-                  : 'Henuz paket kaydi yok.'
+                  : 'Henüz paket kaydı yok.'
               }
               tips={
                 hasActiveFilters
                   ? [
-                      'Aktif/pasif filtresini kaldir',
-                      'Donem araligini genislet'
+                      'Aktif/pasif filtresini kaldır',
+                      'Dönem aralığını genişlet'
                     ]
                   : [
-                      'Paket tutarini gir',
-                      'Baslangic ve bitis sec',
-                      'Dagitim metodunu belirle'
+                      'Paket tutarıni gir',
+                      'Başlangıç ve bitiş seç',
+                      'Dağıtım metodunu belirle'
                     ]
               }
             />
@@ -827,7 +827,7 @@ export function PackagePanel() {
             type="button"
           >
             <ChevronLeft aria-hidden="true" className="button-icon" />
-            Onceki
+            Önceki
           </button>
           <span>
             Sayfa {meta?.page ?? page} / {meta?.totalPages || 1}
@@ -926,7 +926,7 @@ function formatVehicleLabel(vehicle: Vehicle) {
 function vehicleNameById(vehicles: Vehicle[], vehicleId: string) {
   const vehicle = vehicles.find((item) => item.id === vehicleId);
 
-  return vehicle ? formatVehicleLabel(vehicle) : 'Arac';
+  return vehicle ? formatVehicleLabel(vehicle) : 'Araç';
 }
 
 function formatDate(value: string) {

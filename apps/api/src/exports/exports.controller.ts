@@ -20,13 +20,13 @@ import { ExportsService } from './exports.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('exports')
-@ApiTags('Exports')
+@ApiTags('Dışa aktarma')
 @ApiBearerAuth('access-token')
 export class ExportsController {
   constructor(private readonly exportsService: ExportsService) {}
 
   @Post('excel')
-  @ApiOperation({ summary: 'Create an Excel export for reports and raw data' })
+  @ApiOperation({ summary: 'Raporlar ve ham veri için Excel çıktısı oluştur' })
   @AuditLog({
     action: 'export.excel.create',
     entityType: 'export_job',
@@ -42,7 +42,7 @@ export class ExportsController {
   }
 
   @Post('pdf')
-  @ApiOperation({ summary: 'Create a PDF report export' })
+  @ApiOperation({ summary: 'PDF rapor çıktısı oluştur' })
   @AuditLog({
     action: 'export.pdf.create',
     entityType: 'export_job',
@@ -58,7 +58,7 @@ export class ExportsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List export jobs for the current user' })
+  @ApiOperation({ summary: 'Geçerli kullanıcının dışa aktarma taleplerini listele' })
   async findAll(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: ListExportJobsQueryDto
@@ -67,7 +67,7 @@ export class ExportsController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get an export job by id' })
+  @ApiOperation({ summary: 'Dışa aktarma talebini kimlik ile getir' })
   async findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return {
       data: await this.exportsService.findOne(user.id, id)
@@ -75,7 +75,7 @@ export class ExportsController {
   }
 
   @Get(':id/download')
-  @ApiOperation({ summary: 'Download an export file' })
+  @ApiOperation({ summary: 'Dışa aktarma dosyasını indir' })
   async download(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,

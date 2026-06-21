@@ -5,7 +5,7 @@ export function setupSwagger(app: INestApplication) {
   const config = new DocumentBuilder()
     .setTitle('TAG Driver Finance API')
     .setDescription(
-      'TAG suruculeri icin gelir, gider, arac ve karlilik operasyon API dokumantasyonu.'
+      'TAG sürücüleri için gelir, gider, araç ve kârlılık operasyon API dokümantasyonu.'
     )
     .setVersion('0.1.0')
     .addBearerAuth(

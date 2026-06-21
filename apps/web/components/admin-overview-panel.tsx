@@ -106,7 +106,7 @@ export function AdminOverviewPanel() {
 
     if (!token) {
       setMessage(
-        'Admin panelini gormek icin admin hesabi ile giris yapmalisin.'
+        'Admin panelini görmek için admin hesabı ile giriş yapmalısın.'
       );
       setIsLoading(false);
       return;
@@ -122,7 +122,7 @@ export function AdminOverviewPanel() {
       setOverview(response.data);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Admin ozeti yuklenemedi.'
+        error instanceof Error ? error.message : 'Admin özeti yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -131,7 +131,7 @@ export function AdminOverviewPanel() {
 
   if (isLoading) {
     return (
-      <section className="panel admin-empty">Admin ozeti yukleniyor...</section>
+      <section className="panel admin-empty">Admin özeti yükleniyor...</section>
     );
   }
 
@@ -139,8 +139,8 @@ export function AdminOverviewPanel() {
     return (
       <section className="panel admin-empty">
         <AlertTriangle className="panel-icon" aria-hidden="true" />
-        <strong>Admin paneli acilamadi</strong>
-        <p>{message ?? 'Yetki veya baglanti kontrolu gerekli.'}</p>
+        <strong>Admin paneli açılamadı</strong>
+        <p>{message ?? 'Yetki veya bağlantı kontrolü gerekli.'}</p>
       </section>
     );
   }
@@ -154,7 +154,7 @@ export function AdminOverviewPanel() {
           icon={Users}
           label="Toplam kullanici"
           value={formatNumber(overview.users.total)}
-          detail={`${formatNumber(overview.users.new7d)} yeni / 7 gun`}
+          detail={`${formatNumber(overview.users.new7d)} yeni / 7 gün`}
         />
         <MetricCard
           icon={Activity}
@@ -164,7 +164,7 @@ export function AdminOverviewPanel() {
         />
         <MetricCard
           icon={FileDown}
-          label="Export isleri"
+          label="Dışa aktarma işleri"
           value={formatNumber(totalCount(overview.operations.exportJobs))}
           detail={`${formatNumber(overview.operations.failedExports24h)} hata / 24s`}
         />
@@ -180,16 +180,16 @@ export function AdminOverviewPanel() {
         <div className="panel admin-panel">
           <PanelHeader
             icon={Database}
-            title="Kayit Sayilari"
+            title="Kayıt Sayilari"
             actionLabel="Yenile"
             onAction={fetchOverview}
           />
           <div className="admin-kpi-list">
-            <Kpi label="Arac" value={overview.records.vehicles} />
+            <Kpi label="Araç" value={overview.records.vehicles} />
             <Kpi label="Sefer" value={overview.records.trips} />
             <Kpi label="Gider" value={overview.records.expenses} />
-            <Kpi label="Yakit" value={overview.records.fuelEntries} />
-            <Kpi label="Bakim" value={overview.records.maintenanceEntries} />
+            <Kpi label="Yakıt" value={overview.records.fuelEntries} />
+            <Kpi label="Bakım" value={overview.records.maintenanceEntries} />
           </div>
         </div>
 
@@ -217,7 +217,7 @@ export function AdminOverviewPanel() {
               <span>ID</span>
               <span>Rol</span>
               <span>Abonelik</span>
-              <span>Kayit</span>
+              <span>Kayıt</span>
             </div>
             {overview.recentUsers.map((user) => (
               <div className="admin-table-row" role="row" key={user.id}>
@@ -233,7 +233,7 @@ export function AdminOverviewPanel() {
         <div className="panel admin-panel">
           <PanelHeader icon={MessageSquare} title="Feedback" />
           {overview.feedback.recent.length === 0 ? (
-            <p className="admin-muted">Aktif feedback kaydi yok.</p>
+            <p className="admin-muted">Aktif feedback kaydı yok.</p>
           ) : (
             <div className="admin-table" role="table">
               <div className="admin-table-row admin-table-head" role="row">
@@ -256,7 +256,7 @@ export function AdminOverviewPanel() {
       </section>
 
       <p className="admin-timestamp">
-        Son guncelleme: {formatDateTime(overview.generatedAt)}
+        Son güncelleme: {formatDateTime(overview.generatedAt)}
       </p>
     </div>
   );

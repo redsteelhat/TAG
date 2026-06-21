@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'TAG Finans Operasyon',
-  description: 'TAG suruculeri icin gercek net kar takip paneli.'
+  description: 'TAG sürücüleri için gerçek net kâr takip paneli.'
 };
 
 export default function RootLayout({

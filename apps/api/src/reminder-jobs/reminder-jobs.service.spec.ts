@@ -15,7 +15,7 @@ function createConfig(overrides: Record<string, string | number> = {}) {
 }
 
 describe('ReminderJobsService', () => {
-  it('creates package ending reminders once', async () => {
+  it('creates package ending reminders önce', async () => {
     const prisma = {
       maintenanceEntry: {
         findMany: jest.fn().mockResolvedValue([])
@@ -38,7 +38,7 @@ describe('ReminderJobsService', () => {
             ends_at: new Date('2026-06-21T00:00:00.000Z'),
             id: 'package_1',
             is_active: true,
-            name: 'Haftalik TAG paketi',
+            name: 'Haftalık TAG paketi',
             note: null,
             starts_at: new Date('2026-06-15T00:00:00.000Z'),
             updated_at: new Date('2026-06-18T00:00:00.000Z'),
@@ -60,16 +60,16 @@ describe('ReminderJobsService', () => {
       prisma as never
     );
 
-    const result = await service.runOnce(new Date('2026-06-19T00:00:00.000Z'));
+    const result = await service.runÖnce(new Date('2026-06-19T00:00:00.000Z'));
 
     expect(notifications.createImmediate).toHaveBeenCalledWith({
-      body: 'Haftalik TAG paketi paketin 2026-06-21 tarihinde bitiyor.',
+      body: 'Haftalık TAG paketi paketin 2026-06-21 tarihinde bitiyor.',
       metadata: {
         entityId: 'package_1',
         entityType: 'tag_package',
         reminderKey: 'package-ending:package_1:2026-06-21'
       },
-      title: 'Paket bitisi yaklasiyor',
+      title: 'Paket bitisi yaklaşıyor',
       type: NotificationType.PACKAGE_ENDING,
       userId: 'user_1'
     });
@@ -100,7 +100,7 @@ describe('ReminderJobsService', () => {
           {
             ends_at: new Date('2026-06-21T00:00:00.000Z'),
             id: 'package_1',
-            name: 'Haftalik TAG paketi',
+            name: 'Haftalık TAG paketi',
             user_id: 'user_1'
           }
         ])
@@ -118,7 +118,7 @@ describe('ReminderJobsService', () => {
       prisma as never
     );
 
-    const result = await service.runOnce(new Date('2026-06-19T00:00:00.000Z'));
+    const result = await service.runÖnce(new Date('2026-06-19T00:00:00.000Z'));
 
     expect(notifications.createImmediate).not.toHaveBeenCalled();
     expect(result.packageEndingReminders).toBe(0);
@@ -132,7 +132,7 @@ describe('ReminderJobsService', () => {
             expected_interval_km: new Prisma.Decimal('10000'),
             id: 'maintenance_1',
             odometer_km: new Prisma.Decimal('90000'),
-            title: 'Periyodik bakim',
+            title: 'Periyodik bakım',
             user_id: 'user_1',
             vehicle: {
               odometer_km: new Prisma.Decimal('99700')
@@ -162,16 +162,16 @@ describe('ReminderJobsService', () => {
       prisma as never
     );
 
-    const result = await service.runOnce(new Date('2026-06-19T00:00:00.000Z'));
+    const result = await service.runÖnce(new Date('2026-06-19T00:00:00.000Z'));
 
     expect(notifications.createImmediate).toHaveBeenCalledWith({
-      body: 'Periyodik bakim bakimina 300 km kaldi.',
+      body: 'Periyodik bakım bakımina 300 km kaldi.',
       metadata: {
         entityId: 'maintenance_1',
         entityType: 'maintenance_entry',
         reminderKey: 'maintenance-km:maintenance_1:100000.0'
       },
-      title: 'Bakim zamani yaklasiyor',
+      title: 'Bakım zamani yaklaşıyor',
       type: NotificationType.MAINTENANCE_REMINDER,
       userId: 'user_1'
     });

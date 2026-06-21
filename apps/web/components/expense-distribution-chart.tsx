@@ -35,7 +35,7 @@ export function ExpenseDistributionChart({
         <div className="expense-donut empty" aria-hidden="true" />
         <div>
           <strong>Gider dagilimi yok</strong>
-          <span>Bu donem icin maliyet kalemi hesaplanmadi.</span>
+          <span>Bu dönem için maliyet kalemi hesaplanmadı.</span>
         </div>
       </div>
     );
@@ -44,7 +44,7 @@ export function ExpenseDistributionChart({
   return (
     <div className="expense-distribution-chart">
       <div
-        aria-label="Gider dagilim grafigi"
+        aria-label="Gider dagilim grafiği"
         className="expense-donut"
         role="img"
         style={{ background: gradient }}

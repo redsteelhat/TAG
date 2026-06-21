@@ -111,7 +111,7 @@ const fuelTypeLabels: Record<FuelType, string> = {
   GASOLINE: 'Benzin',
   HYBRID: 'Hibrit',
   LPG: 'LPG',
-  OTHER: 'Diger'
+  OTHER: 'Diğer'
 };
 
 const paymentMethodLabels: Record<PaymentMethod, string> = {
@@ -119,15 +119,15 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
   CASH: 'Nakit',
   DIGITAL: 'Dijital',
   MIXED: 'Karma',
-  OTHER: 'Diger'
+  OTHER: 'Diğer'
 };
 
 const sortOptions: Array<{ label: string; value: FuelSortBy }> = [
-  { label: 'Kayit tarihi', value: 'createdAt' },
+  { label: 'Kayıt tarihi', value: 'createdAt' },
   { label: 'Tutar', value: 'amount' },
   { label: 'Litre', value: 'liters' },
   { label: 'Litre fiyati', value: 'pricePerLiter' },
-  { label: 'Km sayaci', value: 'odometerKm' }
+  { label: 'Km sayacı', value: 'odometerKm' }
 ];
 
 const emptyFuelForm: FuelFormState = {
@@ -261,7 +261,7 @@ export function FuelPanel() {
       setVehicles(response.data);
     } catch (error) {
       setFormMessage(
-        error instanceof Error ? error.message : 'Araclar yuklenemedi.'
+        error instanceof Error ? error.message : 'Araçlar yüklenemedi.'
       );
     }
   }
@@ -286,7 +286,7 @@ export function FuelPanel() {
     }
   ) {
     if (!token) {
-      setMessage('Yakit panelini gormek icin once giris yapmalisin.');
+      setMessage('Yakıt panelini görmek için önce giriş yapmalısın.');
       return;
     }
 
@@ -319,7 +319,7 @@ export function FuelPanel() {
       setMeta(response.meta);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Yakit kayitlari yuklenemedi.'
+        error instanceof Error ? error.message : 'Yakıt kayıtları yüklenemedi.'
       );
     } finally {
       setIsLoading(false);
@@ -330,12 +330,12 @@ export function FuelPanel() {
     event.preventDefault();
 
     if (!accessToken) {
-      setFormMessage('Yakit kaydetmek icin once giris yapmalisin.');
+      setFormMessage('Yakıt kaydetmek için önce giriş yapmalısın.');
       return;
     }
 
     if (!fuelForm.vehicleId) {
-      setFormMessage('Yakit kaydetmek icin once arac secmelisin.');
+      setFormMessage('Yakıt kaydetmek için önce araç seçmelisin.');
       return;
     }
 
@@ -349,13 +349,13 @@ export function FuelPanel() {
         { accessToken }
       );
 
-      setFormMessage('Yakit kaydi olusturuldu.');
+      setFormMessage('Yakıt kaydı oluşturuldu.');
       resetFuelForm();
       setPage(1);
       await fetchFuelEntries(accessToken, 1);
     } catch (error) {
       setFormMessage(
-        error instanceof Error ? error.message : 'Yakit kaydedilemedi.'
+        error instanceof Error ? error.message : 'Yakıt kaydedilemedi.'
       );
     } finally {
       setIsSavingFuel(false);
@@ -428,11 +428,11 @@ export function FuelPanel() {
       <section className="panel empty-state-panel">
         <EmptyState
           actionHref="/login"
-          actionLabel="Giris ekranina git"
-          description="Yakit tuketimi, litre fiyati ve km basi yakit maliyetini hesaplamak icin aktif oturum gerekiyor."
+          actionLabel="Giriş ekranına git"
+          description="Yakıt tüketimi, litre fiyati ve km başı yakıt maliyetini hesaplamak için aktif oturum gerekiyor."
           eyebrow="Oturum gerekli"
           icon={LockKeyhole}
-          title="Yakit panelini gormek icin giris yap."
+          title="Yakıt panelini görmek için giriş yap."
         />
       </section>
     );
@@ -440,9 +440,9 @@ export function FuelPanel() {
 
   return (
     <section className="income-list-page">
-      <section className="metric-grid income-metrics" aria-label="Yakit ozeti">
+      <section className="metric-grid income-metrics" aria-label="Yakıt özeti">
         <MetricCard
-          label="Goruntulenen yakit"
+          label="Görüntülenen yakıt"
           value={formatMoney(pageMetrics.amount)}
         />
         <MetricCard
@@ -466,20 +466,20 @@ export function FuelPanel() {
       <section className="panel data-form quick-expense-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Yakit girisi</p>
-            <h2>Yakit ekle</h2>
+            <p className="eyebrow">Yakıt girişi</p>
+            <h2>Yakıt ekle</h2>
           </div>
           <span className="status-pill">
             {pageMetrics.costPerKm > 0
               ? `${formatMoney(pageMetrics.costPerKm)} / km`
-              : 'Km maliyeti hazir degil'}
+              : 'Km maliyeti hazır değil'}
           </span>
         </div>
 
         <form className="quick-expense-form" onSubmit={handleFuelSubmit}>
           <div className="fuel-entry-grid">
             <label>
-              Arac
+              Araç
               <select
                 disabled={vehicles.length === 0}
                 onChange={(event) =>
@@ -488,7 +488,7 @@ export function FuelPanel() {
                 required
                 value={fuelForm.vehicleId}
               >
-                <option value="">Arac sec</option>
+                <option value="">Araç seç</option>
                 {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {formatVehicleLabel(vehicle)}
@@ -498,7 +498,7 @@ export function FuelPanel() {
             </label>
 
             <label>
-              Yakit tipi
+              Yakıt tipi
               <select
                 onChange={(event) =>
                   updateFuelForm('fuelType', event.target.value as FuelType)
@@ -552,7 +552,7 @@ export function FuelPanel() {
             </label>
 
             <label>
-              Km sayaci
+              Km sayacı
               <input
                 inputMode="decimal"
                 onChange={(event) =>
@@ -579,7 +579,7 @@ export function FuelPanel() {
             </label>
 
             <label>
-              Odeme
+              Ödeme
               <select
                 onChange={(event) =>
                   updateFuelForm(
@@ -598,21 +598,21 @@ export function FuelPanel() {
             </label>
 
             <label>
-              Istasyon
+              İstasyon
               <input
                 onChange={(event) =>
                   updateFuelForm('stationName', event.target.value)
                 }
-                placeholder="Shell Kadikoy"
+                placeholder="Shell Kadıköy"
                 value={fuelForm.stationName}
               />
             </label>
 
             <label>
-              Sehir
+              Şehir
               <input
                 onChange={(event) => updateFuelForm('city', event.target.value)}
-                placeholder="Istanbul"
+                placeholder="İstanbul"
                 value={fuelForm.city}
               />
             </label>
@@ -623,13 +623,13 @@ export function FuelPanel() {
                 onChange={(event) =>
                   updateFuelForm('district', event.target.value)
                 }
-                placeholder="Kadikoy"
+                placeholder="Kadıköy"
                 value={fuelForm.district}
               />
             </label>
 
             <label>
-              Fis URL
+              Fiş URL
               <input
                 onChange={(event) =>
                   updateFuelForm('receiptUrl', event.target.value)
@@ -648,13 +648,13 @@ export function FuelPanel() {
               }
               type="checkbox"
             />
-            Full depo kaydi
+            Full depo kaydı
           </label>
 
           {formMessage ? (
             <p
               className={
-                formMessage.includes('olusturuldu')
+                formMessage.includes('oluşturuldu')
                   ? 'form-success'
                   : 'form-alert'
               }
@@ -676,7 +676,7 @@ export function FuelPanel() {
               disabled={isSavingFuel || vehicles.length === 0}
             >
               <Save aria-hidden="true" className="button-icon" />
-              {isSavingFuel ? 'Kaydediliyor' : 'Yakit Ekle'}
+              {isSavingFuel ? 'Kaydediliyor' : 'Yakıt Ekle'}
             </button>
           </div>
         </form>
@@ -688,18 +688,18 @@ export function FuelPanel() {
             <Search aria-hidden="true" />
             <input
               onChange={(event) => setQ(event.target.value)}
-              placeholder="Istasyon, sehir veya fis ara"
+              placeholder="İstasyon, şehir veya fiş ara"
               value={q}
             />
           </label>
 
           <label>
-            Arac
+            Araç
             <select
               onChange={(event) => setVehicleId(event.target.value)}
               value={vehicleId}
             >
-              <option value="">Tum araclar</option>
+              <option value="">Tüm araçlar</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {formatVehicleLabel(vehicle)}
@@ -709,12 +709,12 @@ export function FuelPanel() {
           </label>
 
           <label>
-            Yakit
+            Yakıt
             <select
               onChange={(event) => setFuelType(event.target.value)}
               value={fuelType}
             >
-              <option value="">Tum yakitlar</option>
+              <option value="">Tüm yakıtlar</option>
               {Object.entries(fuelTypeLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -724,12 +724,12 @@ export function FuelPanel() {
           </label>
 
           <label>
-            Odeme
+            Ödeme
             <select
               onChange={(event) => setPaymentMethod(event.target.value)}
               value={paymentMethod}
             >
-              <option value="">Tum odemeler</option>
+              <option value="">Tüm ödemeler</option>
               {Object.entries(paymentMethodLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -744,14 +744,14 @@ export function FuelPanel() {
               onChange={(event) => setFullTank(event.target.value)}
               value={fullTank}
             >
-              <option value="">Tum kayitlar</option>
+              <option value="">Tüm kayıtlar</option>
               <option value="true">Full depo</option>
-              <option value="false">Full degil</option>
+              <option value="false">Full değil</option>
             </select>
           </label>
 
           <label>
-            Baslangic
+            Başlangıç
             <input
               onChange={(event) => setStartDate(event.target.value)}
               type="date"
@@ -760,7 +760,7 @@ export function FuelPanel() {
           </label>
 
           <label>
-            Bitis
+            Bitiş
             <input
               onChange={(event) => setEndDate(event.target.value)}
               type="date"
@@ -823,7 +823,7 @@ export function FuelPanel() {
           </label>
 
           <label>
-            Yon
+            Yön
             <select
               onChange={(event) =>
                 setSortDirection(event.target.value as SortDirection)
@@ -846,7 +846,7 @@ export function FuelPanel() {
             </button>
             <button className="primary-button" disabled={isLoading}>
               <RefreshCw aria-hidden="true" className="button-icon" />
-              {isLoading ? 'Yukleniyor' : 'Filtrele'}
+              {isLoading ? 'Yükleniyor' : 'Filtrele'}
             </button>
           </div>
         </form>
@@ -855,25 +855,25 @@ export function FuelPanel() {
       <section className="panel income-table-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Yakit kayitlari</p>
-            <h2>Yakit paneli</h2>
+            <p className="eyebrow">Yakıt kayıtları</p>
+            <h2>Yakıt paneli</h2>
           </div>
           <span className="status-pill">
-            {meta ? `${meta.total} kayit` : 'Hazirlaniyor'}
+            {meta ? `${meta.total} kayıt` : 'Hazırlanıyor'}
           </span>
         </div>
 
         {message ? <p className="form-alert">{message}</p> : null}
 
         {fuelEntries.length > 0 ? (
-          <div className="data-table" role="table" aria-label="Yakit kayitlari">
+          <div className="data-table" role="table" aria-label="Yakıt kayıtları">
             <div
               className="data-table-row data-table-head fuel-table-row"
               role="row"
             >
               <span>Tarih</span>
-              <span>Istasyon</span>
-              <span>Yakit</span>
+              <span>İstasyon</span>
+              <span>Yakıt</span>
               <span>Litre</span>
               <span>Litre fiyat</span>
               <span>Tutar</span>
@@ -892,7 +892,7 @@ export function FuelPanel() {
                   <small>{formatVehicleName(vehicles, entry.vehicleId)}</small>
                 </span>
                 <span>
-                  <strong>{entry.stationName || 'Istasyon yok'}</strong>
+                  <strong>{entry.stationName || 'İstasyon yok'}</strong>
                   <small>{formatLocation(entry)}</small>
                 </span>
                 <span>{fuelTypeLabels[entry.fuelType]}</span>
@@ -908,7 +908,7 @@ export function FuelPanel() {
                         : 'status-pill compact completed'
                     }
                   >
-                    {entry.fullTank ? 'Full' : entry.tankFillLevel || 'Kayit'}
+                    {entry.fullTank ? 'Full' : entry.tankFillLevel || 'Kayıt'}
                   </span>
                 </span>
               </div>
@@ -919,22 +919,22 @@ export function FuelPanel() {
             <EmptyState
               description={
                 hasActiveFilters
-                  ? 'Bu filtrelerle eslesen yakit kaydi bulunamadi. Filtreleri temizleyerek tum yakit gecmisini gorebilirsin.'
-                  : 'Litre, tutar, km sayaci ve istasyon bilgisi girdikce yakit maliyeti burada analiz edilir.'
+                  ? 'Bu filtrelerle eşleşen yakıt kaydı bulunamadı. Filtreleri temizleyerek tüm yakıt geçmişini görebilirsin.'
+                  : 'Litre, tutar, km sayacı ve istasyon bilgisi girdikce yakıt maliyeti burada analiz edilir.'
               }
               icon={hasActiveFilters ? FileSearch : Fuel}
               title={
                 hasActiveFilters
-                  ? 'Filtreye uygun yakit kaydi yok.'
-                  : 'Henuz yakit kaydi yok.'
+                  ? 'Filtreye uygun yakıt kaydı yok.'
+                  : 'Henüz yakıt kaydı yok.'
               }
               tips={
                 hasActiveFilters
-                  ? ['Tarih araligini genislet', 'Yakit tipi filtresini kaldir']
+                  ? ['Tarih aralığını genişlet', 'Yakıt tipi filtresini kaldır']
                   : [
                       'Tutar ve litre gir',
-                      'Km sayacini ekle',
-                      'Full depo kaydini isaretle'
+                      'Km sayacıni ekle',
+                      'Full depo kaydını işaretle'
                     ]
               }
             />
@@ -951,7 +951,7 @@ export function FuelPanel() {
             type="button"
           >
             <ChevronLeft aria-hidden="true" className="button-icon" />
-            Onceki
+            Önceki
           </button>
           <span>
             Sayfa {meta?.page ?? page} / {meta?.totalPages || 1}
@@ -1029,7 +1029,7 @@ function formatVehicleLabel(vehicle: Vehicle) {
 function formatVehicleName(vehicles: Vehicle[], vehicleId: string) {
   const vehicle = vehicles.find((item) => item.id === vehicleId);
 
-  return vehicle ? formatVehicleLabel(vehicle) : 'Arac';
+  return vehicle ? formatVehicleLabel(vehicle) : 'Araç';
 }
 
 function formatLocation(entry: FuelEntry) {

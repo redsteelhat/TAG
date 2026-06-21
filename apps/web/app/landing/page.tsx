@@ -17,54 +17,54 @@ import {
 const benefits = [
   {
     icon: Calculator,
-    title: 'Gercek net kar',
-    text: 'Gelirden yakit, paket, sabit gider, bakim ve amortisman payini dus.'
+    title: 'Gerçek net kâr',
+    text: 'Gelirden yakıt, paket, sabit gider, bakım ve amortisman payını düş.'
   },
   {
     icon: Gauge,
-    title: 'Km ve saat karliligi',
-    text: 'Km basi ve saat basi kazanci ayni gun icinde net gor.'
+    title: 'Km ve saat kârlılığı',
+    text: 'Km başı ve saat başı kazancı aynı gün içinde net gör.'
   },
   {
     icon: PackageCheck,
-    title: 'Paket break-even',
-    text: 'Gunluk paket payini cikarmak icin gereken minimum geliri hesapla.'
+    title: 'Paket başabaş noktası',
+    text: 'Günlük paket payını çıkarmak için gereken minimum geliri hesapla.'
   },
   {
     icon: Fuel,
-    title: 'Yakit etkisi',
-    text: 'Litre, tutar ve km sayaci ile yakitin kari ne kadar azalttigini izle.'
+    title: 'Yakıt etkisi',
+    text: 'Litre, tutar ve km sayacı ile yakıtın kârı ne kadar azalttığını izle.'
   }
 ];
 
 const workflow = [
-  ['01', 'Arac ve yakit varsayimini gir'],
+  ['01', 'Araç ve yakıt varsayımını gir'],
   ['02', 'Vardiya veya sefer ekle'],
-  ['03', 'Yakit, paket ve gideri kaydet'],
-  ['04', 'Gunluk net kari raporda dogrula']
+  ['03', 'Yakıt, paket ve gideri kaydet'],
+  ['04', 'Günlük net kârı raporda doğrula']
 ];
 
 const costItems = [
-  ['Yakit', '820 TL'],
-  ['Paket payi', '700 TL'],
+  ['Yakıt', '820 TL'],
+  ['Paket payı', '700 TL'],
   ['Sabit gider', '420 TL'],
-  ['Bakim rezervi', '340 TL'],
+  ['Bakım rezervi', '340 TL'],
   ['Amortisman', '260 TL']
 ];
 
 const modules = [
-  { icon: ReceiptText, label: 'Sefer bazli gelir' },
-  { icon: Fuel, label: 'Yakit analizi' },
+  { icon: ReceiptText, label: 'Sefer bazlı gelir' },
+  { icon: Fuel, label: 'Yakıt analizi' },
   { icon: PackageCheck, label: 'TAG paket gideri' },
-  { icon: Wrench, label: 'Bakim rezervi' },
-  { icon: Car, label: 'Arac maliyeti' },
-  { icon: Download, label: 'PDF / Excel export' }
+  { icon: Wrench, label: 'Bakım rezervi' },
+  { icon: Car, label: 'Araç maliyeti' },
+  { icon: Download, label: 'PDF / Excel dışa aktarma' }
 ];
 
 const pricing = [
-  ['Free deneme', '7 gun', 'Gercek verinle net kar motorunu test et.'],
-  ['Pro', 'Aylik', 'Sinirsiz kayit, detayli rapor ve export.'],
-  ['Premium', 'Yakinda', 'OCR, AI oneriler ve gelismis analiz.']
+  ['Free deneme', '7 gün', 'Gerçek verinle net kâr motorunu test et.'],
+  ['Pro', 'Aylık', 'Sınırsız kayıt, detaylı rapor ve export.'],
+  ['Premium', 'Yakında', 'OCR, AI öneriler ve gelişmiş analiz.']
 ];
 
 export default function LandingPage() {
@@ -77,42 +77,42 @@ export default function LandingPage() {
             <span>TAG Finans</span>
           </Link>
           <div>
-            <Link href="/login">Giris</Link>
+            <Link href="/login">Giriş</Link>
             <Link className="primary-button" href="/register">
-              Net Karimi Hesaplamaya Basla
+              Net Kârımı Hesaplamaya Başla
             </Link>
           </div>
         </nav>
 
         <div className="landing-hero-content">
           <p className="eyebrow">
-            TAG suruculeri icin finans operasyon uygulamasi
+            TAG sürücüleri için finans operasyon uygulaması
           </p>
-          <h1>TAG Suruculeri Icin Gercek Kar Takibi</h1>
+          <h1>TAG Sürücüleri İçin Gerçek Kâr Takibi</h1>
           <p>
-            Gunluk gelirini, yakitini, paket ucretini, bakimini, sigortani,
-            kilometreni ve gercek net karini tek panelden takip et.
+            Günlük gelirini, yakıtını, paket ücretini, bakımını, sigortanı,
+            kilometreni ve gerçek net kârını tek panelden takip et.
           </p>
           <div className="landing-hero-actions">
             <Link className="primary-button" href="/register">
-              Net Karimi Hesaplamaya Basla
+              Net Kârımı Hesaplamaya Başla
             </Link>
             <Link className="secondary-button" href="/login">
               Web panele gir
             </Link>
           </div>
-          <div className="landing-hero-metrics" aria-label="Urun metrikleri">
+          <div className="landing-hero-metrics" aria-label="Ürün metrikleri">
             <span>
-              <strong>Km basi kar</strong>
-              Net kar / toplam km
+              <strong>Km başı kâr</strong>
+              Net kâr / toplam km
             </span>
             <span>
-              <strong>Saatlik kar</strong>
-              Net kar / aktif sure
+              <strong>Saatlik kâr</strong>
+              Net kâr / aktif süre
             </span>
             <span>
-              <strong>Break-even</strong>
-              Paket + gider esigi
+              <strong>Başabaş</strong>
+              Paket + gider eşiği
             </span>
           </div>
         </div>
@@ -120,31 +120,31 @@ export default function LandingPage() {
 
       <section className="landing-band landing-proof">
         <div className="landing-section-heading">
-          <p className="eyebrow">Brut degil, net sonuc</p>
-          <h2>Surucunun her gun sordugu sorulara tek ekranda cevap verir.</h2>
+          <p className="eyebrow">Brüt değil, net sonuç</p>
+          <h2>Sürücünün her gün sorduğu sorulara tek ekranda cevap verir.</h2>
         </div>
         <div className="landing-proof-grid">
           <article className="landing-profit-panel">
             <div>
-              <span>Bugunku brut gelir</span>
+              <span>Bugünkü brüt gelir</span>
               <strong>3.850 TL</strong>
             </div>
             <div>
-              <span>Gercek net kar</span>
+              <span>Gerçek net kâr</span>
               <strong>1.310 TL</strong>
             </div>
             <div>
-              <span>Km basi net kar</span>
+              <span>Km başı net kâr</span>
               <strong>12,70 TL</strong>
             </div>
             <div>
-              <span>Saatlik net kar</span>
+              <span>Saatlik net kâr</span>
               <strong>218 TL</strong>
             </div>
           </article>
 
           <article className="landing-cost-panel">
-            <h3>Kar eriten kalemler</h3>
+            <h3>Kâr eriten kalemler</h3>
             {costItems.map(([label, value]) => (
               <div key={label}>
                 <span>{label}</span>
@@ -157,8 +157,8 @@ export default function LandingPage() {
 
       <section className="landing-band">
         <div className="landing-section-heading">
-          <p className="eyebrow">Farkli konumlandirma</p>
-          <h2>Gelir-gider defteri degil, sefer bazli karlilik motoru.</h2>
+          <p className="eyebrow">Farklı konumlandırma</p>
+          <h2>Gelir-gider defteri değil, sefer bazlı kârlılık motoru.</h2>
         </div>
         <div className="landing-benefit-grid">
           {benefits.map((benefit) => {
@@ -177,8 +177,8 @@ export default function LandingPage() {
 
       <section className="landing-band landing-workflow-band">
         <div className="landing-section-heading">
-          <p className="eyebrow">Gunluk akis</p>
-          <h2>10 saniyelik kayitlarla rapor guveni olustur.</h2>
+          <p className="eyebrow">Günlük akış</p>
+          <h2>10 saniyelik kayıtlarla rapor güveni oluştur.</h2>
         </div>
         <div className="landing-workflow">
           {workflow.map(([step, label]) => (
@@ -192,8 +192,8 @@ export default function LandingPage() {
 
       <section className="landing-band">
         <div className="landing-section-heading">
-          <p className="eyebrow">MVP kapsamindaki moduller</p>
-          <h2>Surucunun gercek maliyetini parcalara ayirir.</h2>
+          <p className="eyebrow">MVP kapsamındaki modüller</p>
+          <h2>Sürücünün gerçek maliyetini parçalara ayırır.</h2>
         </div>
         <div className="landing-module-grid">
           {modules.map((module) => {
@@ -211,8 +211,8 @@ export default function LandingPage() {
 
       <section className="landing-band landing-pricing-band">
         <div className="landing-section-heading">
-          <p className="eyebrow">Ucretlendirme</p>
-          <h2>Bir yanlis kar hesabi abonelikten daha pahali olabilir.</h2>
+          <p className="eyebrow">Ücretlendirme</p>
+          <h2>Bir yanlış kâr hesabı abonelikten daha pahalı olabilir.</h2>
         </div>
         <div className="landing-pricing-grid">
           {pricing.map(([name, price, text]) => (
@@ -229,11 +229,11 @@ export default function LandingPage() {
       <section className="landing-final-cta">
         <LineChart aria-hidden="true" />
         <div>
-          <p className="eyebrow">Ilk hedef</p>
-          <h2>Bugun gercekten kac TL kar ettigini hesapla.</h2>
+          <p className="eyebrow">İlk hedef</p>
+          <h2>Bugün gerçekten kaç TL kâr ettiğini hesapla.</h2>
         </div>
         <Link className="primary-button" href="/register">
-          Hesap olustur
+          Hesap oluştur
         </Link>
       </section>
     </main>
