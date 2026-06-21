@@ -17,6 +17,7 @@ Sensitive data includes:
 - Passwords must be hashed with Argon2 or bcrypt.
 - Auth must use short-lived access tokens and rotating refresh tokens.
 - Logs must mask personal and financial data.
+- Error tracking events must mask personal, financial, token, location, and vehicle data before leaving the API process.
 - Detailed monitoring metrics must require `MONITORING_TOKEN` or an admin JWT.
 - Public health endpoints must not expose personal, financial, token, or environment secret data.
 - Uploaded files must be stored in private S3/R2 buckets.

@@ -6,6 +6,7 @@ import { AttachmentsModule } from './attachments/attachments.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
+import { ErrorTrackingModule } from './error-tracking/error-tracking.module';
 import { ExportsModule } from './exports/exports.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { FuelEntriesModule } from './fuel-entries/fuel-entries.module';
@@ -46,6 +47,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
       })
     }),
     AuditModule,
+    ErrorTrackingModule,
     PrismaModule,
     AuthModule,
     AttachmentsModule,

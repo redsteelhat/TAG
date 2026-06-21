@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
+import { ErrorTrackingService } from '../../error-tracking/error-tracking.service';
 import { maskLogMessage } from '../logging/log-masker';
 
 interface ErrorResponseBody {
@@ -33,6 +34,8 @@ interface HttpExceptionResponse {
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
+  constructor(private readonly errorTrackingService?: ErrorTrackingService) {}
+
   catch(exception: unknown, host: ArgumentsHost) {
     const context = host.switchToHttp();
     const request = context.getRequest<Request>();
@@ -40,6 +43,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const errorResponse = this.toErrorResponse(exception, request);
 
     this.logException(exception, request, errorResponse.statusCode);
+    void this.captureException(exception, request, errorResponse);
 
     response.status(errorResponse.statusCode).json(errorResponse);
   }
@@ -182,6 +186,33 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     this.logger.warn(message);
+  }
+
+  private async captureException(
+    exception: unknown,
+    request: Request,
+    errorResponse: ErrorResponseBody
+  ) {
+    if (
+      !this.errorTrackingService ||
+      errorResponse.statusCode < HttpStatus.INTERNAL_SERVER_ERROR
+    ) {
+      return;
+    }
+
+    await this.errorTrackingService.captureException(exception, {
+      request: {
+        method: request.method,
+        path: request.originalUrl || request.url,
+        requestId: errorResponse.requestId
+      },
+      severity: 'error',
+      source: 'http.exception',
+      tags: {
+        code: errorResponse.code,
+        statusCode: errorResponse.statusCode
+      }
+    });
   }
 
   private withoutUndefined(body: ErrorResponseBody): ErrorResponseBody {

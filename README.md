@@ -90,6 +90,19 @@ curl -H "x-monitoring-token: $MONITORING_TOKEN" http://localhost:3001/api/v1/mon
 
 `/health/live` process liveness, `/health/ready` PostgreSQL ve queue readiness durumunu doner. `/monitoring/metrics` runtime bellek/CPU, dependency check ve queue metriklerini doner; `MONITORING_TOKEN` veya admin JWT gerektirir.
 
+Error tracking:
+
+```bash
+ERROR_TRACKING_ENABLED=true
+ERROR_TRACKING_WEBHOOK_URL=https://errors.example.com/ingest
+ERROR_TRACKING_AUTH_TOKEN=change-me
+ERROR_TRACKING_ENVIRONMENT=production
+ERROR_TRACKING_RELEASE=2026.09.0
+ERROR_TRACKING_SAMPLE_RATE=1
+```
+
+Error tracking 5xx HTTP hatalarini, unhandled rejection ve uncaught exception olaylarini yakalar. Payload gonderilmeden once email, telefon, plaka, token, lokasyon ve finansal alanlar maskelenir.
+
 API performance testi:
 
 ```bash

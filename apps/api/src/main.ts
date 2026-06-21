@@ -10,6 +10,7 @@ import {
   configureExpressSecurity,
   isSwaggerEnabled
 } from './common/security/security';
+import { ErrorTrackingService } from './error-tracking/error-tracking.service';
 import { setupSwagger } from './swagger';
 
 async function bootstrap() {
@@ -34,7 +35,9 @@ async function bootstrap() {
       transform: true
     })
   );
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalFilters(
+    new GlobalExceptionFilter(app.get(ErrorTrackingService))
+  );
 
   if (isSwaggerEnabled(configService)) {
     setupSwagger(app);
