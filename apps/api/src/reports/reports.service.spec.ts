@@ -810,8 +810,9 @@ describe('ReportsService', () => {
     expect(result.breakEvenRevenue).toBe('500.00');
     expect(result.remainingRevenue).toBe('0.00');
     expect(result.surplusRevenue).toBe('100.00');
-    expect(result.breakEvenProgressPercent).toBe('120.00');
+    expect(result.breakEvenProgressPercent).toBe('100.00');
     expect(result.isBreakEvenReached).toBe(true);
+    expect(result.status).toBe('REACHED');
     expect(result.costBreakdown.fuelCost).toBe('150.00');
     expect(result.costBreakdown.tagPackageCost).toBe('250.00');
     expect(result.costBreakdown.fixedExpenses).toBe('100.00');
@@ -845,6 +846,9 @@ describe('ReportsService', () => {
     jest
       .spyOn(service, 'calculateBreakEven')
       .mockResolvedValue(breakEven as never);
+    jest
+      .spyOn(service as never, 'buildDashboardAggregation')
+      .mockResolvedValue({ hasData: true } as never);
 
     const result = await service.getReportOverview('user_1', {
       date: '2026-06-18',
@@ -859,6 +863,7 @@ describe('ReportsService', () => {
     expect(result.kmProfitability).toBe(kmProfitability);
     expect(result.hourlyProfitability).toBe(hourlyProfitability);
     expect(result.breakEven).toBe(breakEven);
+    expect(result.dashboard).toEqual({ hasData: true });
     expect(result.availableReports).toContain('breakEven');
     expect(result.vehicleId).toBe('vehicle_1');
     expect(service.calculateWeeklyProfit).toHaveBeenCalledWith('user_1', {
@@ -871,6 +876,143 @@ describe('ReportsService', () => {
       month: '2026-06',
       vehicleId: 'vehicle_1'
     });
+  });
+
+  it('builds dashboard aggregation from the same daily period data', async () => {
+    const prisma = {
+      $transaction: jest.fn((queries: Array<Promise<unknown>>) =>
+        Promise.all(queries)
+      ),
+      trip: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'trip_1',
+            trip_date: new Date('2026-06-18T09:00:00.000Z'),
+            started_at: new Date('2026-06-18T09:10:00.000Z'),
+            pickup_location: 'Kadıköy',
+            dropoff_location: 'Ataşehir',
+            total_km: new Prisma.Decimal('18'),
+            total_income: new Prisma.Decimal('620'),
+            true_net_profit: new Prisma.Decimal('312')
+          }
+        ])
+      },
+      shift: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            active_minutes: 180,
+            ended_at: null,
+            id: 'shift_1',
+            started_at: new Date('2026-06-18T08:00:00.000Z'),
+            status: 'ACTIVE',
+            total_km: new Prisma.Decimal('54')
+          }
+        ])
+      },
+      vehicle: {
+        findMany: jest.fn().mockResolvedValue([])
+      }
+    };
+    const service = new ReportsService(
+      prisma as never,
+      new ReportCacheService()
+    );
+
+    const result = await (
+      service as unknown as {
+        buildDashboardAggregation: (
+          userId: string,
+          periodRange: unknown,
+          dailyProfit: unknown,
+          kmProfitability: unknown,
+          hourlyProfitability: unknown,
+          breakEven: unknown,
+          vehicleId?: string
+        ) => Promise<{
+          breakEvenProgress: string;
+          breakEvenRemaining: string;
+          breakEvenStatus: string;
+          expenseImpact: Array<{ key: string; percentage: number }>;
+          recentTrips: Array<{ id: string; netProfit: string }>;
+          shiftSummary: { activeMinutes: number; status: string };
+          todayGrossIncome: string;
+        }>;
+      }
+    ).buildDashboardAggregation(
+      'user_1',
+      {
+        date: '2026-06-18',
+        endDate: '2026-06-18',
+        nextStart: new Date('2026-06-19T00:00:00.000Z'),
+        period: 'daily',
+        start: new Date('2026-06-18T00:00:00.000Z'),
+        startDate: '2026-06-18'
+      },
+      {
+        activeMinutes: 180,
+        activePackageCount: 1,
+        actualFuelEntryCount: 1,
+        actualFuelPurchaseCost: '820.00',
+        depreciation: '20.00',
+        directExpenseCount: 1,
+        fixedExpenses: '80.00',
+        fuelCost: '120.00',
+        grossIncome: '620.00',
+        maintenanceReserve: '40.00',
+        netProfit: '210.00',
+        recurringExpenseCount: 1,
+        tagPackageCost: '150.00',
+        totalCost: '410.00',
+        totalKm: '18.00',
+        tripCount: 1,
+        variableExpenses: '0.00'
+      },
+      {
+        netProfitPerKm: '11.67'
+      },
+      {
+        netProfitPerHour: '70.00'
+      },
+      {
+        breakEvenRevenue: '410.00',
+        remainingRevenue: '0.00'
+      },
+      'vehicle_1'
+    );
+
+    expect(result.todayGrossIncome).toBe('620.00');
+    expect(result.breakEvenProgress).toBe('100.00');
+    expect(result.breakEvenRemaining).toBe('0.00');
+    expect(result.breakEvenStatus).toBe('REACHED');
+    expect(result.recentTrips).toEqual([
+      expect.objectContaining({
+        id: 'trip_1',
+        netProfit: '312.00'
+      })
+    ]);
+    expect(result.expenseImpact).toContainEqual(
+      expect.objectContaining({
+        key: 'fuelCost',
+        percentage: 29
+      })
+    );
+    expect(result.shiftSummary).toEqual(
+      expect.objectContaining({
+        activeMinutes: 180,
+        status: 'ACTIVE'
+      })
+    );
+    expect(prisma.trip.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          trip_date: {
+            gte: new Date('2026-06-18T00:00:00.000Z'),
+            lt: new Date('2026-06-19T00:00:00.000Z')
+          },
+          vehicle_id: 'vehicle_1'
+        })
+      })
+    );
   });
 });
 
@@ -1015,14 +1157,16 @@ function expectBreakEvenFormula(report: {
   const remainingRevenue = positiveDifference(breakEvenRevenue, grossIncome);
   const surplusRevenue = positiveDifference(grossIncome, breakEvenRevenue);
   const progress = breakEvenRevenue.gt(0)
-    ? grossIncome.mul(100).div(breakEvenRevenue)
-    : decimal(100);
+    ? Prisma.Decimal.min(grossIncome.mul(100).div(breakEvenRevenue), 100)
+    : decimal(0);
 
   expectMoney(report.breakEvenRevenue, breakEvenRevenue);
   expectMoney(report.remainingRevenue, remainingRevenue);
   expectMoney(report.surplusRevenue, surplusRevenue);
   expectMoney(report.breakEvenProgressPercent, progress);
-  expect(report.isBreakEvenReached).toBe(grossIncome.gte(breakEvenRevenue));
+  expect(report.isBreakEvenReached).toBe(
+    breakEvenRevenue.gt(0) && grossIncome.gte(breakEvenRevenue)
+  );
 }
 
 function sumMoney(...values: Array<string | number | Prisma.Decimal>) {

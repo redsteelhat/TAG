@@ -251,8 +251,13 @@ export class ReportsService {
           breakEvenRevenue
         );
         const breakEvenProgressPercent = breakEvenRevenue.gt(0)
-          ? grossIncome.mul(100).div(breakEvenRevenue)
-          : new Prisma.Decimal(100);
+          ? Prisma.Decimal.min(grossIncome.mul(100).div(breakEvenRevenue), 100)
+          : new Prisma.Decimal(0);
+        const breakEvenStatus = breakEvenRevenue.lte(0)
+          ? 'NO_TARGET'
+          : grossIncome.gte(breakEvenRevenue)
+            ? 'REACHED'
+            : 'IN_PROGRESS';
 
         return {
           date: profit.date,
@@ -267,7 +272,8 @@ export class ReportsService {
           breakEvenProgressPercent: breakEvenProgressPercent
             .toDecimalPlaces(2)
             .toFixed(2),
-          isBreakEvenReached: grossIncome.gte(breakEvenRevenue),
+          isBreakEvenReached: breakEvenStatus === 'REACHED',
+          status: breakEvenStatus,
           netProfit: profit.netProfit,
           costBreakdown: {
             fuelCost: profit.fuelCost,
@@ -333,6 +339,16 @@ export class ReportsService {
           })
         ]);
 
+        const dashboard = await this.buildDashboardAggregation(
+          userId,
+          this.resolveDayRange(query.date),
+          dailyProfit,
+          kmProfitability,
+          hourlyProfitability,
+          breakEven,
+          query.vehicleId
+        );
+
         return {
           generatedAt: new Date().toISOString(),
           vehicleId: query.vehicleId ?? null,
@@ -342,6 +358,7 @@ export class ReportsService {
           kmProfitability,
           hourlyProfitability,
           breakEven,
+          dashboard,
           availableReports: [
             'dailyProfit',
             'weeklyProfit',
@@ -354,6 +371,251 @@ export class ReportsService {
         };
       }
     );
+  }
+
+  private async buildDashboardAggregation(
+    userId: string,
+    periodRange: PeriodRange,
+    dailyProfit: Awaited<ReturnType<ReportsService['calculateDailyProfit']>>,
+    kmProfitability: Awaited<
+      ReturnType<ReportsService['calculateKmProfitability']>
+    >,
+    hourlyProfitability: Awaited<
+      ReturnType<ReportsService['calculateHourlyProfitability']>
+    >,
+    breakEven: Awaited<ReturnType<ReportsService['calculateBreakEven']>>,
+    vehicleId?: string
+  ) {
+    const vehicleFilter = vehicleId ? { vehicle_id: vehicleId } : {};
+    const dateFilter = {
+      gte: periodRange.start,
+      lt: periodRange.nextStart
+    };
+    const vehicleWhereFilter = vehicleId ? { id: vehicleId } : {};
+    const [recentTrips, shifts, vehiclesWithTripsWithoutFuelAssumption] =
+      await this.prisma.$transaction([
+        this.prisma.trip.findMany({
+          where: {
+            user_id: userId,
+            deleted_at: null,
+            trip_date: dateFilter,
+            ...vehicleFilter
+          },
+          orderBy: [
+            {
+              trip_date: 'desc'
+            },
+            {
+              created_at: 'desc'
+            }
+          ],
+          take: 5
+        }),
+        this.prisma.shift.findMany({
+          where: {
+            user_id: userId,
+            status: {
+              not: 'CANCELED'
+            },
+            started_at: dateFilter,
+            ...vehicleFilter
+          },
+          orderBy: {
+            started_at: 'desc'
+          }
+        }),
+        this.prisma.vehicle.findMany({
+          where: {
+            user_id: userId,
+            deleted_at: null,
+            average_consumption_l_per_100km: {
+              lte: 0
+            },
+            trips: {
+              some: {
+                user_id: userId,
+                deleted_at: null,
+                trip_date: dateFilter,
+                total_km: {
+                  gt: 0
+                }
+              }
+            },
+            ...vehicleWhereFilter
+          },
+          select: {
+            id: true,
+            plate_number: true
+          }
+        })
+      ]);
+
+    const grossIncome = this.decimal(dailyProfit.grossIncome);
+    const breakEvenTarget = this.decimal(breakEven.breakEvenRevenue);
+    const totalKm = this.decimal(dailyProfit.totalKm);
+    const activeDuration = dailyProfit.activeMinutes ?? 0;
+    const breakEvenProgress = breakEvenTarget.gt(0)
+      ? Prisma.Decimal.min(grossIncome.mul(100).div(breakEvenTarget), 100)
+      : new Prisma.Decimal(0);
+    const warnings = [];
+
+    if (
+      totalKm.gt(0) &&
+      this.decimal(dailyProfit.fuelCost).lte(0) &&
+      this.decimal(dailyProfit.actualFuelPurchaseCost).lte(0)
+    ) {
+      warnings.push({
+        code: 'MISSING_FUEL_PRICE',
+        message:
+          'Yakıt fiyatı kaydı olmadığı için yakıt maliyeti 0 görünüyor. Tahmini yakıt için en az bir yakıt kaydı ekle.'
+      });
+    }
+
+    for (const vehicle of vehiclesWithTripsWithoutFuelAssumption) {
+      warnings.push({
+        code: 'MISSING_VEHICLE_CONSUMPTION',
+        message: `${vehicle.plate_number} için yakıt varsayımı eksik. Araç ortalama tüketimini güncelle.`
+      });
+    }
+
+    return {
+      date: periodRange.date,
+      startDate: periodRange.startDate,
+      endDate: periodRange.endDate,
+      todayGrossIncome: dailyProfit.grossIncome,
+      todayNetProfit: dailyProfit.netProfit,
+      todayTotalExpense: dailyProfit.totalCost,
+      fuelCost: dailyProfit.fuelCost,
+      packageShare: dailyProfit.tagPackageCost,
+      fixedCostShare: dailyProfit.fixedExpenses,
+      maintenanceReserve: dailyProfit.maintenanceReserve,
+      depreciationCost: dailyProfit.depreciation,
+      totalKm: dailyProfit.totalKm,
+      activeDuration,
+      kmNetProfit:
+        totalKm.gt(0) ? kmProfitability.netProfitPerKm : this.money(new Prisma.Decimal(0)),
+      hourlyNetProfit:
+        activeDuration > 0
+          ? hourlyProfitability.netProfitPerHour
+          : this.money(new Prisma.Decimal(0)),
+      breakEvenTarget: this.money(breakEvenTarget),
+      breakEvenProgress: breakEvenProgress.toDecimalPlaces(2).toFixed(2),
+      breakEvenRemaining: this.money(
+        this.positiveDifference(breakEvenTarget, grossIncome)
+      ),
+      breakEvenStatus:
+        breakEvenTarget.lte(0)
+          ? 'NO_TARGET'
+          : grossIncome.gte(breakEvenTarget)
+            ? 'REACHED'
+            : 'IN_PROGRESS',
+      recentTrips: recentTrips.map((trip) => ({
+        id: trip.id,
+        tripDate: trip.trip_date,
+        startedAt: trip.started_at,
+        pickupLocation: trip.pickup_location,
+        dropoffLocation: trip.dropoff_location,
+        totalKm: trip.total_km.toFixed(2),
+        grossIncome: trip.total_income.toFixed(2),
+        netProfit: trip.true_net_profit.toFixed(2)
+      })),
+      expenseImpact: this.buildExpenseImpact(dailyProfit),
+      shiftSummary: this.buildShiftSummary(shifts, dailyProfit),
+      warnings,
+      hasData:
+        dailyProfit.tripCount > 0 ||
+        dailyProfit.directExpenseCount > 0 ||
+        dailyProfit.actualFuelEntryCount > 0 ||
+        dailyProfit.recurringExpenseCount > 0 ||
+        dailyProfit.activePackageCount > 0,
+      source: {
+        period: 'daily',
+        dateField: 'trip_date / expense_date / started_at',
+        api: '/reports/overview'
+      }
+    };
+  }
+
+  private buildExpenseImpact(
+    dailyProfit: Awaited<ReturnType<ReportsService['calculateDailyProfit']>>
+  ) {
+    const rows = [
+      {
+        key: 'fuelCost',
+        label: 'Yakıt',
+        amount: this.decimal(dailyProfit.fuelCost)
+      },
+      {
+        key: 'packageShare',
+        label: 'Paket payı',
+        amount: this.decimal(dailyProfit.tagPackageCost)
+      },
+      {
+        key: 'fixedCostShare',
+        label: 'Sabit gider',
+        amount: this.decimal(dailyProfit.fixedExpenses)
+      },
+      {
+        key: 'maintenanceReserve',
+        label: 'Bakım rezervi',
+        amount: this.decimal(dailyProfit.maintenanceReserve)
+      },
+      {
+        key: 'depreciationCost',
+        label: 'Amortisman',
+        amount: this.decimal(dailyProfit.depreciation)
+      },
+      {
+        key: 'variableExpenses',
+        label: 'Değişken gider',
+        amount: this.decimal(dailyProfit.variableExpenses)
+      }
+    ];
+    const total = rows.reduce(
+      (sum, row) => sum.plus(row.amount),
+      new Prisma.Decimal(0)
+    );
+
+    return rows
+      .filter((row) => row.amount.gt(0))
+      .map((row) => ({
+        key: row.key,
+        label: row.label,
+        amount: this.money(row.amount),
+        percentage: total.gt(0)
+          ? Prisma.Decimal.min(row.amount.mul(100).div(total), 100)
+              .toDecimalPlaces(0)
+              .toNumber()
+          : 0
+      }));
+  }
+
+  private buildShiftSummary(
+    shifts: Array<{
+      active_minutes: number | null;
+      ended_at: Date | null;
+      id: string;
+      started_at: Date;
+      status: string;
+      total_km: Prisma.Decimal | null;
+    }>,
+    dailyProfit: Awaited<ReturnType<ReportsService['calculateDailyProfit']>>
+  ) {
+    const activeShift = shifts.find((shift) => shift.status === 'ACTIVE');
+    const activeMinutes =
+      dailyProfit.activeMinutes ??
+      shifts.reduce((sum, shift) => sum + (shift.active_minutes ?? 0), 0);
+
+    return {
+      activeShiftId: activeShift?.id ?? null,
+      status: activeShift ? 'ACTIVE' : shifts.length > 0 ? 'COMPLETED' : 'NONE',
+      startedAt: activeShift?.started_at ?? shifts[0]?.started_at ?? null,
+      endedAt: activeShift?.ended_at ?? shifts[0]?.ended_at ?? null,
+      activeMinutes,
+      totalKm: dailyProfit.totalKm,
+      tripCount: dailyProfit.tripCount,
+      shiftCount: dailyProfit.shiftCount
+    };
   }
 
   private buildReportCacheKey(
