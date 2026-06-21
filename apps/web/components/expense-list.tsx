@@ -32,7 +32,7 @@ type ExpenseSortBy = 'amount' | 'createdAt' | 'expenseDate';
 interface Expense {
   id: string;
   vehicleId: string;
-  categöryId?: string | null;
+  categoryId?: string | null;
   expenseType: ExpenseType;
   amount: string;
   expenseDate: string;
@@ -54,7 +54,7 @@ interface Vehicle {
   isActive: boolean;
 }
 
-interface Categöry {
+interface Category {
   id: string;
   name: string;
   expenseType?: ExpenseType | null;
@@ -77,13 +77,13 @@ interface VehiclesResponse {
   data: Vehicle[];
 }
 
-interface CategöriesResponse {
-  data: Categöry[];
+interface CategoriesResponse {
+  data: Category[];
 }
 
 interface ExpenseFilterValues {
   allocationType: string;
-  categöryId: string;
+  categoryId: string;
   endDate: string;
   expenseType: string;
   maxAmount: string;
@@ -99,7 +99,7 @@ interface ExpenseFilterValues {
 interface QuickExpenseFormState {
   allocationType: AllocationType;
   amount: string;
-  categöryId: string;
+  categoryId: string;
   expenseDate: string;
   expenseType: ExpenseType;
   isRecurring: boolean;
@@ -146,49 +146,49 @@ const sortOptions: Array<{ label: string; value: ExpenseSortBy }> = [
 
 const quickExpensePresets: Array<{
   allocationType: AllocationType;
-  categöryName?: string;
+  categoryName?: string;
   expenseType: ExpenseType;
   label: string;
   note: string;
 }> = [
   {
     allocationType: 'IMMEDIATE',
-    categöryName: 'Otopark',
+    categoryName: 'Otopark',
     expenseType: 'VARIABLE',
     label: 'Otopark',
     note: 'Otopark ücreti'
   },
   {
     allocationType: 'IMMEDIATE',
-    categöryName: 'HGS',
+    categoryName: 'HGS',
     expenseType: 'VARIABLE',
     label: 'HGS',
     note: 'HGS gecisi'
   },
   {
     allocationType: 'IMMEDIATE',
-    categöryName: 'Yikama',
+    categoryName: 'Yikama',
     expenseType: 'OPERATIONAL',
     label: 'Yikama',
     note: 'Araç yikama'
   },
   {
     allocationType: 'PER_KM',
-    categöryName: 'Periyodik Bakım',
+    categoryName: 'Periyodik Bakım',
     expenseType: 'SEMI_VARIABLE',
     label: 'Bakım',
     note: 'Bakım gideri'
   },
   {
     allocationType: 'IMMEDIATE',
-    categöryName: 'Ceza',
+    categoryName: 'Ceza',
     expenseType: 'VARIABLE',
     label: 'Ceza',
     note: 'Ceza gideri'
   },
   {
     allocationType: 'DAILY',
-    categöryName: 'Paket / Kullanım Bedeli',
+    categoryName: 'Paket / Kullanım Bedeli',
     expenseType: 'PLATFORM_PACKAGE',
     label: 'Paket',
     note: 'Paket / kullanım bedeli'
@@ -204,7 +204,7 @@ const quickExpensePresets: Array<{
 const emptyQuickExpenseForm: QuickExpenseFormState = {
   allocationType: 'IMMEDIATE',
   amount: '',
-  categöryId: '',
+  categoryId: '',
   expenseDate: new Date().toISOString().slice(0, 10),
   expenseType: 'VARIABLE',
   isRecurring: false,
@@ -217,11 +217,11 @@ const emptyQuickExpenseForm: QuickExpenseFormState = {
 export function ExpenseList() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [categöries, setCategöries] = useState<Categöry[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [meta, setMeta] = useState<ExpensesResponse['meta'] | null>(null);
   const [vehicleId, setVehicleId] = useState('');
-  const [categöryId, setCategöryId] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [expenseType, setExpenseType] = useState('');
   const [allocationType, setAllocationType] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
@@ -263,7 +263,7 @@ export function ExpenseList() {
   }, [expenses]);
   const hasActiveFilters = Boolean(
     vehicleId ||
-    categöryId ||
+    categoryId ||
     expenseType ||
     allocationType ||
     paymentMethod ||
@@ -307,14 +307,14 @@ export function ExpenseList() {
     }));
   }, [quickExpenseForm.vehicleId, vehicles]);
 
-  const quickExpenseCategöries = useMemo(
+  const quickExpenseCategories = useMemo(
     () =>
-      categöries.filter(
-        (categöry) =>
-          !categöry.expenseType ||
-          categöry.expenseType === quickExpenseForm.expenseType
+      categories.filter(
+        (category) =>
+          !category.expenseType ||
+          category.expenseType === quickExpenseForm.expenseType
       ),
-    [categöries, quickExpenseForm.expenseType]
+    [categories, quickExpenseForm.expenseType]
   );
 
   async function fetchReferenceData(token = accessToken) {
@@ -323,11 +323,11 @@ export function ExpenseList() {
     }
 
     try {
-      const [vehiclesResponse, categöriesResponse] = await Promise.all([
+      const [vehiclesResponse, categoriesResponse] = await Promise.all([
         getJson<VehiclesResponse>('/vehicles', {
           accessToken: token
         }),
-        getJson<CategöriesResponse>('/categöries', {
+        getJson<CategoriesResponse>('/categories', {
           accessToken: token,
           query: {
             pageSize: 100,
@@ -338,7 +338,7 @@ export function ExpenseList() {
       ]);
 
       setVehicles(vehiclesResponse.data);
-      setCategöries(categöriesResponse.data);
+      setCategories(categoriesResponse.data);
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : 'Filtre verileri yüklenemedi.'
@@ -351,7 +351,7 @@ export function ExpenseList() {
     pageToLoad = page,
     filters: ExpenseFilterValues = {
       allocationType,
-      categöryId,
+      categoryId,
       endDate,
       expenseType,
       maxAmount,
@@ -377,7 +377,7 @@ export function ExpenseList() {
         accessToken: token,
         query: {
           allocationType: filters.allocationType || undefined,
-          categöryId: filters.categöryId || undefined,
+          categoryId: filters.categoryId || undefined,
           endDate: filters.endDate,
           expenseType: filters.expenseType || undefined,
           maxAmount: normalizeDecimal(filters.maxAmount),
@@ -413,7 +413,7 @@ export function ExpenseList() {
   function clearFilters() {
     const clearedFilters: ExpenseFilterValues = {
       allocationType: '',
-      categöryId: '',
+      categoryId: '',
       endDate: '',
       expenseType: '',
       maxAmount: '',
@@ -427,7 +427,7 @@ export function ExpenseList() {
     };
 
     setVehicleId('');
-    setCategöryId('');
+    setCategoryId('');
     setExpenseType('');
     setAllocationType('');
     setPaymentMethod('');
@@ -481,14 +481,14 @@ export function ExpenseList() {
   }
 
   function applyQuickPreset(preset: (typeof quickExpensePresets)[number]) {
-    const categöryId = preset.categöryName
-      ? findCategöryIdByName(categöries, preset.categöryName)
+    const categoryId = preset.categoryName
+      ? findCategoryIdByName(categories, preset.categoryName)
       : '';
 
     setQuickExpenseForm((currentForm) => ({
       ...currentForm,
       allocationType: preset.allocationType,
-      categöryId,
+      categoryId,
       expenseType: preset.expenseType,
       note: preset.note
     }));
@@ -512,7 +512,7 @@ export function ExpenseList() {
     setQuickExpenseForm((currentForm) => ({
       ...currentForm,
       [key]: value,
-      ...(key === 'expenseType' ? { categöryId: '' } : {})
+      ...(key === 'expenseType' ? { categoryId: '' } : {})
     }));
   }
 
@@ -643,14 +643,14 @@ export function ExpenseList() {
               Kategöri
               <select
                 onChange={(event) =>
-                  updateQuickExpenseForm('categöryId', event.target.value)
+                  updateQuickExpenseForm('categoryId', event.target.value)
                 }
-                value={quickExpenseForm.categöryId}
+                value={quickExpenseForm.categoryId}
               >
                 <option value="">Kategöri yok</option>
-                {quickExpenseCategöries.map((categöry) => (
-                  <option key={categöry.id} value={categöry.id}>
-                    {categöry.name}
+                {quickExpenseCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
                   </option>
                 ))}
               </select>
@@ -791,13 +791,13 @@ export function ExpenseList() {
           <label>
             Kategöri
             <select
-              onChange={(event) => setCategöryId(event.target.value)}
-              value={categöryId}
+              onChange={(event) => setCategoryId(event.target.value)}
+              value={categoryId}
             >
               <option value="">Tüm kategoriler</option>
-              {categöries.map((categöry) => (
-                <option key={categöry.id} value={categöry.id}>
-                  {categöry.name}
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
                 </option>
               ))}
             </select>
@@ -952,7 +952,7 @@ export function ExpenseList() {
               role="row"
             >
               <span>Tarih</span>
-              <span>Kategöri</span>
+              <span>Kategori</span>
               <span>Tip</span>
               <span>Dağıtım</span>
               <span>Ödeme</span>
@@ -973,7 +973,7 @@ export function ExpenseList() {
                 </span>
                 <span>
                   <strong>
-                    {categöryNameById(categöries, expense.categöryId)}
+                    {categoryNameById(categories, expense.categoryId)}
                   </strong>
                   <small>{expense.note || 'Not yok'}</small>
                 </span>
@@ -1016,7 +1016,7 @@ export function ExpenseList() {
               }
               tips={
                 hasActiveFilters
-                  ? ['Kategöri filtresini kaldır', 'Tutar aralığını genişlet']
+                  ? ['Kategori filtresini kaldır', 'Tutar aralığını genişlet']
                   : ['Hızlı preset seç', 'Tutar gir', 'Dağıtım tipini belirle']
               }
             />
@@ -1065,23 +1065,23 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function categöryNameById(categöries: Categöry[], categöryId?: string | null) {
-  if (!categöryId) {
-    return 'Kategöri yok';
+function categoryNameById(categories: Category[], categoryId?: string | null) {
+  if (!categoryId) {
+    return 'Kategori yok';
   }
 
   return (
-    categöries.find((categöry) => categöry.id === categöryId)?.name ??
-    'Kategöri'
+    categories.find((category) => category.id === categoryId)?.name ??
+    'Kategori'
   );
 }
 
-function findCategöryIdByName(categöries: Categöry[], name: string) {
+function findCategoryIdByName(categories: Category[], name: string) {
   const normalizedName = normalizeSearchText(name);
 
   return (
-    categöries.find(
-      (categöry) => normalizeSearchText(categöry.name) === normalizedName
+    categories.find(
+      (category) => normalizeSearchText(category.name) === normalizedName
     )?.id ?? ''
   );
 }
@@ -1143,7 +1143,7 @@ function buildQuickExpensePayload(form: QuickExpenseFormState) {
   return removeEmptyValues({
     allocationType: form.allocationType,
     amount: normalizeDecimal(form.amount),
-    categöryId: form.categöryId,
+    categoryId: form.categoryId,
     expenseDate: form.expenseDate,
     expenseType: form.expenseType,
     isRecurring: form.isRecurring,

@@ -20,13 +20,13 @@ import { TagPackagesService } from './tag-packages.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('tag-packages')
-@ApiTags('TAG Packages')
+@ApiTags('Operation Packages')
 @ApiBearerAuth('access-token')
 export class TagPackagesController {
   constructor(private readonly tagPackagesService: TagPackagesService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a TAG package for the current user' })
+  @ApiOperation({ summary: 'Create an operation package for the current user' })
   @AuditLog({
     action: 'tag_package.create',
     entityType: 'tag_package',
@@ -42,7 +42,7 @@ export class TagPackagesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List current user TAG packages' })
+  @ApiOperation({ summary: 'List current user operation packages' })
   async findAll(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: ListTagPackagesQueryDto
@@ -51,7 +51,7 @@ export class TagPackagesController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a TAG package by id' })
+  @ApiOperation({ summary: 'Get an operation package by id' })
   async findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return {
       data: await this.tagPackagesService.findOne(user.id, id)
@@ -59,7 +59,7 @@ export class TagPackagesController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a TAG package by id' })
+  @ApiOperation({ summary: 'Update an operation package by id' })
   @AuditLog({
     action: 'tag_package.update',
     entityType: 'tag_package',
@@ -76,7 +76,7 @@ export class TagPackagesController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Soft-delete a TAG package by id' })
+  @ApiOperation({ summary: 'Soft-delete an operation package by id' })
   @AuditLog({
     action: 'tag_package.delete',
     entityType: 'tag_package',

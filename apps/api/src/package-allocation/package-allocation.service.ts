@@ -97,6 +97,16 @@ export class PackageAllocationService {
       totalKm: Prisma.Decimal;
     }
   ): Promise<PackageAllocationLine> {
+    if (tagPackage.allocation_method === PackageAllocationMethod.DIRECT_EXPENSE) {
+      return this.calculateDirectExpenseLine(tagPackage, input);
+    }
+
+    if (
+      tagPackage.allocation_method === PackageAllocationMethod.PER_ACTIVE_DAY
+    ) {
+      return this.calculatePerActiveDayLine(tagPackage, input);
+    }
+
     if (tagPackage.allocation_method === PackageAllocationMethod.PER_TRIP) {
       return this.calculatePerTripLine(tagPackage, input);
     }
@@ -105,15 +115,73 @@ export class PackageAllocationService {
       return this.calculatePerKmLine(tagPackage, input);
     }
 
-    return this.calculatePerDayLine(tagPackage);
+    return this.calculatePerDayLine(tagPackage, input);
   }
 
-  private calculatePerDayLine(tagPackage: TagPackage): PackageAllocationLine {
+  private async calculatePerDayLine(
+    tagPackage: TagPackage,
+    input: Pick<TripPackageAllocationInput, 'currentTripId' | 'tripDate' | 'userId'>
+  ): Promise<PackageAllocationLine> {
     const divisor = Math.max(tagPackage.duration_days, 1);
-    const rate = tagPackage.amount.div(divisor);
+    const dailyRate = tagPackage.amount.div(divisor);
+    const tripCount = await this.countTripsOnDay(tagPackage, input);
+    const tripDivisor = Math.max(tripCount + 1, 1);
+    const allocatedCost = dailyRate.div(tripDivisor).toDecimalPlaces(2);
 
     return {
-      allocatedCost: rate.toDecimalPlaces(2),
+      allocatedCost,
+      allocationMethod: tagPackage.allocation_method,
+      packageAmount: tagPackage.amount,
+      packageId: tagPackage.id,
+      packageName: tagPackage.name,
+      rate: dailyRate
+    };
+  }
+
+  private async calculatePerActiveDayLine(
+    tagPackage: TagPackage,
+    input: Pick<TripPackageAllocationInput, 'currentTripId' | 'tripDate' | 'userId'>
+  ): Promise<PackageAllocationLine> {
+    const activeDayCount = await this.countActiveDaysInPackagePeriod(
+      tagPackage,
+      input
+    );
+    const divisor = Math.max(activeDayCount, 1);
+    const activeDayRate = tagPackage.amount.div(divisor);
+    const tripCount = await this.countTripsOnDay(tagPackage, input);
+    const tripDivisor = Math.max(tripCount + 1, 1);
+
+    return {
+      allocatedCost: activeDayRate.div(tripDivisor).toDecimalPlaces(2),
+      allocationMethod: tagPackage.allocation_method,
+      packageAmount: tagPackage.amount,
+      packageId: tagPackage.id,
+      packageName: tagPackage.name,
+      rate: activeDayRate
+    };
+  }
+
+  private async calculateDirectExpenseLine(
+    tagPackage: TagPackage,
+    input: Pick<TripPackageAllocationInput, 'currentTripId' | 'tripDate' | 'userId'>
+  ): Promise<PackageAllocationLine> {
+    if (this.dayKey(tagPackage.starts_at) !== this.dayKey(input.tripDate)) {
+      return {
+        allocatedCost: new Prisma.Decimal(0),
+        allocationMethod: tagPackage.allocation_method,
+        packageAmount: tagPackage.amount,
+        packageId: tagPackage.id,
+        packageName: tagPackage.name,
+        rate: new Prisma.Decimal(0)
+      };
+    }
+
+    const tripCount = await this.countTripsOnDay(tagPackage, input);
+    const tripDivisor = Math.max(tripCount + 1, 1);
+    const rate = tagPackage.amount;
+
+    return {
+      allocatedCost: rate.div(tripDivisor).toDecimalPlaces(2),
       allocationMethod: tagPackage.allocation_method,
       packageAmount: tagPackage.amount,
       packageId: tagPackage.id,
@@ -186,6 +254,80 @@ export class PackageAllocationService {
     });
   }
 
+  private async countTripsOnDay(
+    tagPackage: TagPackage,
+    input: Pick<TripPackageAllocationInput, 'currentTripId' | 'tripDate' | 'userId'>
+  ) {
+    const start = this.startOfUtcDay(input.tripDate);
+    const nextStart = new Date(start);
+
+    nextStart.setUTCDate(nextStart.getUTCDate() + 1);
+
+    return this.prisma.trip.count({
+      where: {
+        id: input.currentTripId
+          ? {
+              not: input.currentTripId
+            }
+          : undefined,
+        user_id: input.userId,
+        vehicle_id: tagPackage.vehicle_id,
+        deleted_at: null,
+        trip_date: {
+          gte: start,
+          lt: nextStart
+        }
+      }
+    });
+  }
+
+  private async countActiveDaysInPackagePeriod(
+    tagPackage: TagPackage,
+    input: Pick<TripPackageAllocationInput, 'currentTripId' | 'tripDate' | 'userId'>
+  ) {
+    const [trips, shifts] = await Promise.all([
+      this.prisma.trip.findMany({
+        where: {
+          id: input.currentTripId
+            ? {
+                not: input.currentTripId
+              }
+            : undefined,
+          user_id: input.userId,
+          vehicle_id: tagPackage.vehicle_id,
+          deleted_at: null,
+          trip_date: {
+            gte: tagPackage.starts_at,
+            lte: tagPackage.ends_at
+          }
+        },
+        select: {
+          trip_date: true
+        }
+      }),
+      this.prisma.shift.findMany({
+        where: {
+          user_id: input.userId,
+          vehicle_id: tagPackage.vehicle_id,
+          started_at: {
+            gte: tagPackage.starts_at,
+            lte: tagPackage.ends_at
+          }
+        },
+        select: {
+          started_at: true
+        }
+      })
+    ]);
+    const activeDays = new Set([
+      ...trips.map((trip) => this.dayKey(trip.trip_date)),
+      ...shifts.map((shift) => this.dayKey(shift.started_at)),
+      this.dayKey(input.tripDate)
+    ]);
+
+    return activeDays.size;
+  }
+
   private async sumTripKmInPackagePeriod(
     tagPackage: TagPackage,
     input: Pick<TripPackageAllocationInput, 'currentTripId' | 'userId'>
@@ -215,5 +357,15 @@ export class PackageAllocationService {
 
   private toDecimal(value: string | Prisma.Decimal) {
     return value instanceof Prisma.Decimal ? value : new Prisma.Decimal(value);
+  }
+
+  private startOfUtcDay(date: Date) {
+    return new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+    );
+  }
+
+  private dayKey(date: Date) {
+    return this.startOfUtcDay(date).toISOString().slice(0, 10);
   }
 }

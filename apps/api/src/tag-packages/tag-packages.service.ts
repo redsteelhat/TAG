@@ -1,7 +1,8 @@
 import {
   BadRequestException,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from '@nestjs/common';
 import {
   PackageAllocationMethod,
@@ -15,6 +16,7 @@ import {
 } from '../common/pagination/pagination';
 import { buildDateRangeFilter } from '../common/utils/date-range';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReportCacheService } from '../reports/report-cache.service';
 import { CreateTagPackageDto } from './dto/create-tag-package.dto';
 import {
   ListTagPackagesQueryDto,
@@ -24,7 +26,10 @@ import { UpdateTagPackageDto } from './dto/update-tag-package.dto';
 
 @Injectable()
 export class TagPackagesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly reportCache?: ReportCacheService
+  ) {}
 
   async create(userId: string, dto: CreateTagPackageDto) {
     const vehicle = await this.findOwnedVehicle(userId, dto.vehicleId);
@@ -35,6 +40,7 @@ export class TagPackagesService {
       endsAt,
       dto.durationDays
     );
+    this.assertPositiveAmount(dto.amount);
 
     const tagPackage = await this.prisma.tagPackage.create({
       data: {
@@ -52,6 +58,8 @@ export class TagPackagesService {
         note: dto.note
       }
     });
+
+    this.invalidateReportCache(userId);
 
     return this.toTagPackageResponse(tagPackage);
   }
@@ -103,6 +111,7 @@ export class TagPackagesService {
           ? undefined
           : currentTagPackage.duration_days)
     );
+    this.assertPositiveAmount(dto.amount ?? currentTagPackage.amount);
 
     const tagPackage = await this.prisma.tagPackage.update({
       where: {
@@ -129,6 +138,8 @@ export class TagPackagesService {
       }
     });
 
+    this.invalidateReportCache(userId);
+
     return this.toTagPackageResponse(tagPackage);
   }
 
@@ -144,6 +155,8 @@ export class TagPackagesService {
         is_active: false
       }
     });
+
+    this.invalidateReportCache(userId);
 
     return {
       success: true
@@ -176,7 +189,7 @@ export class TagPackagesService {
     });
 
     if (!tagPackage) {
-      throw new NotFoundException('TAG package not found.');
+      throw new NotFoundException('Paket bulunamadı.');
     }
 
     return tagPackage;
@@ -306,6 +319,18 @@ export class TagPackagesService {
     }
 
     return date;
+  }
+
+  private assertPositiveAmount(value: string | Prisma.Decimal) {
+    const amount = value instanceof Prisma.Decimal ? value : new Prisma.Decimal(value);
+
+    if (amount.lte(0)) {
+      throw new BadRequestException('Paket tutarı 0’dan büyük olmalı.');
+    }
+  }
+
+  private invalidateReportCache(userId: string) {
+    this.reportCache?.deleteByUser(userId);
   }
 
   private toTagPackageResponse(tagPackage: TagPackage) {

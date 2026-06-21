@@ -17,7 +17,7 @@ export class CreateTagPackageDto {
   @IsString()
   vehicleId!: string;
 
-  @ApiProperty({ example: 'Haftalik TAG paketi' })
+  @ApiProperty({ example: 'Haftalık operasyon paketi' })
   @IsString()
   name!: string;
 
@@ -40,13 +40,12 @@ export class CreateTagPackageDto {
   @Min(1)
   durationDays?: number;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     enum: PackageAllocationMethod,
     example: PackageAllocationMethod.PER_DAY
   })
-  @IsOptional()
   @IsEnum(PackageAllocationMethod)
-  allocationMethod?: PackageAllocationMethod;
+  allocationMethod!: PackageAllocationMethod;
 
   @ApiPropertyOptional({ example: '1240.00' })
   @IsOptional()
@@ -58,7 +57,7 @@ export class CreateTagPackageDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ example: 'Haftalik operasyon paketi' })
+  @ApiPropertyOptional({ example: 'Haftalık operasyon paketi' })
   @IsOptional()
   @IsString()
   note?: string;

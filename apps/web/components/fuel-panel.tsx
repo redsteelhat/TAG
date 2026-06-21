@@ -49,6 +49,7 @@ interface Vehicle {
   plateNumber: string;
   brand?: string | null;
   model?: string | null;
+  averageConsumptionLPer100Km?: string;
   fuelType?: FuelType;
   isActive: boolean;
 }
@@ -92,6 +93,7 @@ interface FuelFilterValues {
 interface FuelFormState {
   amount: string;
   city: string;
+  createdAt: string;
   district: string;
   fuelType: FuelType;
   fullTank: boolean;
@@ -126,13 +128,14 @@ const sortOptions: Array<{ label: string; value: FuelSortBy }> = [
   { label: 'Kayıt tarihi', value: 'createdAt' },
   { label: 'Tutar', value: 'amount' },
   { label: 'Litre', value: 'liters' },
-  { label: 'Litre fiyati', value: 'pricePerLiter' },
+  { label: 'Litre fiyatı', value: 'pricePerLiter' },
   { label: 'Km sayacı', value: 'odometerKm' }
 ];
 
 const emptyFuelForm: FuelFormState = {
   amount: '',
   city: '',
+  createdAt: getLocalDateInputValue(),
   district: '',
   fuelType: 'GASOLINE',
   fullTank: false,
@@ -171,34 +174,24 @@ export function FuelPanel() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingFuel, setIsSavingFuel] = useState(false);
 
+  const selectedFormVehicle = vehicles.find(
+    (vehicle) => vehicle.id === fuelForm.vehicleId
+  );
+  const selectedSummaryVehicle =
+    vehicles.find((vehicle) => vehicle.id === vehicleId) ?? selectedFormVehicle;
+  const calculatedPricePerLiter = calculateLivePricePerLiter(
+    fuelForm.amount,
+    fuelForm.liters
+  );
+  const hasUnsavedFuelDraft = isFuelFormDirty(fuelForm, selectedFormVehicle);
+  const fuelTypeWarning =
+    selectedFormVehicle?.fuelType &&
+    selectedFormVehicle.fuelType !== fuelForm.fuelType
+      ? `Seçili aracın varsayılan yakıt tipi ${fuelTypeLabels[selectedFormVehicle.fuelType]}.`
+      : null;
   const pageMetrics = useMemo(() => {
-    const totals = fuelEntries.reduce(
-      (currentTotals, entry) => ({
-        amount: currentTotals.amount + toNumber(entry.amount),
-        liters: currentTotals.liters + toNumber(entry.liters)
-      }),
-      {
-        amount: 0,
-        liters: 0
-      }
-    );
-    const odometerValues = fuelEntries
-      .map((entry) => toNumber(entry.odometerKm ?? ''))
-      .filter((value) => value > 0)
-      .sort((first, second) => first - second);
-    const kmDelta =
-      odometerValues.length >= 2
-        ? odometerValues[odometerValues.length - 1] - odometerValues[0]
-        : 0;
-
-    return {
-      ...totals,
-      averagePricePerLiter:
-        totals.liters > 0 ? totals.amount / totals.liters : 0,
-      costPerKm: kmDelta > 0 ? totals.amount / kmDelta : 0,
-      consumptionPer100Km: kmDelta > 0 ? (totals.liters / kmDelta) * 100 : 0
-    };
-  }, [fuelEntries]);
+    return buildFuelMetrics(fuelEntries, selectedSummaryVehicle);
+  }, [fuelEntries, selectedSummaryVehicle]);
   const hasActiveFilters = Boolean(
     vehicleId ||
     fuelType ||
@@ -339,13 +332,20 @@ export function FuelPanel() {
       return;
     }
 
+    const validationMessage = validateFuelForm(fuelForm, calculatedPricePerLiter);
+
+    if (validationMessage) {
+      setFormMessage(validationMessage);
+      return;
+    }
+
     setIsSavingFuel(true);
     setFormMessage(null);
 
     try {
       await postJson<FuelEntryResponse>(
         '/fuel-entries',
-        buildFuelPayload(fuelForm),
+        buildFuelPayload(fuelForm, calculatedPricePerLiter),
         { accessToken }
       );
 
@@ -408,9 +408,20 @@ export function FuelPanel() {
 
     setFuelForm({
       ...emptyFuelForm,
+      createdAt: getLocalDateInputValue(),
       fuelType: selectedVehicle?.fuelType ?? emptyFuelForm.fuelType,
       vehicleId: selectedVehicle?.id ?? ''
     });
+  }
+
+  function updateFuelVehicle(vehicleId: string) {
+    const selectedVehicle = vehicles.find((vehicle) => vehicle.id === vehicleId);
+
+    setFuelForm((currentForm) => ({
+      ...currentForm,
+      fuelType: selectedVehicle?.fuelType ?? currentForm.fuelType,
+      vehicleId
+    }));
   }
 
   function updateFuelForm<Key extends keyof FuelFormState>(
@@ -429,7 +440,7 @@ export function FuelPanel() {
         <EmptyState
           actionHref="/login"
           actionLabel="Giriş ekranına git"
-          description="Yakıt tüketimi, litre fiyati ve km başı yakıt maliyetini hesaplamak için aktif oturum gerekiyor."
+          description="Yakıt tüketimi, litre fiyatı ve km başı yakıt maliyetini hesaplamak için aktif oturum gerekiyor."
           eyebrow="Oturum gerekli"
           icon={LockKeyhole}
           title="Yakıt panelini görmek için giriş yap."
@@ -442,7 +453,7 @@ export function FuelPanel() {
     <section className="income-list-page">
       <section className="metric-grid income-metrics" aria-label="Yakıt özeti">
         <MetricCard
-          label="Görüntülenen yakıt"
+          label="Görüntülenen yakıt tutarı"
           value={formatMoney(pageMetrics.amount)}
         />
         <MetricCard
@@ -450,16 +461,17 @@ export function FuelPanel() {
           value={`${formatNumber(pageMetrics.liters)} lt`}
         />
         <MetricCard
-          label="Ortalama litre"
+          label="Ortalama litre fiyatı"
           value={formatMoney(pageMetrics.averagePricePerLiter)}
         />
         <MetricCard
-          label="Tahmini 100 km"
+          label={pageMetrics.consumptionLabel}
           value={
             pageMetrics.consumptionPer100Km > 0
               ? `${formatNumber(pageMetrics.consumptionPer100Km)} lt`
               : 'Veri yok'
           }
+          detail={pageMetrics.consumptionDetail}
         />
       </section>
 
@@ -470,7 +482,9 @@ export function FuelPanel() {
             <h2>Yakıt ekle</h2>
           </div>
           <span className="status-pill">
-            {pageMetrics.costPerKm > 0
+            {hasUnsavedFuelDraft
+              ? 'Kaydedilmemiş taslak'
+              : pageMetrics.costPerKm > 0
               ? `${formatMoney(pageMetrics.costPerKm)} / km`
               : 'Km maliyeti hazır değil'}
           </span>
@@ -482,9 +496,7 @@ export function FuelPanel() {
               Araç
               <select
                 disabled={vehicles.length === 0}
-                onChange={(event) =>
-                  updateFuelForm('vehicleId', event.target.value)
-                }
+                onChange={(event) => updateFuelVehicle(event.target.value)}
                 required
                 value={fuelForm.vehicleId}
               >
@@ -495,6 +507,18 @@ export function FuelPanel() {
                   </option>
                 ))}
               </select>
+            </label>
+
+            <label>
+              Kayıt tarihi
+              <input
+                onChange={(event) =>
+                  updateFuelForm('createdAt', event.target.value)
+                }
+                required
+                type="date"
+                value={fuelForm.createdAt}
+              />
             </label>
 
             <label>
@@ -540,14 +564,15 @@ export function FuelPanel() {
             </label>
 
             <label>
-              Litre fiyati
+              Litre fiyatı
               <input
-                inputMode="decimal"
-                onChange={(event) =>
-                  updateFuelForm('pricePerLiter', event.target.value)
+                placeholder="Tutar ve litre gir"
+                readOnly
+                value={
+                  calculatedPricePerLiter
+                    ? `${formatNumber(calculatedPricePerLiter, 2)} TL/L`
+                    : ''
                 }
-                placeholder={formatOptionalPrice(fuelForm)}
-                value={fuelForm.pricePerLiter}
               />
             </label>
 
@@ -573,7 +598,7 @@ export function FuelPanel() {
               >
                 <option value="">Belirtilmedi</option>
                 <option value="FULL">Full</option>
-                <option value="HALF">Yarim</option>
+                <option value="HALF">Yarım</option>
                 <option value="MANUAL">Manuel</option>
               </select>
             </label>
@@ -618,7 +643,7 @@ export function FuelPanel() {
             </label>
 
             <label>
-              Ilce
+              İlçe
               <input
                 onChange={(event) =>
                   updateFuelForm('district', event.target.value)
@@ -640,6 +665,10 @@ export function FuelPanel() {
             </label>
           </div>
 
+          {fuelTypeWarning ? (
+            <p className="form-hint warning">{fuelTypeWarning}</p>
+          ) : null}
+
           <label className="checkbox-row fuel-checkbox">
             <input
               checked={fuelForm.fullTank}
@@ -650,6 +679,13 @@ export function FuelPanel() {
             />
             Full depo kaydı
           </label>
+
+          {hasUnsavedFuelDraft ? (
+            <p className="form-hint">
+              Bu bilgiler kaydedilene kadar yakıt listesine, dashboard
+              hesaplarına ve sefer net kârına yansımaz.
+            </p>
+          ) : null}
 
           {formMessage ? (
             <p
@@ -676,7 +712,7 @@ export function FuelPanel() {
               disabled={isSavingFuel || vehicles.length === 0}
             >
               <Save aria-hidden="true" className="button-icon" />
-              {isSavingFuel ? 'Kaydediliyor' : 'Yakıt Ekle'}
+              {isSavingFuel ? 'Kaydediliyor' : 'Yakıt ekle'}
             </button>
           </div>
         </form>
@@ -809,7 +845,7 @@ export function FuelPanel() {
           </label>
 
           <label>
-            Sirala
+            Sırala
             <select
               onChange={(event) => setSortBy(event.target.value as FuelSortBy)}
               value={sortBy}
@@ -920,7 +956,7 @@ export function FuelPanel() {
               description={
                 hasActiveFilters
                   ? 'Bu filtrelerle eşleşen yakıt kaydı bulunamadı. Filtreleri temizleyerek tüm yakıt geçmişini görebilirsin.'
-                  : 'Litre, tutar, km sayacı ve istasyon bilgisi girdikce yakıt maliyeti burada analiz edilir.'
+                  : 'Litre, tutar, km sayacı ve istasyon bilgisi girdikçe yakıt maliyeti burada analiz edilir.'
               }
               icon={hasActiveFilters ? FileSearch : Fuel}
               title={
@@ -933,7 +969,7 @@ export function FuelPanel() {
                   ? ['Tarih aralığını genişlet', 'Yakıt tipi filtresini kaldır']
                   : [
                       'Tutar ve litre gir',
-                      'Km sayacıni ekle',
+                      'Km sayacını ekle',
                       'Full depo kaydını işaretle'
                     ]
               }
@@ -971,29 +1007,43 @@ export function FuelPanel() {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+function MetricCard({
+  detail = 'Kaydedilmiş gerçek kayıtlar',
+  label,
+  value
+}: {
+  detail?: string;
+  label: string;
+  value: string;
+}) {
   return (
     <article className="metric-card">
       <div className="metric-card-header">
         <p>{label}</p>
       </div>
       <strong>{value}</strong>
-      <span>Aktif filtre ve sayfa kapsaminda</span>
+      <span>{detail}</span>
     </article>
   );
 }
 
-function buildFuelPayload(form: FuelFormState) {
+function buildFuelPayload(
+  form: FuelFormState,
+  calculatedPricePerLiter: number | null
+) {
   return removeEmptyValues({
     amount: normalizeDecimal(form.amount),
     city: form.city.trim(),
+    createdAt: toFuelEntryDate(form.createdAt),
     district: form.district.trim(),
     fuelType: form.fuelType,
     fullTank: form.fullTank,
     liters: normalizeDecimal(form.liters),
     odometerKm: normalizeDecimal(form.odometerKm),
     paymentMethod: form.paymentMethod,
-    pricePerLiter: normalizeDecimal(form.pricePerLiter),
+    pricePerLiter: calculatedPricePerLiter
+      ? calculatedPricePerLiter.toFixed(3)
+      : undefined,
     receiptUrl: form.receiptUrl.trim(),
     stationName: form.stationName.trim(),
     tankFillLevel: form.tankFillLevel,
@@ -1009,15 +1059,165 @@ function removeEmptyValues(values: Record<string, unknown>) {
   );
 }
 
-function formatOptionalPrice(form: FuelFormState) {
-  const amount = toNumber(form.amount);
-  const liters = toNumber(form.liters);
+function buildFuelMetrics(entries: FuelEntry[], vehicle?: Vehicle) {
+  const totals = entries.reduce(
+    (currentTotals, entry) => ({
+      amount: currentTotals.amount + toNumber(entry.amount),
+      liters: currentTotals.liters + toNumber(entry.liters)
+    }),
+    {
+      amount: 0,
+      liters: 0
+    }
+  );
+  const fullTankConsumption = calculateFullTankConsumption(entries);
+  const vehicleAverageConsumption = toNumber(
+    vehicle?.averageConsumptionLPer100Km ?? ''
+  );
+  const consumptionPer100Km =
+    fullTankConsumption ?? (vehicleAverageConsumption > 0
+      ? vehicleAverageConsumption
+      : 0);
+  const consumptionLabel = fullTankConsumption
+    ? '100 km tüketim'
+    : vehicleAverageConsumption > 0
+      ? 'Tahmini tüketim'
+      : 'Tüketim verisi yok';
+  const consumptionDetail = fullTankConsumption
+    ? 'Full depo kayıtlarından hesaplandı'
+    : vehicleAverageConsumption > 0
+      ? 'Seçili aracın ortalama tüketimi'
+      : 'Full depo veya araç ortalaması gerekli';
+  const odometerValues = entries
+    .map((entry) => toNumber(entry.odometerKm ?? ''))
+    .filter((value) => value > 0)
+    .sort((first, second) => first - second);
+  const kmDelta =
+    odometerValues.length >= 2
+      ? odometerValues[odometerValues.length - 1] - odometerValues[0]
+      : 0;
 
-  if (amount <= 0 || liters <= 0) {
-    return 'Otomatik';
+  return {
+    ...totals,
+    averagePricePerLiter: totals.liters > 0 ? totals.amount / totals.liters : 0,
+    consumptionDetail,
+    consumptionLabel,
+    consumptionPer100Km,
+    costPerKm: kmDelta > 0 ? totals.amount / kmDelta : 0
+  };
+}
+
+function calculateFullTankConsumption(entries: FuelEntry[]) {
+  const orderedFullTankEntries = entries
+    .filter((entry) => entry.fullTank && toNumber(entry.odometerKm ?? '') > 0)
+    .sort(
+      (first, second) =>
+        toNumber(first.odometerKm ?? '') - toNumber(second.odometerKm ?? '')
+    );
+
+  if (orderedFullTankEntries.length < 2) {
+    return null;
   }
 
-  return (amount / liters).toFixed(3);
+  const start = orderedFullTankEntries[orderedFullTankEntries.length - 2];
+  const end = orderedFullTankEntries[orderedFullTankEntries.length - 1];
+  const startKm = toNumber(start.odometerKm ?? '');
+  const endKm = toNumber(end.odometerKm ?? '');
+  const kmDelta = endKm - startKm;
+
+  if (kmDelta <= 0) {
+    return null;
+  }
+
+  const litersBetweenFullTanks = entries
+    .filter((entry) => {
+      const odometerKm = toNumber(entry.odometerKm ?? '');
+
+      return odometerKm > startKm && odometerKm <= endKm;
+    })
+    .reduce((total, entry) => total + toNumber(entry.liters), 0);
+
+  if (litersBetweenFullTanks <= 0) {
+    return null;
+  }
+
+  return (litersBetweenFullTanks / kmDelta) * 100;
+}
+
+function calculateLivePricePerLiter(amountValue: string, litersValue: string) {
+  const amount = toNumber(normalizeDecimal(amountValue) ?? '');
+  const liters = toNumber(normalizeDecimal(litersValue) ?? '');
+  const pricePerLiter = liters > 0 ? amount / liters : 0;
+
+  if (amount <= 0 || liters <= 0 || !Number.isFinite(pricePerLiter)) {
+    return null;
+  }
+
+  return pricePerLiter;
+}
+
+function validateFuelForm(
+  form: FuelFormState,
+  calculatedPricePerLiter: number | null
+) {
+  if (!form.vehicleId) {
+    return 'Araç zorunlu.';
+  }
+
+  if (!form.createdAt) {
+    return 'Kayıt tarihi zorunlu.';
+  }
+
+  if (toNumber(normalizeDecimal(form.amount) ?? '') <= 0) {
+    return 'Tutar 0’dan büyük olmalı.';
+  }
+
+  if (toNumber(normalizeDecimal(form.liters) ?? '') <= 0) {
+    return 'Litre 0’dan büyük olmalı.';
+  }
+
+  if (
+    form.odometerKm &&
+    toNumber(normalizeDecimal(form.odometerKm) ?? '') < 0
+  ) {
+    return 'Km sayacı negatif olamaz.';
+  }
+
+  if (!calculatedPricePerLiter || !Number.isFinite(calculatedPricePerLiter)) {
+    return 'Litre fiyatı hesaplanamadı.';
+  }
+
+  return null;
+}
+
+function isFuelFormDirty(form: FuelFormState, selectedVehicle?: Vehicle) {
+  const defaultFuelType = selectedVehicle?.fuelType ?? emptyFuelForm.fuelType;
+
+  return Boolean(
+    form.amount ||
+      form.city ||
+      form.district ||
+      form.createdAt !== getLocalDateInputValue() ||
+      form.fullTank ||
+      form.liters ||
+      form.odometerKm ||
+      form.paymentMethod !== emptyFuelForm.paymentMethod ||
+      form.receiptUrl ||
+      form.stationName ||
+      form.tankFillLevel ||
+      form.fuelType !== defaultFuelType
+  );
+}
+
+function toFuelEntryDate(date: string) {
+  return new Date(`${date}T12:00:00`).toISOString();
+}
+
+function getLocalDateInputValue() {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60 * 1000;
+
+  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
 }
 
 function formatVehicleLabel(vehicle: Vehicle) {
@@ -1061,9 +1261,9 @@ function formatOdometer(value?: string | null) {
   return `${formatNumber(toNumber(value))} km`;
 }
 
-function formatNumber(value: number) {
+function formatNumber(value: number, maximumFractionDigits = 1) {
   return new Intl.NumberFormat('tr-TR', {
-    maximumFractionDigits: 1
+    maximumFractionDigits
   }).format(value);
 }
 

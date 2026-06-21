@@ -110,7 +110,7 @@ const emptyMaintenanceForm: MaintenanceFormState = {
   vehicleId: ''
 };
 
-const categöryPresets = [
+const categoryPresets = [
   'Periyodik bakım',
   'Mekanik',
   'Elektrik',
@@ -438,14 +438,14 @@ export function MaintenancePanel() {
         </div>
 
         <div className="quick-expense-presets" aria-label="Bakım kategorileri">
-          {categöryPresets.map((preset) => (
+          {categoryPresets.map((preset) => (
             <button
               className="quick-expense-preset"
               key={preset}
               onClick={() =>
                 setForm((currentForm) => ({
                   ...currentForm,
-                  categöry: preset,
+                  categoryId: preset,
                   title:
                     preset === 'Lastik'
                       ? 'Lastik, balans ve rot'
@@ -486,14 +486,14 @@ export function MaintenancePanel() {
             </label>
 
             <label>
-              Kategöri
+              Kategori
               <input
                 required
                 value={form.category}
                 onChange={(event) =>
                   setForm((currentForm) => ({
                     ...currentForm,
-                    categöry: event.target.value
+                    categoryId: event.target.value
                   }))
                 }
               />

@@ -3,6 +3,7 @@ import { FuelType, PaymentMethodType } from '@prisma/client';
 import {
   IsBoolean,
   IsEnum,
+  IsISO8601,
   IsOptional,
   IsString
 } from 'class-validator';
@@ -12,6 +13,11 @@ export class CreateFuelEntryDto {
   @ApiProperty({ example: 'veh_123' })
   @IsString()
   vehicleId!: string;
+
+  @ApiPropertyOptional({ example: '2026-06-18' })
+  @IsOptional()
+  @IsISO8601()
+  createdAt?: string;
 
   @ApiProperty({ enum: FuelType, example: FuelType.GASOLINE })
   @IsEnum(FuelType)

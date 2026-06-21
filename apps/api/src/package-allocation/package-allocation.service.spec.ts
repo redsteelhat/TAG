@@ -29,6 +29,9 @@ describe('PackageAllocationService', () => {
     const service = new PackageAllocationService({
       tagPackage: {
         findMany: jest.fn().mockResolvedValue([buildTagPackage()])
+      },
+      trip: {
+        count: jest.fn().mockResolvedValue(0)
       }
     } as never);
 
@@ -41,6 +44,81 @@ describe('PackageAllocationService', () => {
 
     expect(result.totalAllocatedPackageCost.toFixed(2)).toBe('100.00');
     expect(result.allocationLines[0].rate.toFixed(2)).toBe('100.00');
+  });
+
+  it('splits daily package cost across trips on the same day', async () => {
+    const service = new PackageAllocationService({
+      tagPackage: {
+        findMany: jest.fn().mockResolvedValue([buildTagPackage()])
+      },
+      trip: {
+        count: jest.fn().mockResolvedValue(1)
+      }
+    } as never);
+
+    const result = await service.calculateTripPackageCost({
+      totalKm: new Prisma.Decimal('22'),
+      tripDate: new Date('2026-06-18T10:00:00.000Z'),
+      userId: 'user_1',
+      vehicleId: 'vehicle_1'
+    });
+
+    expect(result.totalAllocatedPackageCost.toFixed(2)).toBe('50.00');
+  });
+
+  it('allocates package cost per active day', async () => {
+    const service = new PackageAllocationService({
+      tagPackage: {
+        findMany: jest.fn().mockResolvedValue([
+          buildTagPackage({
+            allocation_method: PackageAllocationMethod.PER_ACTIVE_DAY
+          })
+        ])
+      },
+      trip: {
+        count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn().mockResolvedValue([
+          { trip_date: new Date('2026-06-18T00:00:00.000Z') },
+          { trip_date: new Date('2026-06-19T00:00:00.000Z') }
+        ])
+      },
+      shift: {
+        findMany: jest.fn().mockResolvedValue([])
+      }
+    } as never);
+
+    const result = await service.calculateTripPackageCost({
+      totalKm: new Prisma.Decimal('22'),
+      tripDate: new Date('2026-06-20T10:00:00.000Z'),
+      userId: 'user_1',
+      vehicleId: 'vehicle_1'
+    });
+
+    expect(result.totalAllocatedPackageCost.toFixed(2)).toBe('233.33');
+  });
+
+  it('allocates direct package expense only on the package start day', async () => {
+    const service = new PackageAllocationService({
+      tagPackage: {
+        findMany: jest.fn().mockResolvedValue([
+          buildTagPackage({
+            allocation_method: PackageAllocationMethod.DIRECT_EXPENSE
+          })
+        ])
+      },
+      trip: {
+        count: jest.fn().mockResolvedValue(0)
+      }
+    } as never);
+
+    const result = await service.calculateTripPackageCost({
+      totalKm: new Prisma.Decimal('22'),
+      tripDate: new Date('2026-06-18T10:00:00.000Z'),
+      userId: 'user_1',
+      vehicleId: 'vehicle_1'
+    });
+
+    expect(result.totalAllocatedPackageCost.toFixed(2)).toBe('700.00');
   });
 
   it('allocates package cost per trip including the current trip', async () => {
@@ -100,6 +178,9 @@ describe('PackageAllocationService', () => {
     const service = new PackageAllocationService({
       tagPackage: {
         findMany: jest.fn().mockResolvedValue([buildTagPackage()])
+      },
+      trip: {
+        count: jest.fn().mockResolvedValue(0)
       }
     } as never);
     const result = await service.calculateTripPackageCost({

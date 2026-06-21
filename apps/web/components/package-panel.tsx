@@ -16,7 +16,12 @@ import { EmptyState } from './empty-state';
 import { getJson, postJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
-type AllocationMethod = 'PER_DAY' | 'PER_TRIP' | 'PER_KM';
+type AllocationMethod =
+  | 'DIRECT_EXPENSE'
+  | 'PER_ACTIVE_DAY'
+  | 'PER_DAY'
+  | 'PER_KM'
+  | 'PER_TRIP';
 type SortDirection = 'asc' | 'desc';
 type PackageSortBy = 'amount' | 'createdAt' | 'endsAt' | 'startsAt';
 
@@ -33,6 +38,20 @@ interface TagPackage {
   breakEvenTarget?: string | null;
   isActive: boolean;
   note?: string | null;
+}
+
+interface DashboardAggregation {
+  depreciationCost: string;
+  fixedCostShare: string;
+  fuelCost: string;
+  maintenanceReserve: string;
+  packageShare: string;
+}
+
+interface ReportOverviewResponse {
+  data: {
+    dashboard: DashboardAggregation;
+  };
 }
 
 interface Vehicle {
@@ -90,9 +109,11 @@ interface PackageFormState {
 }
 
 const allocationMethodLabels: Record<AllocationMethod, string> = {
-  PER_DAY: 'Gune bol',
-  PER_KM: 'Km’ye bol',
-  PER_TRIP: 'Sefere bol'
+  DIRECT_EXPENSE: 'Direkt gider yaz',
+  PER_ACTIVE_DAY: 'Çalışılan güne böl',
+  PER_DAY: 'Güne böl',
+  PER_KM: 'Km’ye böl',
+  PER_TRIP: 'Sefere böl'
 };
 
 const sortOptions: Array<{ label: string; value: PackageSortBy }> = [
@@ -125,6 +146,8 @@ export function PackagePanel() {
   const [meta, setMeta] = useState<TagPackagesResponse['meta'] | null>(null);
   const [packageForm, setPackageForm] =
     useState<PackageFormState>(emptyPackageForm);
+  const [breakEvenContext, setBreakEvenContext] =
+    useState<DashboardAggregation | null>(null);
   const [vehicleId, setVehicleId] = useState('');
   const [allocationMethod, setAllocationMethod] = useState('');
   const [isActive, setIsActive] = useState('');
@@ -139,7 +162,24 @@ export function PackagePanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingBreakEven, setIsLoadingBreakEven] = useState(false);
   const [isSavingPackage, setIsSavingPackage] = useState(false);
+  const overlappingPackages = useMemo(
+    () => findOverlappingActivePackages(packages, packageForm),
+    [packageForm, packages]
+  );
+  const packageDailyShare = calculatePackagePeriodShare(packageForm);
+  const overlappingPackageShare = overlappingPackages.reduce(
+    (total, item) => total + calculatePackageDailyShare(item),
+    0
+  );
+  const suggestedBreakEvenTarget = calculateSuggestedBreakEvenTarget(
+    packageDailyShare + overlappingPackageShare,
+    breakEvenContext
+  );
+  const selectedBreakEvenTarget =
+    normalizeDecimal(packageForm.breakEvenTarget) ??
+    suggestedBreakEvenTarget.toFixed(2);
 
   const pageMetrics = useMemo(() => {
     return packages.reduce(
@@ -188,6 +228,19 @@ export function PackagePanel() {
 
     void fetchPackages(accessToken);
   }, [accessToken, page, sortBy, sortDirection]);
+
+  useEffect(() => {
+    if (!accessToken || !packageForm.vehicleId || !packageForm.startsAt) {
+      setBreakEvenContext(null);
+      return;
+    }
+
+    void fetchBreakEvenContext(
+      accessToken,
+      packageForm.vehicleId,
+      packageForm.startsAt
+    );
+  }, [accessToken, packageForm.startsAt, packageForm.vehicleId]);
 
   useEffect(() => {
     if (packageForm.vehicleId || vehicles.length === 0) {
@@ -274,6 +327,34 @@ export function PackagePanel() {
     }
   }
 
+  async function fetchBreakEvenContext(
+    token: string,
+    selectedVehicleId: string,
+    date: string
+  ) {
+    setIsLoadingBreakEven(true);
+
+    try {
+      const response = await getJson<ReportOverviewResponse>(
+        '/reports/overview',
+        {
+          accessToken: token,
+          query: {
+            date,
+            month: date.slice(0, 7),
+            vehicleId: selectedVehicleId
+          }
+        }
+      );
+
+      setBreakEvenContext(response.data.dashboard);
+    } catch {
+      setBreakEvenContext(null);
+    } finally {
+      setIsLoadingBreakEven(false);
+    }
+  }
+
   async function handlePackageSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -287,13 +368,20 @@ export function PackagePanel() {
       return;
     }
 
+    const validationMessage = validatePackageForm(packageForm);
+
+    if (validationMessage) {
+      setFormMessage(validationMessage);
+      return;
+    }
+
     setIsSavingPackage(true);
     setFormMessage(null);
 
     try {
       await postJson<TagPackageResponse>(
         '/tag-packages',
-        buildPackagePayload(packageForm),
+        buildPackagePayload(packageForm, selectedBreakEvenTarget),
         { accessToken }
       );
 
@@ -301,6 +389,11 @@ export function PackagePanel() {
       resetPackageForm();
       setPage(1);
       await fetchPackages(accessToken, 1);
+      await fetchBreakEvenContext(
+        accessToken,
+        packageForm.vehicleId,
+        packageForm.startsAt
+      );
     } catch (error) {
       setFormMessage(
         error instanceof Error ? error.message : 'Paket kaydedilemedi.'
@@ -392,7 +485,7 @@ export function PackagePanel() {
           value={formatMoney(pageMetrics.dailyCost)}
         />
         <MetricCard
-          label="Başabaş hedefi"
+          label="Başabaş önerisi"
           value={formatMoney(pageMetrics.breakEvenTarget)}
         />
         <MetricCard label="Aktif paket" value={`${pageMetrics.activeCount}`} />
@@ -406,7 +499,7 @@ export function PackagePanel() {
           </div>
           <span className="status-pill">
             {packageForm.amount && packageForm.startsAt && packageForm.endsAt
-              ? `${formatMoney(calculateDailyCost(packageForm))} / gün`
+              ? `${formatMoney(packageDailyShare)} paket payı`
               : 'Dağıtım bekliyor'}
           </span>
         </div>
@@ -485,11 +578,8 @@ export function PackagePanel() {
               Geçerlilik günü
               <input
                 inputMode="numeric"
-                onChange={(event) =>
-                  updatePackageForm('durationDays', event.target.value)
-                }
-                placeholder={String(calculateDurationDays(packageForm))}
-                value={packageForm.durationDays}
+                readOnly
+                value={String(calculateDurationDays(packageForm))}
               />
             </label>
 
@@ -515,17 +605,32 @@ export function PackagePanel() {
             </label>
 
             <label>
-              Başabaş hedefi
+              Başabaş override
               <input
                 inputMode="decimal"
                 onChange={(event) =>
                   updatePackageForm('breakEvenTarget', event.target.value)
                 }
-                placeholder="1240.00"
+                placeholder={formatDecimalInput(suggestedBreakEvenTarget)}
                 value={packageForm.breakEvenTarget}
               />
             </label>
           </div>
+
+          <div className="form-hint">
+            Sistem önerisi: {formatMoney(suggestedBreakEvenTarget)}
+            {isLoadingBreakEven ? ' (hesaplanıyor)' : ''}. Formül: paket payı +
+            tahmini günlük yakıt + sabit gider + bakım rezervi + amortisman.
+          </div>
+
+          {overlappingPackages.length > 0 ? (
+            <p className="form-hint warning">
+              Seçili araç ve tarih aralığında {overlappingPackages.length} aktif
+              paket daha var. Toplam paket payı{' '}
+              {formatMoney(packageDailyShare + overlappingPackageShare)} olarak
+              öneriye dahil edildi.
+            </p>
+          ) : null}
 
           <div className="quick-expense-bottom-row">
             <label>
@@ -534,7 +639,7 @@ export function PackagePanel() {
                 onChange={(event) =>
                   updatePackageForm('note', event.target.value)
                 }
-                placeholder="Haftalık operasyon paketi"
+                placeholder="Platform paketi / çalışma paketi notu"
                 value={packageForm.note}
               />
             </label>
@@ -576,7 +681,7 @@ export function PackagePanel() {
               disabled={isSavingPackage || vehicles.length === 0}
             >
               <Save aria-hidden="true" className="button-icon" />
-              {isSavingPackage ? 'Kaydediliyor' : 'Paket Ekle'}
+              {isSavingPackage ? 'Kaydediliyor' : 'Paket ekle'}
             </button>
           </div>
         </form>
@@ -674,7 +779,7 @@ export function PackagePanel() {
           </label>
 
           <label>
-            Sirala
+            Sırala
             <select
               onChange={(event) =>
                 setSortBy(event.target.value as PackageSortBy)
@@ -808,7 +913,7 @@ export function PackagePanel() {
                       'Dönem aralığını genişlet'
                     ]
                   : [
-                      'Paket tutarıni gir',
+                      'Paket tutarını gir',
                       'Başlangıç ve bitiş seç',
                       'Dağıtım metodunu belirle'
                     ]
@@ -854,17 +959,21 @@ function MetricCard({ label, value }: { label: string; value: string }) {
         <p>{label}</p>
       </div>
       <strong>{value}</strong>
-      <span>Aktif filtre ve sayfa kapsaminda</span>
+      <span>Kaydedilmiş paket kayıtları</span>
     </article>
   );
 }
 
-function buildPackagePayload(form: PackageFormState) {
+function buildPackagePayload(
+  form: PackageFormState,
+  suggestedBreakEvenTarget: string
+) {
   return removeEmptyValues({
     allocationMethod: form.allocationMethod,
     amount: normalizeDecimal(form.amount),
-    breakEvenTarget: normalizeDecimal(form.breakEvenTarget),
-    durationDays: form.durationDays ? Number(form.durationDays) : undefined,
+    breakEvenTarget:
+      normalizeDecimal(form.breakEvenTarget) ?? suggestedBreakEvenTarget,
+    durationDays: calculateDurationDays(form),
     endsAt: form.endsAt,
     isActive: form.isActive,
     name: form.name.trim(),
@@ -883,12 +992,95 @@ function removeEmptyValues(values: Record<string, unknown>) {
 }
 
 function calculateDailyCost(form: PackageFormState) {
+  return calculatePackagePeriodShare(form);
+}
+
+function calculatePackagePeriodShare(form: PackageFormState) {
   const amount = toNumber(form.amount);
-  const durationDays = form.durationDays
-    ? Number(form.durationDays)
-    : calculateDurationDays(form);
+
+  if (form.allocationMethod === 'DIRECT_EXPENSE') {
+    return amount;
+  }
+
+  const durationDays = calculateDurationDays(form);
 
   return durationDays > 0 ? amount / durationDays : 0;
+}
+
+function calculatePackageDailyShare(item: TagPackage) {
+  if (item.allocationMethod === 'DIRECT_EXPENSE') {
+    return toNumber(item.amount);
+  }
+
+  return toNumber(item.dailyCost);
+}
+
+function calculateSuggestedBreakEvenTarget(
+  packageShare: number,
+  dashboard: DashboardAggregation | null
+) {
+  return (
+    packageShare +
+    toNumber(dashboard?.fuelCost ?? '0') +
+    toNumber(dashboard?.fixedCostShare ?? '0') +
+    toNumber(dashboard?.maintenanceReserve ?? '0') +
+    toNumber(dashboard?.depreciationCost ?? '0')
+  );
+}
+
+function findOverlappingActivePackages(
+  packages: TagPackage[],
+  form: PackageFormState
+) {
+  if (!form.vehicleId || !form.startsAt || !form.endsAt) {
+    return [];
+  }
+
+  const startsAt = new Date(form.startsAt);
+  const endsAt = new Date(form.endsAt);
+
+  if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+    return [];
+  }
+
+  return packages.filter((item) => {
+    if (!item.isActive || item.vehicleId !== form.vehicleId) {
+      return false;
+    }
+
+    const itemStartsAt = new Date(item.startsAt);
+    const itemEndsAt = new Date(item.endsAt);
+
+    return itemStartsAt <= endsAt && itemEndsAt >= startsAt;
+  });
+}
+
+function validatePackageForm(form: PackageFormState) {
+  if (!form.vehicleId) {
+    return 'Araç zorunlu.';
+  }
+
+  if (!form.allocationMethod) {
+    return 'Dağıtım yöntemi zorunlu.';
+  }
+
+  if (toNumber(normalizeDecimal(form.amount) ?? '') <= 0) {
+    return 'Paket tutarı 0’dan büyük olmalı.';
+  }
+
+  if (!form.startsAt || !form.endsAt) {
+    return 'Başlangıç ve bitiş tarihi zorunlu.';
+  }
+
+  if (new Date(form.endsAt) < new Date(form.startsAt)) {
+    return 'Bitiş tarihi başlangıçtan önce olamaz.';
+  }
+
+  return null;
+}
+
+function formatDecimalInput(value: number) {
+  return Number.isFinite(value) ? value.toFixed(2) : '0.00';
 }
 
 function calculateDurationDays(

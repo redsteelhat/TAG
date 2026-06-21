@@ -2367,6 +2367,23 @@ h2 {
   padding: 10px 12px;
 }
 
+.form-hint {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.form-hint.warning {
+  border-color: #f3c7b2;
+  background: var(--warning-soft);
+  color: #9a3412;
+}
+
 .form-error {
   border: 1px solid #f0b4aa;
   border-radius: 8px;

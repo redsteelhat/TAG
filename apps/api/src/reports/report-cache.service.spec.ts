@@ -39,4 +39,15 @@ describe('ReportCacheService', () => {
     expect(cache.deleteByPrefix('reports:v1:user_1')).toBe(2);
     expect(cache.size()).toBe(1);
   });
+
+  it('deletes cached reports by user id across report versions', async () => {
+    const cache = new ReportCacheService();
+
+    await cache.getOrSet('reports:v1:user_1:daily', 1_000, async () => 1);
+    await cache.getOrSet('reports:v2:user_1:overview', 1_000, async () => 2);
+    await cache.getOrSet('reports:v1:user_2:daily', 1_000, async () => 3);
+
+    expect(cache.deleteByUser('user_1')).toBe(2);
+    expect(cache.size()).toBe(1);
+  });
 });

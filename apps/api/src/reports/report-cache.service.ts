@@ -49,6 +49,20 @@ export class ReportCacheService {
     return deletedCount;
   }
 
+  deleteByUser(userId: string) {
+    let deletedCount = 0;
+    const marker = `:${userId}:`;
+
+    for (const key of this.cache.keys()) {
+      if (key.includes(marker)) {
+        this.cache.delete(key);
+        deletedCount += 1;
+      }
+    }
+
+    return deletedCount;
+  }
+
   clear() {
     this.cache.clear();
   }

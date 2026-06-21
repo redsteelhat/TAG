@@ -988,6 +988,13 @@ export class ReportsService {
     tagPackage: TagPackage,
     periodRange: PeriodRange
   ) {
+    if (tagPackage.allocation_method === PackageAllocationMethod.DIRECT_EXPENSE) {
+      return tagPackage.starts_at >= periodRange.start &&
+        tagPackage.starts_at < periodRange.nextStart
+        ? tagPackage.amount
+        : new Prisma.Decimal(0);
+    }
+
     if (tagPackage.allocation_method === PackageAllocationMethod.PER_TRIP) {
       const [periodTripCount, packageTripCount] = await Promise.all([
         this.prisma.trip.count({
@@ -1043,6 +1050,30 @@ export class ReportsService {
       return tagPackage.amount.mul(periodKm).div(packageKm).toDecimalPlaces(2);
     }
 
+    if (
+      tagPackage.allocation_method === PackageAllocationMethod.PER_ACTIVE_DAY
+    ) {
+      const [periodActiveDays, packageActiveDays] = await Promise.all([
+        this.countActiveWorkDays(userId, tagPackage.vehicle_id, {
+          gte: periodRange.start,
+          lt: periodRange.nextStart
+        }),
+        this.countActiveWorkDays(userId, tagPackage.vehicle_id, {
+          gte: tagPackage.starts_at,
+          lte: tagPackage.ends_at
+        })
+      ]);
+
+      if (packageActiveDays === 0) {
+        return new Prisma.Decimal(0);
+      }
+
+      return tagPackage.amount
+        .mul(periodActiveDays)
+        .div(packageActiveDays)
+        .toDecimalPlaces(2);
+    }
+
     const coveredDays = this.countCoveredDays(
       periodRange,
       tagPackage.starts_at,
@@ -1053,6 +1084,55 @@ export class ReportsService {
       .div(Math.max(tagPackage.duration_days, 1))
       .mul(coveredDays)
       .toDecimalPlaces(2);
+  }
+
+  private async countActiveWorkDays(
+    userId: string,
+    vehicleId: string,
+    dateRange: Prisma.DateTimeFilter
+  ) {
+    const activeWorkDayKeys = await this.findActiveWorkDayKeysForRange(
+      userId,
+      vehicleId,
+      dateRange
+    );
+
+    return activeWorkDayKeys.size;
+  }
+
+  private async findActiveWorkDayKeysForRange(
+    userId: string,
+    vehicleId: string,
+    dateRange: Prisma.DateTimeFilter
+  ) {
+    const [trips, shifts] = await Promise.all([
+      this.prisma.trip.findMany({
+        where: {
+          user_id: userId,
+          vehicle_id: vehicleId,
+          deleted_at: null,
+          trip_date: dateRange
+        },
+        select: {
+          trip_date: true
+        }
+      }),
+      this.prisma.shift.findMany({
+        where: {
+          user_id: userId,
+          vehicle_id: vehicleId,
+          started_at: dateRange
+        },
+        select: {
+          started_at: true
+        }
+      })
+    ]);
+
+    return new Set([
+      ...trips.map((trip) => this.dayKey(trip.trip_date)),
+      ...shifts.map((shift) => this.dayKey(shift.started_at))
+    ]);
   }
 
   private async sumTripKm(

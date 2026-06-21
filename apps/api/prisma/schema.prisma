@@ -66,8 +66,10 @@ enum AllocationType {
 
 enum PackageAllocationMethod {
   PER_DAY
+  PER_ACTIVE_DAY
   PER_TRIP
   PER_KM
+  DIRECT_EXPENSE
 }
 
 enum FixedCostAllocationMethod {

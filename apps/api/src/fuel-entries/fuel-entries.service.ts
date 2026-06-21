@@ -1,7 +1,8 @@
 import {
   BadRequestException,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from '@nestjs/common';
 import { FuelEntry, PaymentMethodType, Prisma } from '@prisma/client';
 import { SortDirection } from '../common/dto/pagination-query.dto';
@@ -11,6 +12,7 @@ import {
 } from '../common/pagination/pagination';
 import { buildDateRangeFilter } from '../common/utils/date-range';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReportCacheService } from '../reports/report-cache.service';
 import { CreateFuelEntryDto } from './dto/create-fuel-entry.dto';
 import {
   FuelEntrySortBy,
@@ -20,7 +22,10 @@ import { UpdateFuelEntryDto } from './dto/update-fuel-entry.dto';
 
 @Injectable()
 export class FuelEntriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly reportCache?: ReportCacheService
+  ) {}
 
   async create(userId: string, dto: CreateFuelEntryDto) {
     const vehicle = await this.findOwnedVehicle(userId, dto.vehicleId);
@@ -33,6 +38,7 @@ export class FuelEntriesService {
         user_id: userId,
         vehicle_id: vehicle.id,
         fuel_type: dto.fuelType,
+        created_at: dto.createdAt ? this.toDate(dto.createdAt) : undefined,
         amount: dto.amount,
         liters: dto.liters,
         price_per_liter: pricePerLiter,
@@ -46,6 +52,8 @@ export class FuelEntriesService {
         receipt_url: dto.receiptUrl
       }
     });
+
+    this.invalidateReportCache(userId);
 
     return this.toFuelEntryResponse(fuelEntry);
   }
@@ -96,6 +104,10 @@ export class FuelEntriesService {
       data: {
         vehicle_id: vehicle.id,
         fuel_type: dto.fuelType ?? currentFuelEntry.fuel_type,
+        created_at:
+          dto.createdAt !== undefined
+            ? this.toDate(dto.createdAt)
+            : currentFuelEntry.created_at,
         amount,
         liters,
         price_per_liter: pricePerLiter,
@@ -127,6 +139,8 @@ export class FuelEntriesService {
       }
     });
 
+    this.invalidateReportCache(userId);
+
     return this.toFuelEntryResponse(fuelEntry);
   }
 
@@ -141,6 +155,8 @@ export class FuelEntriesService {
         deleted_at: new Date()
       }
     });
+
+    this.invalidateReportCache(userId);
 
     return {
       success: true
@@ -341,6 +357,20 @@ export class FuelEntriesService {
     }
 
     return amount.div(liters).toFixed(3);
+  }
+
+  private toDate(value: string) {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException('Invalid fuel entry date value.');
+    }
+
+    return date;
+  }
+
+  private invalidateReportCache(userId: string) {
+    this.reportCache?.deleteByUser(userId);
   }
 
   private toFuelEntryResponse(fuelEntry: FuelEntry) {
