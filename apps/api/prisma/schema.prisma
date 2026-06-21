@@ -447,6 +447,9 @@ model MaintenanceEntry {
   maintenance_date     DateTime
   odometer_km          Decimal?       @db.Decimal(12, 1)
   expected_interval_km Decimal?       @db.Decimal(12, 1)
+  next_maintenance_km  Decimal?       @db.Decimal(12, 1)
+  estimated_next_date  DateTime?
+  reminder_enabled     Boolean        @default(true)
   cost_per_km          Decimal?       @db.Decimal(10, 4)
   service_name         String?
   allocation_type      AllocationType @default(PER_KM)

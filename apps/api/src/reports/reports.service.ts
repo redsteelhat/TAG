@@ -810,11 +810,18 @@ export class ReportsService {
     const fixedExpenses = this.decimal(tripAggregate._sum.allocated_fixed_cost)
       .plus(directCosts.fixed)
       .plus(recurringCosts.fixed);
+    const maintenanceEntryReserve =
+      await this.calculateMaintenanceReserveFromEntries(
+        userId,
+        periodRange,
+        vehicleId,
+      );
     const maintenanceReserve = this.decimal(
       tripAggregate._sum.allocated_maintenance_cost,
     )
       .plus(directCosts.maintenance)
-      .plus(recurringCosts.maintenance);
+      .plus(recurringCosts.maintenance)
+      .plus(maintenanceEntryReserve);
     const depreciation = this.decimal(
       tripAggregate._sum.allocated_depreciation_cost,
     )
@@ -905,6 +912,7 @@ export class ReportsService {
         directVariableExpenseCost: this.money(directCosts.variable),
         directFixedExpenseCost: this.money(directCosts.fixed),
         directMaintenanceExpenseCost: this.money(directCosts.maintenance),
+        maintenanceEntryReserveCost: this.money(maintenanceEntryReserve),
         directDepreciationExpenseCost: this.money(directCosts.depreciation),
       },
       formula: {
@@ -913,6 +921,8 @@ export class ReportsService {
           "estimated consumption from recorded trip km; actual fuel purchases are reported separately",
         tagPackageCost:
           "period active package allocation + direct package expenses + recurring package expenses",
+        maintenanceReserve:
+          "latest maintenance cost-per-km plans x period trip kilometers",
       },
       calculationWarnings: periodNetProfit.warnings,
       calculationVersion: this.calculationVersion,
@@ -925,6 +935,111 @@ export class ReportsService {
         this.addExpenseToBuckets(buckets, expense.expense_type, expense.amount),
       this.emptyCostBuckets(),
     );
+  }
+
+  private async calculateMaintenanceReserveFromEntries(
+    userId: string,
+    periodRange: PeriodRange,
+    vehicleId?: string,
+  ) {
+    const tripDelegate = this.prisma.trip as unknown as {
+      groupBy?: unknown;
+    };
+    const prismaWithMaintenance = this.prisma as unknown as {
+      maintenanceEntry?: unknown;
+    };
+
+    if (
+      typeof tripDelegate.groupBy !== "function" ||
+      !prismaWithMaintenance.maintenanceEntry
+    ) {
+      return new Prisma.Decimal(0);
+    }
+
+    const vehicleFilter = vehicleId
+      ? {
+          vehicle_id: vehicleId,
+        }
+      : {};
+    const [tripKmByVehicle, maintenanceEntries] = await Promise.all([
+      this.prisma.trip.groupBy({
+        by: ["vehicle_id"],
+        where: {
+          user_id: userId,
+          deleted_at: null,
+          trip_date: {
+            gte: periodRange.start,
+            lt: periodRange.nextStart,
+          },
+          ...vehicleFilter,
+        },
+        _sum: {
+          total_km: true,
+        },
+      }),
+      this.prisma.maintenanceEntry.findMany({
+        where: {
+          user_id: userId,
+          deleted_at: null,
+          cost_per_km: {
+            not: null,
+          },
+          expected_interval_km: {
+            not: null,
+          },
+          maintenance_date: {
+            lt: periodRange.nextStart,
+          },
+          ...vehicleFilter,
+        },
+        orderBy: [
+          {
+            maintenance_date: "desc",
+          },
+          {
+            created_at: "desc",
+          },
+        ],
+      }),
+    ]);
+
+    const latestMaintenancePlans = new Map<string, Prisma.Decimal>();
+
+    for (const entry of maintenanceEntries) {
+      if (!entry.cost_per_km) {
+        continue;
+      }
+
+      const planKey = [
+        entry.vehicle_id,
+        entry.category.trim().toLocaleLowerCase("tr-TR"),
+        entry.title.trim().toLocaleLowerCase("tr-TR"),
+      ].join(":");
+
+      if (!latestMaintenancePlans.has(planKey)) {
+        latestMaintenancePlans.set(planKey, entry.cost_per_km);
+      }
+    }
+
+    const costPerKmByVehicle = new Map<string, Prisma.Decimal>();
+
+    for (const [planKey, costPerKm] of latestMaintenancePlans) {
+      const vehicleKey = planKey.split(":")[0];
+      const currentTotal =
+        costPerKmByVehicle.get(vehicleKey) ?? new Prisma.Decimal(0);
+
+      costPerKmByVehicle.set(vehicleKey, currentTotal.plus(costPerKm));
+    }
+
+    return tripKmByVehicle
+      .reduce((total, group) => {
+        const tripKm = this.decimal(group._sum.total_km);
+        const costPerKm =
+          costPerKmByVehicle.get(group.vehicle_id) ?? new Prisma.Decimal(0);
+
+        return total.plus(tripKm.mul(costPerKm));
+      }, new Prisma.Decimal(0))
+      .toDecimalPlaces(2);
   }
 
   private async calculateRecurringExpenseBuckets(

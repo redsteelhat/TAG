@@ -1,12 +1,12 @@
-import { BadRequestException, Injectable, Optional } from '@nestjs/common';
-import { Prisma, Vehicle } from '@prisma/client';
+import { BadRequestException, Injectable, Optional } from "@nestjs/common";
+import { Prisma, Vehicle } from "@prisma/client";
 import {
   CalculationWarning,
-  FinanceCalculationEngine
-} from '../finance-calculation/finance-calculation.engine';
-import { FuelCostService } from '../fuel-cost/fuel-cost.service';
-import { PackageAllocationService } from '../package-allocation/package-allocation.service';
-import { PrismaService } from '../prisma/prisma.service';
+  FinanceCalculationEngine,
+} from "../finance-calculation/finance-calculation.engine";
+import { FuelCostService } from "../fuel-cost/fuel-cost.service";
+import { PackageAllocationService } from "../package-allocation/package-allocation.service";
+import { PrismaService } from "../prisma/prisma.service";
 
 export interface TripIncomeCalculationInput {
   cancellationIncome?: string | Prisma.Decimal | null;
@@ -55,36 +55,36 @@ export interface TripProfitBreakdownSnapshot {
 
 @Injectable()
 export class IncomeCalculationService {
-  readonly calculationVersion = 'income-calculation-v1';
+  readonly calculationVersion = "income-calculation-v1";
 
   constructor(
     private readonly financeCalculationEngine: FinanceCalculationEngine,
     private readonly fuelCostService: FuelCostService,
     private readonly packageAllocationService: PackageAllocationService,
-    @Optional() private readonly prisma?: PrismaService
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   async calculateTripIncome(
     userId: string,
     vehicle: Vehicle,
-    input: TripIncomeCalculationInput
+    input: TripIncomeCalculationInput,
   ): Promise<TripIncomeCalculationResult> {
     const zero = new Prisma.Decimal(0);
     const grossIncome = this.toDecimal(input.grossIncome);
-    const tipAmount = this.toDecimal(input.tipAmount ?? '0');
-    const cancellationIncome = this.toDecimal(input.cancellationIncome ?? '0');
-    const tripKm = this.toDecimal(input.tripKm ?? '0');
-    const deadheadKm = this.toDecimal(input.deadheadKm ?? '0');
+    const tipAmount = this.toDecimal(input.tipAmount ?? "0");
+    const cancellationIncome = this.toDecimal(input.cancellationIncome ?? "0");
+    const tripKm = this.toDecimal(input.tripKm ?? "0");
+    const deadheadKm = this.toDecimal(input.deadheadKm ?? "0");
     const totalKm = tripKm.plus(deadheadKm);
     const durationMinutes = this.resolveDurationMinutes(
       input.startedAt,
       input.endedAt,
-      input.durationMinutes ?? null
+      input.durationMinutes ?? null,
     );
     const estimatedFuelCost = await this.calculateEstimatedFuelCost(
       userId,
       vehicle,
-      totalKm
+      totalKm,
     );
     const packageAllocation =
       await this.packageAllocationService.calculateTripPackageCost({
@@ -92,30 +92,34 @@ export class IncomeCalculationService {
         totalKm,
         tripDate: this.resolveTripDate(input.tripDate, input.startedAt),
         userId,
-        vehicleId: vehicle.id
+        vehicleId: vehicle.id,
       });
-    const allocatedPackageCost =
-      packageAllocation.totalAllocatedPackageCost;
+    const allocatedPackageCost = packageAllocation.totalAllocatedPackageCost;
     const allocatedFixedCost = zero;
-    const allocatedMaintenanceCost = zero;
+    const allocatedMaintenanceCost = await this.calculateMaintenanceCost(
+      userId,
+      vehicle,
+      totalKm,
+      this.resolveTripDate(input.tripDate, input.startedAt),
+    );
     const allocatedDepreciationCost = await this.calculateDepreciationCost(
       userId,
       vehicle,
       totalKm,
       {
         currentTripId: input.currentTripId,
-        tripDate: this.resolveTripDate(input.tripDate, input.startedAt)
-      }
+        tripDate: this.resolveTripDate(input.tripDate, input.startedAt),
+      },
     );
     const allocatedOtherVariableCost = zero;
     const cashNetProfitResult =
       this.financeCalculationEngine.calculateTripNetProfit({
         cancellationIncome,
         costs: {
-          fuelCost: estimatedFuelCost
+          fuelCost: estimatedFuelCost,
         },
         grossIncome,
-        tipAmount
+        tipAmount,
       });
     const trueNetProfitResult =
       this.financeCalculationEngine.calculateTripNetProfit({
@@ -126,10 +130,10 @@ export class IncomeCalculationService {
           fuelCost: estimatedFuelCost,
           maintenanceReserve: allocatedMaintenanceCost,
           packageShare: allocatedPackageCost,
-          variableCostShare: allocatedOtherVariableCost
+          variableCostShare: allocatedOtherVariableCost,
         },
         grossIncome,
-        tipAmount
+        tipAmount,
       });
 
     return {
@@ -145,7 +149,7 @@ export class IncomeCalculationService {
       formulaDescription: trueNetProfitResult.formulaDescription,
       totalIncome: trueNetProfitResult.value.totalIncome,
       totalKm,
-      trueNetProfit: trueNetProfitResult.value.netProfit
+      trueNetProfit: trueNetProfitResult.value.netProfit,
     };
   }
 
@@ -165,41 +169,37 @@ export class IncomeCalculationService {
       cashNetProfit: trip.cash_net_profit.toFixed(2),
       trueNetProfit: trip.true_net_profit.toFixed(2),
       method: {
-        totalIncome: 'gross_plus_tip_plus_cancellation',
-        fuel: 'latest_fuel_price_x_vehicle_average_consumption_x_total_km',
-        package: 'active_tag_packages_allocated_by_package_method',
-        fixedCost: 'placeholder_zero_until_fixed_cost_allocation_service',
-        maintenance:
-          'placeholder_zero_until_maintenance_reserve_allocation_service',
-        depreciation: 'vehicle_depreciation_settings',
+        totalIncome: "gross_plus_tip_plus_cancellation",
+        fuel: "latest_fuel_price_x_vehicle_average_consumption_x_total_km",
+        package: "active_tag_packages_allocated_by_package_method",
+        fixedCost: "placeholder_zero_until_fixed_cost_allocation_service",
+        maintenance: "latest_maintenance_cost_per_km_x_total_km",
+        depreciation: "vehicle_depreciation_settings",
         otherVariable:
-          'placeholder_zero_until_variable_expense_allocation_service'
+          "placeholder_zero_until_variable_expense_allocation_service",
       },
-      placeholderCosts: [
-        'fixedCost',
-        'maintenanceCost',
-        'otherVariableCost'
-      ],
-      formulaDescription: this.financeCalculationEngine.netProfitFormulaDescription,
-      calculationVersion: this.calculationVersion
+      placeholderCosts: ["fixedCost", "otherVariableCost"],
+      formulaDescription:
+        this.financeCalculationEngine.netProfitFormulaDescription,
+      calculationVersion: this.calculationVersion,
     };
   }
 
   resolveDurationMinutes(
     startedAt?: Date | null,
     endedAt?: Date | null,
-    fallback?: number | null
+    fallback?: number | null,
   ) {
     if (!startedAt || !endedAt) {
       return fallback ?? null;
     }
 
     const durationMinutes = Math.round(
-      (endedAt.getTime() - startedAt.getTime()) / 60000
+      (endedAt.getTime() - startedAt.getTime()) / 60000,
     );
 
     if (durationMinutes < 0) {
-      throw new BadRequestException('Trip end time must be after start time.');
+      throw new BadRequestException("Trip end time must be after start time.");
     }
 
     return durationMinutes;
@@ -208,12 +208,12 @@ export class IncomeCalculationService {
   async calculateEstimatedFuelCost(
     userId: string,
     vehicle: Vehicle,
-    totalKm: Prisma.Decimal
+    totalKm: Prisma.Decimal,
   ) {
     const fuelCost = await this.fuelCostService.calculateTripFuelCost(
       userId,
       vehicle,
-      totalKm
+      totalKm,
     );
 
     return fuelCost.estimatedFuelCost;
@@ -226,7 +226,7 @@ export class IncomeCalculationService {
     input: {
       currentTripId?: string | null;
       tripDate: Date;
-    }
+    },
   ) {
     const showInProfit = await this.shouldShowDepreciationInProfit(userId);
 
@@ -237,8 +237,72 @@ export class IncomeCalculationService {
       showInProfit,
       totalKm,
       yearlyEstimatedKm: vehicle.annual_estimated_km,
-      yearlyValueLoss: vehicle.annual_depreciation_amount
+      yearlyValueLoss: vehicle.annual_depreciation_amount,
     }).value;
+  }
+
+  async calculateMaintenanceCost(
+    userId: string,
+    vehicle: Vehicle,
+    totalKm: Prisma.Decimal,
+    tripDate: Date,
+  ) {
+    if (
+      !this.prisma ||
+      totalKm.lte(0) ||
+      !(this.prisma as unknown as { maintenanceEntry?: unknown })
+        .maintenanceEntry
+    ) {
+      return new Prisma.Decimal(0);
+    }
+
+    const maintenanceEntries = await this.prisma.maintenanceEntry.findMany({
+      where: {
+        user_id: userId,
+        vehicle_id: vehicle.id,
+        deleted_at: null,
+        cost_per_km: {
+          not: null,
+        },
+        expected_interval_km: {
+          not: null,
+        },
+        maintenance_date: {
+          lte: tripDate,
+        },
+      },
+      orderBy: [
+        {
+          maintenance_date: "desc",
+        },
+        {
+          created_at: "desc",
+        },
+      ],
+    });
+    const latestMaintenancePlans = new Map<string, Prisma.Decimal>();
+
+    for (const entry of maintenanceEntries) {
+      if (!entry.cost_per_km) {
+        continue;
+      }
+
+      const planKey = [
+        entry.category.trim().toLocaleLowerCase("tr-TR"),
+        entry.title.trim().toLocaleLowerCase("tr-TR"),
+      ].join(":");
+
+      if (!latestMaintenancePlans.has(planKey)) {
+        latestMaintenancePlans.set(planKey, entry.cost_per_km);
+      }
+    }
+
+    const maintenanceCostPerKm = [...latestMaintenancePlans.values()].reduce(
+      (total, costPerKm) => total.plus(costPerKm),
+      new Prisma.Decimal(0),
+    );
+
+    return maintenanceCostPerKm.mul(totalKm).toDecimalPlaces(2);
   }
 
   private async shouldShowDepreciationInProfit(userId: string) {
@@ -248,11 +312,11 @@ export class IncomeCalculationService {
 
     const profile = await this.prisma.driverProfile.findUnique({
       where: {
-        user_id: userId
+        user_id: userId,
       },
       select: {
-        show_depreciation_in_profit: true
-      }
+        show_depreciation_in_profit: true,
+      },
     });
 
     return profile?.show_depreciation_in_profit ?? true;
@@ -260,7 +324,7 @@ export class IncomeCalculationService {
 
   private resolveTripDate(
     tripDate?: string | Date | null,
-    startedAt?: Date | null
+    startedAt?: Date | null,
   ) {
     if (tripDate instanceof Date) {
       return tripDate;
@@ -270,7 +334,7 @@ export class IncomeCalculationService {
       const date = new Date(tripDate);
 
       if (Number.isNaN(date.getTime())) {
-        throw new BadRequestException('Invalid trip date value.');
+        throw new BadRequestException("Invalid trip date value.");
       }
 
       return date;

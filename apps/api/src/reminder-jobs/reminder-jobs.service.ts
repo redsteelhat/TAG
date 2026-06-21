@@ -2,18 +2,18 @@ import {
   Injectable,
   Logger,
   OnModuleDestroy,
-  OnModuleInit
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+  OnModuleInit,
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   NotificationStatus,
   NotificationType,
   Prisma,
-  RecurringExpense
-} from '@prisma/client';
-import { maskLogMessage } from '../common/logging/log-masker';
-import { NotificationsService } from '../notifications/notifications.service';
-import { PrismaService } from '../prisma/prisma.service';
+  RecurringExpense,
+} from "@prisma/client";
+import { maskLogMessage } from "../common/logging/log-masker";
+import { NotificationsService } from "../notifications/notifications.service";
+import { PrismaService } from "../prisma/prisma.service";
 
 interface ReminderRunResult {
   dispatchedDueNotifications: number;
@@ -30,30 +30,30 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
   ) {}
 
   onModuleInit() {
     const isEnabled = this.configService.get<string>(
-      'REMINDER_JOBS_ENABLED',
-      'true'
+      "REMINDER_JOBS_ENABLED",
+      "true",
     );
 
-    if (isEnabled === 'false') {
+    if (isEnabled === "false") {
       return;
     }
 
     const intervalMs = this.getNumberConfig(
-      'REMINDER_JOBS_INTERVAL_MS',
-      6 * 60 * 60 * 1000
+      "REMINDER_JOBS_INTERVAL_MS",
+      6 * 60 * 60 * 1000,
     );
 
     this.interval = setInterval(() => {
       void this.runÖnce().catch((error) => {
         this.logger.error(
           maskLogMessage(
-            error instanceof Error ? error.message : 'Reminder job failed.'
-          )
+            error instanceof Error ? error.message : "Reminder job failed.",
+          ),
         );
       });
     }, intervalMs);
@@ -73,33 +73,33 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
     const [
       packageEndingReminders,
       recurringDueReminders,
-      maintenanceReminders
+      maintenanceReminders,
     ] = await Promise.all([
       this.createPackageEndingReminders(now),
       this.createRecurringDueReminders(now),
-      this.createMaintenanceReminders()
+      this.createMaintenanceReminders(),
     ]);
 
     return {
       dispatchedDueNotifications: dueNotifications.dispatchedCount,
       maintenanceReminders,
       packageEndingReminders,
-      recurringDueReminders
+      recurringDueReminders,
     };
   }
 
   private async createPackageEndingReminders(now: Date) {
-    const windowDays = this.getNumberConfig('PACKAGE_ENDING_REMINDER_DAYS', 3);
+    const windowDays = this.getNumberConfig("PACKAGE_ENDING_REMINDER_DAYS", 3);
     const windowEnd = this.addDays(now, windowDays);
     const tagPackages = await this.prisma.tagPackage.findMany({
       where: {
         deleted_at: null,
         ends_at: {
           gte: now,
-          lte: windowEnd
+          lte: windowEnd,
         },
-        is_active: true
-      }
+        is_active: true,
+      },
     });
     let createdCount = 0;
 
@@ -107,11 +107,11 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
       const wasCreated = await this.createReminderIfMissing({
         body: `${tagPackage.name} paketin ${this.formatDate(tagPackage.ends_at)} tarihinde bitiyor.`,
         entityId: tagPackage.id,
-        entityType: 'tag_package',
+        entityType: "tag_package",
         reminderKey: `package-ending:${tagPackage.id}:${this.formatDate(tagPackage.ends_at)}`,
-        title: 'Paket bitisi yaklaşıyor',
+        title: "Paket bitisi yaklaşıyor",
         type: NotificationType.PACKAGE_ENDING,
-        userId: tagPackage.user_id
+        userId: tagPackage.user_id,
       });
 
       if (wasCreated) {
@@ -123,7 +123,7 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async createRecurringDueReminders(now: Date) {
-    const windowDays = this.getNumberConfig('RECURRING_DUE_REMINDER_DAYS', 7);
+    const windowDays = this.getNumberConfig("RECURRING_DUE_REMINDER_DAYS", 7);
     const windowEnd = this.addDays(now, windowDays);
     const recurringExpenses = await this.prisma.recurringExpense.findMany({
       where: {
@@ -131,9 +131,9 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
         is_active: true,
         next_due_at: {
           gte: now,
-          lte: windowEnd
-        }
-      }
+          lte: windowEnd,
+        },
+      },
     });
     let createdCount = 0;
 
@@ -146,11 +146,11 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
       const wasCreated = await this.createReminderIfMissing({
         body: `${recurringExpense.name} ödemesi ${this.formatDate(recurringExpense.next_due_at)} tarihinde vadesine geliyor.`,
         entityId: recurringExpense.id,
-        entityType: 'recurring_expense',
+        entityType: "recurring_expense",
         reminderKey: `recurring-due:${recurringExpense.id}:${this.formatDate(recurringExpense.next_due_at)}`,
         title: this.titleForRecurringReminderType(type),
         type,
-        userId: recurringExpense.user_id
+        userId: recurringExpense.user_id,
       });
 
       if (wasCreated) {
@@ -163,28 +163,32 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
 
   private async createMaintenanceReminders() {
     const thresholdKm = new Prisma.Decimal(
-      this.configService.get<string>('MAINTENANCE_REMINDER_THRESHOLD_KM', '500')
+      this.configService.get<string>(
+        "MAINTENANCE_REMINDER_THRESHOLD_KM",
+        "500",
+      ),
     );
     const maintenanceEntries = await this.prisma.maintenanceEntry.findMany({
       include: {
-        vehicle: true
+        vehicle: true,
       },
       where: {
         deleted_at: null,
+        reminder_enabled: true,
         expected_interval_km: {
-          not: null
+          not: null,
         },
         odometer_km: {
-          not: null
+          not: null,
         },
         vehicle: {
           deleted_at: null,
           is_active: true,
           odometer_km: {
-            not: null
-          }
-        }
-      }
+            not: null,
+          },
+        },
+      },
     });
     let createdCount = 0;
 
@@ -206,14 +210,14 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
 
       const wasCreated = await this.createReminderIfMissing({
         body: remainingKm.gte(0)
-          ? `${entry.title} bakımina ${remainingKm.toDecimalPlaces(0).toFixed(0)} km kaldi.`
-          : `${entry.title} bakımi ${remainingKm.abs().toDecimalPlaces(0).toFixed(0)} km geçıktı.`,
+          ? `${entry.title} bakımına ${remainingKm.toDecimalPlaces(0).toFixed(0)} km kaldı.`
+          : `${entry.title} bakımı ${remainingKm.abs().toDecimalPlaces(0).toFixed(0)} km gecikti.`,
         entityId: entry.id,
-        entityType: 'maintenance_entry',
+        entityType: "maintenance_entry",
         reminderKey: `maintenance-km:${entry.id}:${dueAtKm.toDecimalPlaces(1).toFixed(1)}`,
-        title: 'Bakım zamani yaklaşıyor',
+        title: "Bakım zamanı yaklaşıyor",
         type: NotificationType.MAINTENANCE_REMINDER,
-        userId: entry.user_id
+        userId: entry.user_id,
       });
 
       if (wasCreated) {
@@ -236,15 +240,15 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
     const existingNotification = await this.prisma.notification.findFirst({
       where: {
         metadata: {
-          path: ['reminderKey'],
-          equals: input.reminderKey
+          path: ["reminderKey"],
+          equals: input.reminderKey,
         },
         status: {
-          not: NotificationStatus.FAILED
+          not: NotificationStatus.FAILED,
         },
         type: input.type,
-        user_id: input.userId
-      }
+        user_id: input.userId,
+      },
     });
 
     if (existingNotification) {
@@ -256,27 +260,27 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
       metadata: {
         entityId: input.entityId,
         entityType: input.entityType,
-        reminderKey: input.reminderKey
+        reminderKey: input.reminderKey,
       },
       title: input.title,
       type: input.type,
-      userId: input.userId
+      userId: input.userId,
     });
 
     return true;
   }
 
   private resolveRecurringReminderType(recurringExpense: RecurringExpense) {
-    const name = recurringExpense.name.toLocaleLowerCase('tr-TR');
+    const name = recurringExpense.name.toLocaleLowerCase("tr-TR");
 
-    if (name.includes('sigorta') || name.includes('kasko')) {
+    if (name.includes("sigorta") || name.includes("kasko")) {
       return NotificationType.INSURANCE_REMINDER;
     }
 
     if (
-      name.includes('mtv') ||
-      name.includes('vergi') ||
-      name.includes('muayene')
+      name.includes("mtv") ||
+      name.includes("vergi") ||
+      name.includes("muayene")
     ) {
       return NotificationType.TAX_REMINDER;
     }
@@ -286,14 +290,14 @@ export class ReminderJobsService implements OnModuleInit, OnModuleDestroy {
 
   private titleForRecurringReminderType(type: NotificationType) {
     if (type === NotificationType.INSURANCE_REMINDER) {
-      return 'Sigörta ödemesi yaklaşıyor';
+      return "Sigörta ödemesi yaklaşıyor";
     }
 
     if (type === NotificationType.TAX_REMINDER) {
-      return 'Vergi veya muayene ödemesi yaklaşıyor';
+      return "Vergi veya muayene ödemesi yaklaşıyor";
     }
 
-    return 'Tekrarlayan gider vadesi yaklaşıyor';
+    return "Tekrarlayan gider vadesi yaklaşıyor";
   }
 
   private addDays(date: Date, days: number) {
