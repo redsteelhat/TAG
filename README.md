@@ -90,6 +90,22 @@ curl -H "x-monitoring-token: $MONITORING_TOKEN" http://localhost:3001/api/v1/mon
 
 `/health/live` process liveness, `/health/ready` PostgreSQL ve queue readiness durumunu doner. `/monitoring/metrics` runtime bellek/CPU, dependency check ve queue metriklerini doner; `MONITORING_TOKEN` veya admin JWT gerektirir.
 
+API performance testi:
+
+```bash
+pnpm api:perf
+```
+
+Varsayilan test `/health`, `/health/live`, `/health/ready` ve `MONITORING_TOKEN` tanimliysa `/monitoring/metrics` endpointlerini olcer. Test p95 latency ve hata orani esiklerini asarsa non-zero exit code ile biter.
+
+```bash
+PERF_API_BASE_URL=http://localhost:3001/api/v1
+PERF_CONCURRENCY=10
+PERF_DURATION_SECONDS=15
+PERF_P95_THRESHOLD_MS=500
+PERF_ERROR_RATE_THRESHOLD=0.01
+```
+
 Mobil uygulama:
 
 ```bash

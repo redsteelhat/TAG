@@ -5,11 +5,13 @@ import {
   ApiOperation,
   ApiTags
 } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { HealthService } from '../health/health.service';
 import { MonitoringGuard } from './monitoring.guard';
 
 @Controller('monitoring')
 @ApiTags('Monitoring')
+@SkipThrottle()
 @UseGuards(MonitoringGuard)
 @ApiBearerAuth('access-token')
 @ApiHeader({
