@@ -1,4 +1,5 @@
 import { Prisma, Vehicle } from '@prisma/client';
+import { FinanceCalculationEngine } from '../finance-calculation/finance-calculation.engine';
 import { FuelCostService } from './fuel-cost.service';
 
 const vehicle = {
@@ -8,7 +9,7 @@ const vehicle = {
 
 describe('FuelCostService', () => {
   it('calculates trip fuel cost from latest fuel price and vehicle consumption', async () => {
-    const service = new FuelCostService({
+    const service = new FuelCostService(new FinanceCalculationEngine(), {
       fuelEntry: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'fuel_1',
@@ -30,7 +31,7 @@ describe('FuelCostService', () => {
   });
 
   it('returns zero cost when no fuel entry exists', async () => {
-    const service = new FuelCostService({
+    const service = new FuelCostService(new FinanceCalculationEngine(), {
       fuelEntry: {
         findFirst: jest.fn().mockResolvedValue(null)
       }
@@ -48,7 +49,7 @@ describe('FuelCostService', () => {
   });
 
   it('builds a fuel cost breakdown', async () => {
-    const service = new FuelCostService({
+    const service = new FuelCostService(new FinanceCalculationEngine(), {
       fuelEntry: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'fuel_1',

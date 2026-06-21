@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable, Optional } from '@nestjs/common';
-import { DepreciationModel, Prisma, Vehicle } from '@prisma/client';
+import { Prisma, Vehicle } from '@prisma/client';
+import {
+  CalculationWarning,
+  FinanceCalculationEngine
+} from '../finance-calculation/finance-calculation.engine';
 import { FuelCostService } from '../fuel-cost/fuel-cost.service';
 import { PackageAllocationService } from '../package-allocation/package-allocation.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,8 +28,10 @@ export interface TripIncomeCalculationResult {
   allocatedOtherVariableCost: Prisma.Decimal;
   allocatedPackageCost: Prisma.Decimal;
   cashNetProfit: Prisma.Decimal;
+  calculationWarnings: CalculationWarning[];
   durationMinutes: number | null;
   estimatedFuelCost: Prisma.Decimal;
+  formulaDescription: string;
   totalIncome: Prisma.Decimal;
   totalKm: Prisma.Decimal;
   trueNetProfit: Prisma.Decimal;
@@ -52,6 +58,7 @@ export class IncomeCalculationService {
   readonly calculationVersion = 'income-calculation-v1';
 
   constructor(
+    private readonly financeCalculationEngine: FinanceCalculationEngine,
     private readonly fuelCostService: FuelCostService,
     private readonly packageAllocationService: PackageAllocationService,
     @Optional() private readonly prisma?: PrismaService
@@ -68,7 +75,6 @@ export class IncomeCalculationService {
     const cancellationIncome = this.toDecimal(input.cancellationIncome ?? '0');
     const tripKm = this.toDecimal(input.tripKm ?? '0');
     const deadheadKm = this.toDecimal(input.deadheadKm ?? '0');
-    const totalIncome = grossIncome.plus(tipAmount).plus(cancellationIncome);
     const totalKm = tripKm.plus(deadheadKm);
     const durationMinutes = this.resolveDurationMinutes(
       input.startedAt,
@@ -102,13 +108,29 @@ export class IncomeCalculationService {
       }
     );
     const allocatedOtherVariableCost = zero;
-    const cashNetProfit = totalIncome.minus(estimatedFuelCost);
-    const trueNetProfit = cashNetProfit
-      .minus(allocatedPackageCost)
-      .minus(allocatedFixedCost)
-      .minus(allocatedMaintenanceCost)
-      .minus(allocatedDepreciationCost)
-      .minus(allocatedOtherVariableCost);
+    const cashNetProfitResult =
+      this.financeCalculationEngine.calculateTripNetProfit({
+        cancellationIncome,
+        costs: {
+          fuelCost: estimatedFuelCost
+        },
+        grossIncome,
+        tipAmount
+      });
+    const trueNetProfitResult =
+      this.financeCalculationEngine.calculateTripNetProfit({
+        cancellationIncome,
+        costs: {
+          depreciationCost: allocatedDepreciationCost,
+          fixedCostShare: allocatedFixedCost,
+          fuelCost: estimatedFuelCost,
+          maintenanceReserve: allocatedMaintenanceCost,
+          packageShare: allocatedPackageCost,
+          variableCostShare: allocatedOtherVariableCost
+        },
+        grossIncome,
+        tipAmount
+      });
 
     return {
       allocatedDepreciationCost,
@@ -116,12 +138,14 @@ export class IncomeCalculationService {
       allocatedMaintenanceCost,
       allocatedOtherVariableCost,
       allocatedPackageCost,
-      cashNetProfit,
+      calculationWarnings: trueNetProfitResult.warnings,
+      cashNetProfit: cashNetProfitResult.value.netProfit,
       durationMinutes,
       estimatedFuelCost,
-      totalIncome,
+      formulaDescription: trueNetProfitResult.formulaDescription,
+      totalIncome: trueNetProfitResult.value.totalIncome,
       totalKm,
-      trueNetProfit
+      trueNetProfit: trueNetProfitResult.value.netProfit
     };
   }
 
@@ -156,6 +180,7 @@ export class IncomeCalculationService {
         'maintenanceCost',
         'otherVariableCost'
       ],
+      formulaDescription: this.financeCalculationEngine.netProfitFormulaDescription,
       calculationVersion: this.calculationVersion
     };
   }
@@ -203,52 +228,17 @@ export class IncomeCalculationService {
       tripDate: Date;
     }
   ) {
-    if (!vehicle.depreciation_enabled) {
-      return new Prisma.Decimal(0);
-    }
+    const showInProfit = await this.shouldShowDepreciationInProfit(userId);
 
-    if (!(await this.shouldShowDepreciationInProfit(userId))) {
-      return new Prisma.Decimal(0);
-    }
-
-    const annualDepreciation = this.toDecimal(
-      vehicle.annual_depreciation_amount ?? '0'
-    );
-
-    if (annualDepreciation.lte(0)) {
-      return new Prisma.Decimal(0);
-    }
-
-    if (vehicle.depreciation_model === DepreciationModel.PER_KM) {
-      const annualEstimatedKm = this.toDecimal(
-        vehicle.annual_estimated_km ?? '0'
-      );
-
-      if (annualEstimatedKm.lte(0)) {
-        return new Prisma.Decimal(0);
-      }
-
-      return annualDepreciation
-        .div(annualEstimatedKm)
-        .mul(totalKm)
-        .toDecimalPlaces(2);
-    }
-
-    if (vehicle.depreciation_model === DepreciationModel.MONTHLY) {
-      const monthlyDepreciation = annualDepreciation.div(12);
-      const monthlyTripCount = await this.countTripsInMonth(
-        userId,
-        vehicle.id,
-        input.tripDate,
-        input.currentTripId
-      );
-
-      return monthlyDepreciation
-        .div(Math.max(monthlyTripCount + 1, 1))
-        .toDecimalPlaces(2);
-    }
-
-    return new Prisma.Decimal(0);
+    return this.financeCalculationEngine.calculateDepreciation({
+      date: input.tripDate,
+      depreciationEnabled: vehicle.depreciation_enabled,
+      model: vehicle.depreciation_model,
+      showInProfit,
+      totalKm,
+      yearlyEstimatedKm: vehicle.annual_estimated_km,
+      yearlyValueLoss: vehicle.annual_depreciation_amount
+    }).value;
   }
 
   private async shouldShowDepreciationInProfit(userId: string) {
@@ -266,41 +256,6 @@ export class IncomeCalculationService {
     });
 
     return profile?.show_depreciation_in_profit ?? true;
-  }
-
-  private async countTripsInMonth(
-    userId: string,
-    vehicleId: string,
-    tripDate: Date,
-    currentTripId?: string | null
-  ) {
-    if (!this.prisma) {
-      return 0;
-    }
-
-    const start = new Date(
-      Date.UTC(tripDate.getUTCFullYear(), tripDate.getUTCMonth(), 1)
-    );
-    const nextStart = new Date(
-      Date.UTC(tripDate.getUTCFullYear(), tripDate.getUTCMonth() + 1, 1)
-    );
-
-    return this.prisma.trip.count({
-      where: {
-        id: currentTripId
-          ? {
-              not: currentTripId
-            }
-          : undefined,
-        user_id: userId,
-        vehicle_id: vehicleId,
-        deleted_at: null,
-        trip_date: {
-          gte: start,
-          lt: nextStart
-        }
-      }
-    });
   }
 
   private resolveTripDate(

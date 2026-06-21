@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { FuelEntry, Prisma, Vehicle } from '@prisma/client';
+import { FinanceCalculationEngine } from '../finance-calculation/finance-calculation.engine';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface FuelCostCalculationResult {
@@ -17,7 +18,10 @@ export interface FuelCostCalculationResult {
 export class FuelCostService {
   readonly calculationVersion = 'fuel-cost-v1';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly financeCalculationEngine: FinanceCalculationEngine,
+    private readonly prisma: PrismaService
+  ) {}
 
   async calculateTripFuelCost(
     userId: string,
@@ -32,20 +36,19 @@ export class FuelCostService {
       totalKm,
       vehicle.average_consumption_l_per_100km
     );
-    const fuelCostPerKm = this.calculateFuelCostPerKm(
-      vehicle.average_consumption_l_per_100km,
-      latestFuelPricePerLiter
-    );
-    const estimatedFuelCost = estimatedLiters
-      .mul(latestFuelPricePerLiter)
-      .toDecimalPlaces(2);
+    const fuelCost =
+      this.financeCalculationEngine.calculateFuelCost({
+        averageLiterPer100Km: vehicle.average_consumption_l_per_100km,
+        lastFuelPricePerLiter: latestFuelPricePerLiter,
+        totalKm
+      });
 
     return {
       averageConsumptionLPer100Km:
         vehicle.average_consumption_l_per_100km.toFixed(3),
-      estimatedFuelCost,
+      estimatedFuelCost: fuelCost.value.tripFuelCost,
       estimatedLiters,
-      fuelCostPerKm,
+      fuelCostPerKm: fuelCost.value.fuelCostPerKm,
       latestFuelEntryId: latestFuelEntry?.id ?? null,
       latestFuelPricePerLiter,
       method: 'latest_fuel_price_x_vehicle_average_consumption_x_total_km',

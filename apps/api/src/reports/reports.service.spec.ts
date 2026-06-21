@@ -5,6 +5,7 @@ import {
   PackageAllocationMethod,
   Prisma
 } from '@prisma/client';
+import { FinanceCalculationEngine } from '../finance-calculation/finance-calculation.engine';
 import { ReportCacheService } from './report-cache.service';
 import { ReportsService } from './reports.service';
 
@@ -109,6 +110,7 @@ describe('ReportsService', () => {
       }
     };
     const service = new ReportsService(
+      new FinanceCalculationEngine(),
       prisma as never,
       new ReportCacheService()
     );
@@ -222,6 +224,7 @@ describe('ReportsService', () => {
       }
     };
     const service = new ReportsService(
+      new FinanceCalculationEngine(),
       prisma as never,
       new ReportCacheService()
     );
@@ -331,6 +334,7 @@ describe('ReportsService', () => {
       }
     };
     const service = new ReportsService(
+      new FinanceCalculationEngine(),
       prisma as never,
       new ReportCacheService()
     );
@@ -438,6 +442,7 @@ describe('ReportsService', () => {
       }
     };
     const service = new ReportsService(
+      new FinanceCalculationEngine(),
       prisma as never,
       new ReportCacheService()
     );
@@ -537,6 +542,7 @@ describe('ReportsService', () => {
       }
     };
     const service = new ReportsService(
+      new FinanceCalculationEngine(),
       prisma as never,
       new ReportCacheService()
     );
@@ -619,6 +625,7 @@ describe('ReportsService', () => {
       }
     };
     const service = new ReportsService(
+      new FinanceCalculationEngine(),
       prisma as never,
       new ReportCacheService()
     );
@@ -705,6 +712,7 @@ describe('ReportsService', () => {
       }
     };
     const service = new ReportsService(
+      new FinanceCalculationEngine(),
       prisma as never,
       new ReportCacheService()
     );
@@ -796,6 +804,7 @@ describe('ReportsService', () => {
       }
     };
     const service = new ReportsService(
+      new FinanceCalculationEngine(),
       prisma as never,
       new ReportCacheService()
     );
@@ -820,7 +829,7 @@ describe('ReportsService', () => {
   });
 
   it('builds report overview from report APIs', async () => {
-    const service = new ReportsService({} as never, new ReportCacheService());
+    const service = new ReportsService(new FinanceCalculationEngine(), {} as never, new ReportCacheService());
     const dailyProfit = { period: 'daily', netProfit: '100.00' };
     const weeklyProfit = { period: 'weekly', netProfit: '700.00' };
     const monthlyProfit = { period: 'monthly', netProfit: '3000.00' };
@@ -914,6 +923,7 @@ describe('ReportsService', () => {
       }
     };
     const service = new ReportsService(
+      new FinanceCalculationEngine(),
       prisma as never,
       new ReportCacheService()
     );

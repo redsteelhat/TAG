@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
+import { FinanceCalculationModule } from '../finance-calculation/finance-calculation.module';
 import { FuelCostModule } from '../fuel-cost/fuel-cost.module';
 import { PackageAllocationModule } from '../package-allocation/package-allocation.module';
 import { IncomeCalculationService } from './income-calculation.service';
 
 @Module({
-  imports: [FuelCostModule, PackageAllocationModule],
+  imports: [FinanceCalculationModule, FuelCostModule, PackageAllocationModule],
   providers: [IncomeCalculationService],
   exports: [IncomeCalculationService]
 })

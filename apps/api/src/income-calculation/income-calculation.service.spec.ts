@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { DepreciationModel, Prisma, Vehicle } from '@prisma/client';
+import { FinanceCalculationEngine } from '../finance-calculation/finance-calculation.engine';
 import { IncomeCalculationService } from './income-calculation.service';
 
 const vehicle = {
@@ -14,6 +15,7 @@ const vehicle = {
 describe('IncomeCalculationService', () => {
   it('calculates trip income, km, duration and fuel cost', async () => {
     const service = new IncomeCalculationService(
+      new FinanceCalculationEngine(),
       {
         calculateTripFuelCost: jest.fn().mockResolvedValue({
           estimatedFuelCost: new Prisma.Decimal('66')
@@ -48,6 +50,7 @@ describe('IncomeCalculationService', () => {
 
   it('allocates per-kilometer depreciation from vehicle settings', async () => {
     const service = new IncomeCalculationService(
+      new FinanceCalculationEngine(),
       {
         calculateTripFuelCost: jest.fn().mockResolvedValue({
           estimatedFuelCost: new Prisma.Decimal('66')
@@ -91,6 +94,7 @@ describe('IncomeCalculationService', () => {
 
   it('skips depreciation when driver profile hides it from profit', async () => {
     const service = new IncomeCalculationService(
+      new FinanceCalculationEngine(),
       {
         calculateTripFuelCost: jest.fn().mockResolvedValue({
           estimatedFuelCost: new Prisma.Decimal('0')
@@ -132,6 +136,7 @@ describe('IncomeCalculationService', () => {
 
   it('returns zero fuel cost when vehicle has no fuel entry', async () => {
     const service = new IncomeCalculationService(
+      new FinanceCalculationEngine(),
       {
         calculateTripFuelCost: jest.fn().mockResolvedValue({
           estimatedFuelCost: new Prisma.Decimal(0)
@@ -150,7 +155,7 @@ describe('IncomeCalculationService', () => {
   });
 
   it('builds a trip-level net profit placeholder breakdown', () => {
-    const service = new IncomeCalculationService({} as never, {} as never);
+    const service = new IncomeCalculationService(new FinanceCalculationEngine(), {} as never, {} as never);
     const breakdown = service.buildTripProfitBreakdown({
       allocated_depreciation_cost: new Prisma.Decimal('0'),
       allocated_fixed_cost: new Prisma.Decimal('0'),
@@ -178,13 +183,13 @@ describe('IncomeCalculationService', () => {
   });
 
   it('uses fallback duration when timestamps are missing', () => {
-    const service = new IncomeCalculationService({} as never, {} as never);
+    const service = new IncomeCalculationService(new FinanceCalculationEngine(), {} as never, {} as never);
 
     expect(service.resolveDurationMinutes(null, null, 45)).toBe(45);
   });
 
   it('rejects negative trip duration', () => {
-    const service = new IncomeCalculationService({} as never, {} as never);
+    const service = new IncomeCalculationService(new FinanceCalculationEngine(), {} as never, {} as never);
 
     expect(() =>
       service.resolveDurationMinutes(

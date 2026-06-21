@@ -9,6 +9,7 @@ import {
   RecurringExpense,
   TagPackage
 } from '@prisma/client';
+import { FinanceCalculationEngine } from '../finance-calculation/finance-calculation.engine';
 import { PrismaService } from '../prisma/prisma.service';
 import { BreakEvenPeriod, BreakEvenQueryDto } from './dto/break-even-query.dto';
 import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
@@ -48,6 +49,7 @@ export class ReportsService {
   private readonly periodReportCacheTtlMs = 120_000;
 
   constructor(
+    private readonly financeCalculationEngine: FinanceCalculationEngine,
     private readonly prisma: PrismaService,
     private readonly reportCache: ReportCacheService
   ) {}
@@ -108,6 +110,11 @@ export class ReportsService {
         const grossIncome = this.decimal(profit.grossIncome);
         const totalCost = this.decimal(profit.totalCost);
         const netProfit = this.decimal(profit.netProfit);
+        const netProfitPerKm =
+          this.financeCalculationEngine.calculateKmNetProfit({
+            netProfit,
+            totalKm
+          });
 
         return {
           date: profit.date,
@@ -121,7 +128,7 @@ export class ReportsService {
           netProfit: profit.netProfit,
           grossIncomePerKm: this.money(this.divideOrZero(grossIncome, totalKm)),
           costPerKm: this.money(this.divideOrZero(totalCost, totalKm)),
-          netProfitPerKm: this.money(this.divideOrZero(netProfit, totalKm)),
+          netProfitPerKm: this.money(netProfitPerKm.value),
           fuelCostPerKm: this.money(
             this.divideOrZero(this.decimal(profit.fuelCost), totalKm)
           ),
@@ -144,8 +151,9 @@ export class ReportsService {
           formula: {
             grossIncomePerKm: 'grossIncome / totalKm',
             costPerKm: 'totalCost / totalKm',
-            netProfitPerKm: 'netProfit / totalKm'
+            netProfitPerKm: netProfitPerKm.formulaDescription
           },
+          calculationWarnings: netProfitPerKm.warnings,
           calculationVersion: profit.calculationVersion
         };
       }
@@ -173,6 +181,11 @@ export class ReportsService {
         const grossIncome = this.decimal(profit.grossIncome);
         const totalCost = this.decimal(profit.totalCost);
         const netProfit = this.decimal(profit.netProfit);
+        const netProfitPerHour =
+          this.financeCalculationEngine.calculateHourlyNetProfit({
+            activeMinutes: profit.activeMinutes,
+            netProfit
+          });
 
         return {
           date: profit.date,
@@ -189,9 +202,7 @@ export class ReportsService {
             this.divideOrZero(grossIncome, activeHours)
           ),
           costPerHour: this.money(this.divideOrZero(totalCost, activeHours)),
-          netProfitPerHour: this.money(
-            this.divideOrZero(netProfit, activeHours)
-          ),
+          netProfitPerHour: this.money(netProfitPerHour.value),
           fuelCostPerHour: this.money(
             this.divideOrZero(this.decimal(profit.fuelCost), activeHours)
           ),
@@ -221,8 +232,9 @@ export class ReportsService {
           formula: {
             grossIncomePerHour: 'grossIncome / activeHours',
             costPerHour: 'totalCost / activeHours',
-            netProfitPerHour: 'netProfit / activeHours'
+            netProfitPerHour: netProfitPerHour.formulaDescription
           },
+          calculationWarnings: netProfitPerHour.warnings,
           calculationVersion: profit.calculationVersion
         };
       }
@@ -241,23 +253,20 @@ export class ReportsService {
           query.vehicleId
         );
         const grossIncome = this.decimal(profit.grossIncome);
-        const breakEvenRevenue = this.decimal(profit.totalCost);
-        const remainingRevenue = this.positiveDifference(
-          breakEvenRevenue,
-          grossIncome
-        );
+        const breakEvenResult = this.financeCalculationEngine.calculateBreakEven({
+          depreciationCost: profit.depreciation,
+          fixedCostShare: profit.fixedExpenses,
+          fuelCost: profit.fuelCost,
+          grossIncome,
+          maintenanceReserve: profit.maintenanceReserve,
+          packageShare: profit.tagPackageCost
+        });
+        const breakEvenRevenue = breakEvenResult.value.breakEvenTarget;
+        const remainingRevenue = breakEvenResult.value.remaining;
         const surplusRevenue = this.positiveDifference(
           grossIncome,
           breakEvenRevenue
         );
-        const breakEvenProgressPercent = breakEvenRevenue.gt(0)
-          ? Prisma.Decimal.min(grossIncome.mul(100).div(breakEvenRevenue), 100)
-          : new Prisma.Decimal(0);
-        const breakEvenStatus = breakEvenRevenue.lte(0)
-          ? 'NO_TARGET'
-          : grossIncome.gte(breakEvenRevenue)
-            ? 'REACHED'
-            : 'IN_PROGRESS';
 
         return {
           date: profit.date,
@@ -269,11 +278,11 @@ export class ReportsService {
           breakEvenRevenue: this.money(breakEvenRevenue),
           remainingRevenue: this.money(remainingRevenue),
           surplusRevenue: this.money(surplusRevenue),
-          breakEvenProgressPercent: breakEvenProgressPercent
+          breakEvenProgressPercent: breakEvenResult.value.progress
             .toDecimalPlaces(2)
             .toFixed(2),
-          isBreakEvenReached: breakEvenStatus === 'REACHED',
-          status: breakEvenStatus,
+          isBreakEvenReached: breakEvenResult.value.status === 'REACHED',
+          status: breakEvenResult.value.status,
           netProfit: profit.netProfit,
           costBreakdown: {
             fuelCost: profit.fuelCost,
@@ -284,11 +293,11 @@ export class ReportsService {
             depreciation: profit.depreciation
           },
           formula: {
-            breakEvenRevenue:
-              'fuelCost + tagPackageCost + variableExpenses + fixedExpenses + maintenanceReserve + depreciation',
+            breakEvenRevenue: breakEvenResult.formulaDescription,
             remainingRevenue: 'max(breakEvenRevenue - grossIncome, 0)',
             surplusRevenue: 'max(grossIncome - breakEvenRevenue, 0)'
           },
+          calculationWarnings: breakEvenResult.warnings,
           calculationVersion: profit.calculationVersion
         };
       }
@@ -458,6 +467,10 @@ export class ReportsService {
       ? Prisma.Decimal.min(grossIncome.mul(100).div(breakEvenTarget), 100)
       : new Prisma.Decimal(0);
     const warnings = [];
+
+    for (const warning of dailyProfit.calculationWarnings ?? []) {
+      warnings.push(warning);
+    }
 
     if (
       totalKm.gt(0) &&
@@ -806,13 +819,20 @@ export class ReportsService {
     )
       .plus(directCosts.depreciation)
       .plus(recurringCosts.depreciation);
-    const totalCost = estimatedFuelCost
-      .plus(packageCost)
-      .plus(variableExpenses)
-      .plus(fixedExpenses)
-      .plus(maintenanceReserve)
-      .plus(depreciation);
-    const netProfit = grossIncome.minus(totalCost);
+    const periodNetProfit =
+      this.financeCalculationEngine.calculatePeriodNetProfit({
+        costs: {
+          depreciationCost: depreciation,
+          fixedCostShare: fixedExpenses,
+          fuelCost: estimatedFuelCost,
+          maintenanceReserve,
+          packageShare: packageCost,
+          variableCostShare: variableExpenses
+        },
+        grossIncome
+      });
+    const totalCost = periodNetProfit.value.totalCost;
+    const netProfit = periodNetProfit.value.netProfit;
     const totalKm = this.decimal(tripAggregate._sum.total_km);
     const activeMinutes =
       shiftAggregate._sum.active_minutes ??
@@ -837,11 +857,17 @@ export class ReportsService {
       depreciation: this.money(depreciation),
       totalCost: this.money(totalCost),
       netProfit: this.money(netProfit),
-      kmProfit: this.money(this.divideOrZero(netProfit, totalKm)),
+      kmProfit: this.money(
+        this.financeCalculationEngine.calculateKmNetProfit({
+          netProfit,
+          totalKm
+        }).value
+      ),
       hourlyProfit: this.money(
-        activeMinutes > 0
-          ? netProfit.div(new Prisma.Decimal(activeMinutes).div(60))
-          : new Prisma.Decimal(0)
+        this.financeCalculationEngine.calculateHourlyNetProfit({
+          activeMinutes,
+          netProfit
+        }).value
       ),
       totalKm: totalKm.toFixed(2),
       activeMinutes,
@@ -869,13 +895,13 @@ export class ReportsService {
         directDepreciationExpenseCost: this.money(directCosts.depreciation)
       },
       formula: {
-        netProfit:
-          'grossIncome - fuelCost - tagPackageCost - variableExpenses - fixedExpenses - maintenanceReserve - depreciation',
+        netProfit: periodNetProfit.formulaDescription,
         fuelCost:
           'estimated consumption from recorded trip km; actual fuel purchases are reported separately',
         tagPackageCost:
           'period active package allocation + direct package expenses + recurring package expenses'
       },
+      calculationWarnings: periodNetProfit.warnings,
       calculationVersion: this.calculationVersion
     };
   }
