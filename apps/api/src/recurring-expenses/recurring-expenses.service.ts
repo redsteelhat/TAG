@@ -1,32 +1,36 @@
 import {
   BadRequestException,
   Injectable,
-  NotFoundException
-} from '@nestjs/common';
+  NotFoundException,
+} from "@nestjs/common";
 import {
   AllocationType,
   ExpenseType,
   FixedCostAllocationMethod,
   Prisma,
-  RecurringExpense
-} from '@prisma/client';
-import { SortDirection } from '../common/dto/pagination-query.dto';
+  RecurringExpense,
+} from "@prisma/client";
+import { SortDirection } from "../common/dto/pagination-query.dto";
 import {
   buildPaginationMeta,
-  getPaginationParams
-} from '../common/pagination/pagination';
-import { buildDateRangeFilter } from '../common/utils/date-range';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateRecurringExpenseDto } from './dto/create-recurring-expense.dto';
+  getPaginationParams,
+} from "../common/pagination/pagination";
+import { buildDateRangeFilter } from "../common/utils/date-range";
+import { PrismaService } from "../prisma/prisma.service";
+import { ReportCacheService } from "../reports/report-cache.service";
+import { CreateRecurringExpenseDto } from "./dto/create-recurring-expense.dto";
 import {
   ListRecurringExpensesQueryDto,
-  RecurringExpenseSortBy
-} from './dto/list-recurring-expenses-query.dto';
-import { UpdateRecurringExpenseDto } from './dto/update-recurring-expense.dto';
+  RecurringExpenseSortBy,
+} from "./dto/list-recurring-expenses-query.dto";
+import { UpdateRecurringExpenseDto } from "./dto/update-recurring-expense.dto";
 
 @Injectable()
 export class RecurringExpensesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reportCacheService?: ReportCacheService,
+  ) {}
 
   async create(userId: string, dto: CreateRecurringExpenseDto) {
     const vehicle = await this.findOwnedVehicle(userId, dto.vehicleId);
@@ -34,6 +38,7 @@ export class RecurringExpensesService {
     const endsAt = this.toOptionalDate(dto.endsAt);
     const nextDueAt = this.toOptionalDate(dto.nextDueAt) ?? startsAt;
 
+    this.assertPositiveAmount(dto.amount);
     this.assertDateRange(startsAt, endsAt);
     this.assertNextDueWithinRange(startsAt, endsAt, nextDueAt);
 
@@ -50,10 +55,13 @@ export class RecurringExpensesService {
         starts_at: startsAt,
         ends_at: endsAt,
         next_due_at: nextDueAt,
+        reminder_enabled: dto.reminderEnabled ?? true,
         is_active: dto.isActive ?? true,
-        note: dto.note
-      }
+        note: dto.note,
+      },
     });
+
+    this.invalidateReportCache(userId);
 
     return this.toRecurringExpenseResponse(recurringExpense);
   }
@@ -66,18 +74,18 @@ export class RecurringExpensesService {
         where,
         orderBy: this.toRecurringExpenseOrderBy(query),
         skip: pagination.skip,
-        take: pagination.take
+        take: pagination.take,
       }),
       this.prisma.recurringExpense.count({
-        where
-      })
+        where,
+      }),
     ]);
 
     return {
       data: items.map((recurringExpense) =>
-        this.toRecurringExpenseResponse(recurringExpense)
+        this.toRecurringExpenseResponse(recurringExpense),
       ),
-      meta: buildPaginationMeta(pagination, total)
+      meta: buildPaginationMeta(pagination, total),
     };
   }
 
@@ -90,7 +98,7 @@ export class RecurringExpensesService {
   async update(userId: string, id: string, dto: UpdateRecurringExpenseDto) {
     const currentRecurringExpense = await this.findOwnedRecurringExpense(
       userId,
-      id
+      id,
     );
     const vehicleId = dto.vehicleId ?? currentRecurringExpense.vehicle_id;
     const vehicle = await this.findOwnedVehicle(userId, vehicleId);
@@ -107,12 +115,16 @@ export class RecurringExpensesService {
         ? this.toOptionalDate(dto.nextDueAt)
         : currentRecurringExpense.next_due_at;
 
+    if (dto.amount !== undefined) {
+      this.assertPositiveAmount(dto.amount);
+    }
+
     this.assertDateRange(startsAt, endsAt);
     this.assertNextDueWithinRange(startsAt, endsAt, nextDueAt);
 
     const recurringExpense = await this.prisma.recurringExpense.update({
       where: {
-        id
+        id,
       },
       data: {
         vehicle_id: vehicle.id,
@@ -125,14 +137,19 @@ export class RecurringExpensesService {
         starts_at: startsAt,
         ends_at: endsAt,
         next_due_at: nextDueAt,
+        reminder_enabled:
+          dto.reminderEnabled !== undefined
+            ? dto.reminderEnabled
+            : currentRecurringExpense.reminder_enabled,
         is_active:
           dto.isActive !== undefined
             ? dto.isActive
             : currentRecurringExpense.is_active,
-        note:
-          dto.note !== undefined ? dto.note : currentRecurringExpense.note
-      }
+        note: dto.note !== undefined ? dto.note : currentRecurringExpense.note,
+      },
     });
+
+    this.invalidateReportCache(userId);
 
     return this.toRecurringExpenseResponse(recurringExpense);
   }
@@ -142,16 +159,18 @@ export class RecurringExpensesService {
 
     await this.prisma.recurringExpense.update({
       where: {
-        id
+        id,
       },
       data: {
         deleted_at: new Date(),
-        is_active: false
-      }
+        is_active: false,
+      },
     });
 
+    this.invalidateReportCache(userId);
+
     return {
-      success: true
+      success: true,
     };
   }
 
@@ -160,12 +179,12 @@ export class RecurringExpensesService {
       where: {
         id,
         user_id: userId,
-        deleted_at: null
-      }
+        deleted_at: null,
+      },
     });
 
     if (!vehicle) {
-      throw new NotFoundException('Vehicle not found.');
+      throw new NotFoundException("Vehicle not found.");
     }
 
     return vehicle;
@@ -176,12 +195,12 @@ export class RecurringExpensesService {
       where: {
         id,
         user_id: userId,
-        deleted_at: null
-      }
+        deleted_at: null,
+      },
     });
 
     if (!recurringExpense) {
-      throw new NotFoundException('Recurring expense not found.');
+      throw new NotFoundException("Recurring expense not found.");
     }
 
     return recurringExpense;
@@ -189,11 +208,11 @@ export class RecurringExpensesService {
 
   private toRecurringExpenseWhereInput(
     userId: string,
-    query: ListRecurringExpensesQueryDto
+    query: ListRecurringExpensesQueryDto,
   ) {
     const where: Prisma.RecurringExpenseWhereInput = {
       user_id: userId,
-      deleted_at: null
+      deleted_at: null,
     };
 
     if (query.vehicleId) {
@@ -227,15 +246,15 @@ export class RecurringExpensesService {
         {
           name: {
             contains: query.q,
-            mode: 'insensitive'
-          }
+            mode: "insensitive",
+          },
         },
         {
           note: {
             contains: query.q,
-            mode: 'insensitive'
-          }
-        }
+            mode: "insensitive",
+          },
+        },
       ];
     }
 
@@ -255,7 +274,7 @@ export class RecurringExpensesService {
   }
 
   private toRecurringExpenseOrderBy(
-    query: ListRecurringExpensesQueryDto
+    query: ListRecurringExpensesQueryDto,
   ): Prisma.RecurringExpenseOrderByWithRelationInput[] {
     const direction = query.sortDirection ?? SortDirection.ASC;
     const sortBy = query.sortBy ?? RecurringExpenseSortBy.NEXT_DUE_AT;
@@ -263,51 +282,63 @@ export class RecurringExpensesService {
       RecurringExpenseSortBy,
       keyof Prisma.RecurringExpenseOrderByWithRelationInput
     > = {
-      [RecurringExpenseSortBy.AMOUNT]: 'amount',
-      [RecurringExpenseSortBy.CREATED_AT]: 'created_at',
-      [RecurringExpenseSortBy.NEXT_DUE_AT]: 'next_due_at',
-      [RecurringExpenseSortBy.STARTS_AT]: 'starts_at'
+      [RecurringExpenseSortBy.AMOUNT]: "amount",
+      [RecurringExpenseSortBy.CREATED_AT]: "created_at",
+      [RecurringExpenseSortBy.NEXT_DUE_AT]: "next_due_at",
+      [RecurringExpenseSortBy.STARTS_AT]: "starts_at",
     };
 
     return [
       {
-        [fieldBySort[sortBy]]: direction
+        [fieldBySort[sortBy]]: direction,
       },
       {
-        created_at: 'desc'
-      }
+        created_at: "desc",
+      },
     ];
   }
 
   private assertDateRange(startsAt: Date, endsAt?: Date | null) {
     if (endsAt && startsAt > endsAt) {
-      throw new BadRequestException('startsAt must be before endsAt.');
+      throw new BadRequestException("startsAt must be before endsAt.");
     }
   }
 
   private assertNextDueWithinRange(
     startsAt: Date,
     endsAt?: Date | null,
-    nextDueAt?: Date | null
+    nextDueAt?: Date | null,
   ) {
     if (!nextDueAt) {
       return;
     }
 
     if (nextDueAt < startsAt) {
-      throw new BadRequestException('nextDueAt must be after startsAt.');
+      throw new BadRequestException("nextDueAt must be after startsAt.");
     }
 
     if (endsAt && nextDueAt > endsAt) {
-      throw new BadRequestException('nextDueAt must be before endsAt.');
+      throw new BadRequestException("nextDueAt must be before endsAt.");
     }
+  }
+
+  private assertPositiveAmount(value: string | Prisma.Decimal) {
+    const amount = new Prisma.Decimal(value);
+
+    if (!amount.isFinite() || amount.lte(0)) {
+      throw new BadRequestException("amount must be greater than 0.");
+    }
+  }
+
+  private invalidateReportCache(userId: string) {
+    this.reportCacheService?.deleteByUser(userId);
   }
 
   private toDate(value: string) {
     const date = new Date(value);
 
     if (Number.isNaN(date.getTime())) {
-      throw new BadRequestException('Invalid date value.');
+      throw new BadRequestException("Invalid date value.");
     }
 
     return date;
@@ -335,10 +366,11 @@ export class RecurringExpensesService {
       startsAt: recurringExpense.starts_at,
       endsAt: recurringExpense.ends_at,
       nextDueAt: recurringExpense.next_due_at,
+      reminderEnabled: recurringExpense.reminder_enabled,
       isActive: recurringExpense.is_active,
       note: recurringExpense.note,
       createdAt: recurringExpense.created_at,
-      updatedAt: recurringExpense.updated_at
+      updatedAt: recurringExpense.updated_at,
     };
   }
 }

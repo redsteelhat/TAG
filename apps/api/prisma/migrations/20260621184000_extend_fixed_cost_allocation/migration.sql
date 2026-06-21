@@ -1,0 +1,4 @@
+ALTER TYPE "FixedCostAllocationMethod" ADD VALUE IF NOT EXISTS 'MONTHLY_DIRECT';
+
+ALTER TABLE "recurring_expenses"
+ADD COLUMN IF NOT EXISTS "reminder_enabled" BOOLEAN NOT NULL DEFAULT true;

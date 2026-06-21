@@ -1,40 +1,46 @@
-'use client';
+"use client";
 
 import {
   CalendarClock,
   ChevronLeft,
   ChevronRight,
+  Edit3,
   FileSearch,
   LockKeyhole,
   ListFilter,
   RefreshCw,
   Save,
-  Search
-} from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { EmptyState } from './empty-state';
-import { getJson, postJson } from '../lib/api-client';
-import { getAccessToken } from '../lib/auth-storage';
+  Search,
+  Trash2,
+} from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { EmptyState } from "./empty-state";
+import { deleteJson, getJson, patchJson, postJson } from "../lib/api-client";
+import { getAccessToken } from "../lib/auth-storage";
 
-type AllocationMethod = 'ACTIVE_DAY' | 'CALENDAR_DAY' | 'PER_KM';
+type AllocationMethod =
+  | "ACTIVE_DAY"
+  | "CALENDAR_DAY"
+  | "MONTHLY_DIRECT"
+  | "PER_KM";
 type ExpenseType =
-  | 'VARIABLE'
-  | 'FIXED'
-  | 'SEMI_VARIABLE'
-  | 'PLATFORM_PACKAGE'
-  | 'FINANCING'
-  | 'DEPRECIATION'
-  | 'OPERATIONAL';
+  | "VARIABLE"
+  | "FIXED"
+  | "SEMI_VARIABLE"
+  | "PLATFORM_PACKAGE"
+  | "FINANCING"
+  | "DEPRECIATION"
+  | "OPERATIONAL";
 type PeriodType =
-  | 'IMMEDIATE'
-  | 'DAILY'
-  | 'MONTHLY'
-  | 'YEARLY'
-  | 'PER_KM'
-  | 'PER_TRIP'
-  | 'PACKAGE_PERIOD';
-type SortDirection = 'asc' | 'desc';
-type FixedCostSortBy = 'amount' | 'createdAt' | 'nextDueAt' | 'startsAt';
+  | "IMMEDIATE"
+  | "DAILY"
+  | "MONTHLY"
+  | "YEARLY"
+  | "PER_KM"
+  | "PER_TRIP"
+  | "PACKAGE_PERIOD";
+type SortDirection = "asc" | "desc";
+type FixedCostSortBy = "amount" | "createdAt" | "nextDueAt" | "startsAt";
 
 interface RecurringExpense {
   id: string;
@@ -47,6 +53,7 @@ interface RecurringExpense {
   startsAt: string;
   endsAt?: string | null;
   nextDueAt?: string | null;
+  reminderEnabled: boolean;
   isActive: boolean;
   note?: string | null;
 }
@@ -82,7 +89,6 @@ interface RecurringExpenseResponse {
 interface FixedCostFilterValues {
   allocationMethod: string;
   endDate: string;
-  expenseType: string;
   isActive: string;
   maxAmount: string;
   minAmount: string;
@@ -98,148 +104,142 @@ interface FixedCostFormState {
   allocationMethod: AllocationMethod;
   amount: string;
   endsAt: string;
-  expenseType: ExpenseType;
   isActive: boolean;
   name: string;
   nextDueAt: string;
   note: string;
   period: PeriodType;
+  reminderEnabled: boolean;
   startsAt: string;
   vehicleId: string;
 }
 
 const allocationMethodLabels: Record<AllocationMethod, string> = {
-  ACTIVE_DAY: 'Aktif güne bol',
-  CALENDAR_DAY: 'Takvim günune bol',
-  PER_KM: 'Km’ye bol'
+  ACTIVE_DAY: "Çalışılan güne böl",
+  CALENDAR_DAY: "Takvim gününe böl",
+  MONTHLY_DIRECT: "Aylık direkt gider yaz",
+  PER_KM: "Km’ye böl",
 };
 
 const expenseTypeLabels: Record<ExpenseType, string> = {
-  DEPRECIATION: 'Amortisman',
-  FINANCING: 'Finansman',
-  FIXED: 'Sabit',
-  OPERATIONAL: 'Operasyon',
-  PLATFORM_PACKAGE: 'Paket',
-  SEMI_VARIABLE: 'Yari değişken',
-  VARIABLE: 'Değişken'
+  DEPRECIATION: "Amortisman",
+  FINANCING: "Finansman",
+  FIXED: "Sabit",
+  OPERATIONAL: "Operasyon",
+  PLATFORM_PACKAGE: "Paket",
+  SEMI_VARIABLE: "Yari değişken",
+  VARIABLE: "Değişken",
 };
 
 const periodLabels: Partial<Record<PeriodType, string>> = {
-  DAILY: 'Günlük',
-  MONTHLY: 'Aylık',
-  PER_KM: 'Km bazlı',
-  YEARLY: 'Yıllık'
+  DAILY: "Günlük",
+  MONTHLY: "Aylık",
+  PER_KM: "Km bazlı",
+  YEARLY: "Yıllık",
 };
 
 const sortOptions: Array<{ label: string; value: FixedCostSortBy }> = [
-  { label: 'Sonraki ödeme', value: 'nextDueAt' },
-  { label: 'Başlangıç tarihi', value: 'startsAt' },
-  { label: 'Tutar', value: 'amount' },
-  { label: 'Oluşturma tarihi', value: 'createdAt' }
+  { label: "Sonraki ödeme", value: "nextDueAt" },
+  { label: "Başlangıç tarihi", value: "startsAt" },
+  { label: "Tutar", value: "amount" },
+  { label: "Oluşturma tarihi", value: "createdAt" },
 ];
 
 const quickFixedCostPresets: Array<{
   allocationMethod: AllocationMethod;
-  expenseType: ExpenseType;
   label: string;
   name: string;
   period: PeriodType;
 }> = [
   {
-    allocationMethod: 'CALENDAR_DAY',
-    expenseType: 'FIXED',
-    label: 'Sigorta',
-    name: 'Trafik sigortası',
-    period: 'YEARLY'
+    allocationMethod: "CALENDAR_DAY",
+    label: "Sigorta",
+    name: "Trafik sigortası",
+    period: "YEARLY",
   },
   {
-    allocationMethod: 'CALENDAR_DAY',
-    expenseType: 'FIXED',
-    label: 'Kasko',
-    name: 'Kasko',
-    period: 'YEARLY'
+    allocationMethod: "CALENDAR_DAY",
+    label: "Kasko",
+    name: "Kasko",
+    period: "YEARLY",
   },
   {
-    allocationMethod: 'CALENDAR_DAY',
-    expenseType: 'FIXED',
-    label: 'MTV',
-    name: 'MTV',
-    period: 'YEARLY'
+    allocationMethod: "CALENDAR_DAY",
+    label: "MTV",
+    name: "MTV",
+    period: "YEARLY",
   },
   {
-    allocationMethod: 'CALENDAR_DAY',
-    expenseType: 'FIXED',
-    label: 'Muayene',
-    name: 'Muayene',
-    period: 'YEARLY'
+    allocationMethod: "CALENDAR_DAY",
+    label: "Muayene",
+    name: "Muayene",
+    period: "YEARLY",
   },
   {
-    allocationMethod: 'CALENDAR_DAY',
-    expenseType: 'FINANCING',
-    label: 'Kredi',
-    name: 'Araç kredisi',
-    period: 'MONTHLY'
+    allocationMethod: "MONTHLY_DIRECT",
+    label: "Kredi",
+    name: "Araç kredisi",
+    period: "MONTHLY",
   },
   {
-    allocationMethod: 'ACTIVE_DAY',
-    expenseType: 'OPERATIONAL',
-    label: 'Telefon',
-    name: 'Telefon hattı',
-    period: 'MONTHLY'
+    allocationMethod: "ACTIVE_DAY",
+    label: "Telefon",
+    name: "Telefon hattı",
+    period: "MONTHLY",
   },
   {
-    allocationMethod: 'ACTIVE_DAY',
-    expenseType: 'OPERATIONAL',
-    label: 'İnternet',
-    name: 'İnternet paketi',
-    period: 'MONTHLY'
+    allocationMethod: "ACTIVE_DAY",
+    label: "İnternet",
+    name: "İnternet paketi",
+    period: "MONTHLY",
   },
   {
-    allocationMethod: 'CALENDAR_DAY',
-    expenseType: 'FIXED',
-    label: 'Otopark',
-    name: 'Otopark aboneliği',
-    period: 'MONTHLY'
-  }
+    allocationMethod: "CALENDAR_DAY",
+    label: "Otopark",
+    name: "Otopark aboneliği",
+    period: "MONTHLY",
+  },
 ];
 
 const today = new Date().toISOString().slice(0, 10);
 
 const emptyFixedCostForm: FixedCostFormState = {
-  allocationMethod: 'CALENDAR_DAY',
-  amount: '',
-  endsAt: '',
-  expenseType: 'FIXED',
+  allocationMethod: "CALENDAR_DAY",
+  amount: "",
+  endsAt: "",
   isActive: true,
-  name: '',
+  name: "",
   nextDueAt: today,
-  note: '',
-  period: 'MONTHLY',
+  note: "",
+  period: "MONTHLY",
+  reminderEnabled: true,
   startsAt: today,
-  vehicleId: ''
+  vehicleId: "",
 };
 
 export function FixedCostPanel() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [fixedCosts, setFixedCosts] = useState<RecurringExpense[]>([]);
-  const [meta, setMeta] = useState<RecurringExpensesResponse['meta'] | null>(
-    null
+  const [meta, setMeta] = useState<RecurringExpensesResponse["meta"] | null>(
+    null,
   );
   const [fixedCostForm, setFixedCostForm] =
     useState<FixedCostFormState>(emptyFixedCostForm);
-  const [vehicleId, setVehicleId] = useState('');
-  const [expenseType, setExpenseType] = useState('');
-  const [period, setPeriod] = useState('');
-  const [allocationMethod, setAllocationMethod] = useState('');
-  const [isActive, setIsActive] = useState('');
-  const [q, setQ] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [minAmount, setMinAmount] = useState('');
-  const [maxAmount, setMaxAmount] = useState('');
-  const [sortBy, setSortBy] = useState<FixedCostSortBy>('nextDueAt');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [editingFixedCostId, setEditingFixedCostId] = useState<string | null>(
+    null,
+  );
+  const [vehicleId, setVehicleId] = useState("");
+  const [period, setPeriod] = useState("");
+  const [allocationMethod, setAllocationMethod] = useState("");
+  const [isActive, setIsActive] = useState("");
+  const [q, setQ] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
+  const [sortBy, setSortBy] = useState<FixedCostSortBy>("nextDueAt");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [page, setPage] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
@@ -252,19 +252,18 @@ export function FixedCostPanel() {
         activeCount: totals.activeCount + (item.isActive ? 1 : 0),
         dailyEquivalent: totals.dailyEquivalent + toDailyEquivalent(item),
         monthlyEquivalent: totals.monthlyEquivalent + toMonthlyEquivalent(item),
-        totalAmount: totals.totalAmount + toNumber(item.amount)
+        totalAmount: totals.totalAmount + toNumber(item.amount),
       }),
       {
         activeCount: 0,
         dailyEquivalent: 0,
         monthlyEquivalent: 0,
-        totalAmount: 0
-      }
+        totalAmount: 0,
+      },
     );
   }, [fixedCosts]);
   const hasActiveFilters = Boolean(
     vehicleId ||
-    expenseType ||
     period ||
     allocationMethod ||
     isActive ||
@@ -272,7 +271,7 @@ export function FixedCostPanel() {
     startDate ||
     endDate ||
     minAmount ||
-    maxAmount
+    maxAmount,
   );
 
   useEffect(() => {
@@ -304,7 +303,7 @@ export function FixedCostPanel() {
 
     setFixedCostForm((currentForm) => ({
       ...currentForm,
-      vehicleId: activeVehicle?.id ?? vehicles[0].id
+      vehicleId: activeVehicle?.id ?? vehicles[0].id,
     }));
   }, [fixedCostForm.vehicleId, vehicles]);
 
@@ -314,14 +313,14 @@ export function FixedCostPanel() {
     }
 
     try {
-      const response = await getJson<VehiclesResponse>('/vehicles', {
-        accessToken: token
+      const response = await getJson<VehiclesResponse>("/vehicles", {
+        accessToken: token,
       });
 
       setVehicles(response.data);
     } catch (error) {
       setFormMessage(
-        error instanceof Error ? error.message : 'Araçlar yüklenemedi.'
+        error instanceof Error ? error.message : "Araçlar yüklenemedi.",
       );
     }
   }
@@ -332,7 +331,6 @@ export function FixedCostPanel() {
     filters: FixedCostFilterValues = {
       allocationMethod,
       endDate,
-      expenseType,
       isActive,
       maxAmount,
       minAmount,
@@ -341,11 +339,11 @@ export function FixedCostPanel() {
       sortBy,
       sortDirection,
       startDate,
-      vehicleId
-    }
+      vehicleId,
+    },
   ) {
     if (!token) {
-      setMessage('Sabit giderleri görmek için önce giriş yapmalısın.');
+      setMessage("Sabit giderleri görmek için önce giriş yapmalısın.");
       return;
     }
 
@@ -354,13 +352,12 @@ export function FixedCostPanel() {
 
     try {
       const response = await getJson<RecurringExpensesResponse>(
-        '/recurring-expenses',
+        "/recurring-expenses",
         {
           accessToken: token,
           query: {
             allocationMethod: filters.allocationMethod || undefined,
             endDate: filters.endDate,
-            expenseType: filters.expenseType || undefined,
             isActive: filters.isActive || undefined,
             maxAmount: normalizeDecimal(filters.maxAmount),
             minAmount: normalizeDecimal(filters.minAmount),
@@ -371,16 +368,16 @@ export function FixedCostPanel() {
             sortBy: filters.sortBy,
             sortDirection: filters.sortDirection,
             startDate: filters.startDate,
-            vehicleId: filters.vehicleId || undefined
-          }
-        }
+            vehicleId: filters.vehicleId || undefined,
+          },
+        },
       );
 
       setFixedCosts(response.data);
       setMeta(response.meta);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Sabit giderler yüklenemedi.'
+        error instanceof Error ? error.message : "Sabit giderler yüklenemedi.",
       );
     } finally {
       setIsLoading(false);
@@ -391,12 +388,19 @@ export function FixedCostPanel() {
     event.preventDefault();
 
     if (!accessToken) {
-      setFormMessage('Sabit gider kaydetmek için önce giriş yapmalısın.');
+      setFormMessage("Sabit gider kaydetmek için önce giriş yapmalısın.");
       return;
     }
 
     if (!fixedCostForm.vehicleId) {
-      setFormMessage('Sabit gider kaydetmek için önce araç seçmelisin.');
+      setFormMessage("Sabit gider kaydetmek için önce araç seçmelisin.");
+      return;
+    }
+
+    const validationMessage = validateFixedCostForm(fixedCostForm);
+
+    if (validationMessage) {
+      setFormMessage(validationMessage);
       return;
     }
 
@@ -404,19 +408,31 @@ export function FixedCostPanel() {
     setFormMessage(null);
 
     try {
-      await postJson<RecurringExpenseResponse>(
-        '/recurring-expenses',
-        buildFixedCostPayload(fixedCostForm),
-        { accessToken }
-      );
+      if (editingFixedCostId) {
+        await patchJson<RecurringExpenseResponse>(
+          `/recurring-expenses/${editingFixedCostId}`,
+          buildFixedCostPayload(fixedCostForm),
+          { accessToken },
+        );
+      } else {
+        await postJson<RecurringExpenseResponse>(
+          "/recurring-expenses",
+          buildFixedCostPayload(fixedCostForm),
+          { accessToken },
+        );
+      }
 
-      setFormMessage('Sabit gider kaydı oluşturuldu.');
+      setFormMessage(
+        editingFixedCostId
+          ? "Sabit gider kaydı güncellendi."
+          : "Sabit gider kaydı oluşturuldu.",
+      );
       resetFixedCostForm();
       setPage(1);
       await fetchFixedCosts(accessToken, 1);
     } catch (error) {
       setFormMessage(
-        error instanceof Error ? error.message : 'Sabit gider kaydedilemedi.'
+        error instanceof Error ? error.message : "Sabit gider kaydedilemedi.",
       );
     } finally {
       setIsSavingFixedCost(false);
@@ -431,32 +447,30 @@ export function FixedCostPanel() {
 
   function clearFilters() {
     const clearedFilters: FixedCostFilterValues = {
-      allocationMethod: '',
-      endDate: '',
-      expenseType: '',
-      isActive: '',
-      maxAmount: '',
-      minAmount: '',
-      period: '',
-      q: '',
-      sortBy: 'nextDueAt',
-      sortDirection: 'asc',
-      startDate: '',
-      vehicleId: ''
+      allocationMethod: "",
+      endDate: "",
+      isActive: "",
+      maxAmount: "",
+      minAmount: "",
+      period: "",
+      q: "",
+      sortBy: "nextDueAt",
+      sortDirection: "asc",
+      startDate: "",
+      vehicleId: "",
     };
 
-    setVehicleId('');
-    setExpenseType('');
-    setPeriod('');
-    setAllocationMethod('');
-    setIsActive('');
-    setQ('');
-    setStartDate('');
-    setEndDate('');
-    setMinAmount('');
-    setMaxAmount('');
-    setSortBy('nextDueAt');
-    setSortDirection('asc');
+    setVehicleId("");
+    setPeriod("");
+    setAllocationMethod("");
+    setIsActive("");
+    setQ("");
+    setStartDate("");
+    setEndDate("");
+    setMinAmount("");
+    setMaxAmount("");
+    setSortBy("nextDueAt");
+    setSortDirection("asc");
     setPage(1);
     void fetchFixedCosts(accessToken, 1, clearedFilters);
   }
@@ -465,11 +479,63 @@ export function FixedCostPanel() {
     setFixedCostForm((currentForm) => ({
       ...currentForm,
       allocationMethod: preset.allocationMethod,
-      expenseType: preset.expenseType,
       name: preset.name,
-      period: preset.period
+      period: preset.period,
     }));
     setFormMessage(null);
+  }
+
+  function beginEditFixedCost(item: RecurringExpense) {
+    setEditingFixedCostId(item.id);
+    setFixedCostForm({
+      allocationMethod: item.allocationMethod,
+      amount: item.amount,
+      endsAt: toDateInputValue(item.endsAt),
+      isActive: item.isActive,
+      name: item.name,
+      nextDueAt: toDateInputValue(item.nextDueAt),
+      note: item.note ?? "",
+      period: item.period,
+      reminderEnabled: item.reminderEnabled ?? true,
+      startsAt: toDateInputValue(item.startsAt),
+      vehicleId: item.vehicleId,
+    });
+    setFormMessage("Seçili sabit gider düzenleniyor.");
+  }
+
+  async function deleteFixedCost(item: RecurringExpense) {
+    if (!accessToken) {
+      setMessage("Sabit gider silmek için önce giriş yapmalısın.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${item.name} sabit gider kaydı silinsin mi?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      await deleteJson(`/recurring-expenses/${item.id}`, { accessToken });
+      setMessage("Sabit gider kaydı silindi.");
+
+      if (editingFixedCostId === item.id) {
+        resetFixedCostForm();
+      }
+
+      await fetchFixedCosts(accessToken, page);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Sabit gider silinemedi.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function resetFixedCostForm() {
@@ -479,17 +545,18 @@ export function FixedCostPanel() {
       ...emptyFixedCostForm,
       nextDueAt: today,
       startsAt: today,
-      vehicleId: activeVehicle?.id ?? vehicles[0]?.id ?? ''
+      vehicleId: activeVehicle?.id ?? vehicles[0]?.id ?? "",
     });
+    setEditingFixedCostId(null);
   }
 
   function updateFixedCostForm<Key extends keyof FixedCostFormState>(
     key: Key,
-    value: FixedCostFormState[Key]
+    value: FixedCostFormState[Key],
   ) {
     setFixedCostForm((currentForm) => ({
       ...currentForm,
-      [key]: value
+      [key]: value,
     }));
   }
 
@@ -526,14 +593,19 @@ export function FixedCostPanel() {
           label="Günlük karşılık"
           value={formatMoney(pageMetrics.dailyEquivalent)}
         />
-        <MetricCard label="Aktif gider" value={`${pageMetrics.activeCount}`} />
+        <MetricCard
+          label="Aktif gider sayısı"
+          value={`${pageMetrics.activeCount}`}
+        />
       </section>
 
       <section className="panel data-form quick-expense-panel">
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Sabit gider girişi</p>
-            <h2>Sabit gider ekle</h2>
+            <h2>
+              {editingFixedCostId ? "Sabit gideri düzenle" : "Sabit gider ekle"}
+            </h2>
           </div>
           <span className="status-pill">
             {formatMoney(toDailyEquivalentFromForm(fixedCostForm))} / gün
@@ -560,7 +632,7 @@ export function FixedCostPanel() {
               <select
                 disabled={vehicles.length === 0}
                 onChange={(event) =>
-                  updateFixedCostForm('vehicleId', event.target.value)
+                  updateFixedCostForm("vehicleId", event.target.value)
                 }
                 required
                 value={fixedCostForm.vehicleId}
@@ -578,7 +650,7 @@ export function FixedCostPanel() {
               Gider adı
               <input
                 onChange={(event) =>
-                  updateFixedCostForm('name', event.target.value)
+                  updateFixedCostForm("name", event.target.value)
                 }
                 placeholder="Trafik sigortası"
                 required
@@ -591,7 +663,7 @@ export function FixedCostPanel() {
               <input
                 inputMode="decimal"
                 onChange={(event) =>
-                  updateFixedCostForm('amount', event.target.value)
+                  updateFixedCostForm("amount", event.target.value)
                 }
                 placeholder="1200.00"
                 required
@@ -604,8 +676,8 @@ export function FixedCostPanel() {
               <select
                 onChange={(event) =>
                   updateFixedCostForm(
-                    'period',
-                    event.target.value as PeriodType
+                    "period",
+                    event.target.value as PeriodType,
                   )
                 }
                 value={fixedCostForm.period}
@@ -619,31 +691,12 @@ export function FixedCostPanel() {
             </label>
 
             <label>
-              Gider tipi
-              <select
-                onChange={(event) =>
-                  updateFixedCostForm(
-                    'expenseType',
-                    event.target.value as ExpenseType
-                  )
-                }
-                value={fixedCostForm.expenseType}
-              >
-                {Object.entries(expenseTypeLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
               Dağıtım
               <select
                 onChange={(event) =>
                   updateFixedCostForm(
-                    'allocationMethod',
-                    event.target.value as AllocationMethod
+                    "allocationMethod",
+                    event.target.value as AllocationMethod,
                   )
                 }
                 value={fixedCostForm.allocationMethod}
@@ -653,7 +706,7 @@ export function FixedCostPanel() {
                     <option key={value} value={value}>
                       {label}
                     </option>
-                  )
+                  ),
                 )}
               </select>
             </label>
@@ -662,7 +715,7 @@ export function FixedCostPanel() {
               Başlangıç
               <input
                 onChange={(event) =>
-                  updateFixedCostForm('startsAt', event.target.value)
+                  updateFixedCostForm("startsAt", event.target.value)
                 }
                 required
                 type="date"
@@ -674,7 +727,7 @@ export function FixedCostPanel() {
               Sonraki ödeme
               <input
                 onChange={(event) =>
-                  updateFixedCostForm('nextDueAt', event.target.value)
+                  updateFixedCostForm("nextDueAt", event.target.value)
                 }
                 type="date"
                 value={fixedCostForm.nextDueAt}
@@ -685,20 +738,25 @@ export function FixedCostPanel() {
               Bitiş
               <input
                 onChange={(event) =>
-                  updateFixedCostForm('endsAt', event.target.value)
+                  updateFixedCostForm("endsAt", event.target.value)
                 }
                 type="date"
                 value={fixedCostForm.endsAt}
               />
             </label>
+
+            <label>
+              Gider tipi
+              <input disabled value="Sabit gider" />
+            </label>
           </div>
 
-          <div className="quick-expense-bottom-row">
+          <div className="quick-expense-bottom-row fixed-cost-bottom-row">
             <label>
               Not
               <input
                 onChange={(event) =>
-                  updateFixedCostForm('note', event.target.value)
+                  updateFixedCostForm("note", event.target.value)
                 }
                 placeholder="Yıllık sigorta, aylık kredi, telefon hattı"
                 value={fixedCostForm.note}
@@ -709,20 +767,32 @@ export function FixedCostPanel() {
               <input
                 checked={fixedCostForm.isActive}
                 onChange={(event) =>
-                  updateFixedCostForm('isActive', event.target.checked)
+                  updateFixedCostForm("isActive", event.target.checked)
                 }
                 type="checkbox"
               />
               Aktif gider
+            </label>
+
+            <label className="checkbox-row quick-expense-checkbox">
+              <input
+                checked={fixedCostForm.reminderEnabled}
+                onChange={(event) =>
+                  updateFixedCostForm("reminderEnabled", event.target.checked)
+                }
+                type="checkbox"
+              />
+              Hatırlatıcı aktif
             </label>
           </div>
 
           {formMessage ? (
             <p
               className={
-                formMessage.includes('oluşturuldu')
-                  ? 'form-success'
-                  : 'form-alert'
+                formMessage.includes("oluşturuldu") ||
+                formMessage.includes("güncellendi")
+                  ? "form-success"
+                  : "form-alert"
               }
             >
               {formMessage}
@@ -735,14 +805,18 @@ export function FixedCostPanel() {
               onClick={resetFixedCostForm}
               type="button"
             >
-              Temizle
+              {editingFixedCostId ? "Vazgeç" : "Formu temizle"}
             </button>
             <button
               className="primary-button"
               disabled={isSavingFixedCost || vehicles.length === 0}
             >
               <Save aria-hidden="true" className="button-icon" />
-              {isSavingFixedCost ? 'Kaydediliyor' : 'Sabit Gider Ekle'}
+              {isSavingFixedCost
+                ? "Kaydediliyor"
+                : editingFixedCostId
+                  ? "Sabit gideri güncelle"
+                  : "Sabit gider ekle"}
             </button>
           </div>
         </form>
@@ -775,27 +849,12 @@ export function FixedCostPanel() {
           </label>
 
           <label>
-            Tip
-            <select
-              onChange={(event) => setExpenseType(event.target.value)}
-              value={expenseType}
-            >
-              <option value="">Tüm tipler</option>
-              {Object.entries(expenseTypeLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
             Dönem
             <select
               onChange={(event) => setPeriod(event.target.value)}
               value={period}
             >
-              <option value="">Tüm donemler</option>
+              <option value="">Tüm dönemler</option>
               {Object.entries(periodLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -870,7 +929,7 @@ export function FixedCostPanel() {
           </label>
 
           <label>
-            Sirala
+            Sırala
             <select
               onChange={(event) =>
                 setSortBy(event.target.value as FixedCostSortBy)
@@ -909,7 +968,7 @@ export function FixedCostPanel() {
             </button>
             <button className="primary-button" disabled={isLoading}>
               <RefreshCw aria-hidden="true" className="button-icon" />
-              {isLoading ? 'Yükleniyor' : 'Filtrele'}
+              {isLoading ? "Yükleniyor" : "Filtrele"}
             </button>
           </div>
         </form>
@@ -922,7 +981,7 @@ export function FixedCostPanel() {
             <h2>Sabit giderler</h2>
           </div>
           <span className="status-pill">
-            {meta ? `${meta.total} kayıt` : 'Hazırlanıyor'}
+            {meta ? `${meta.total} kayıt` : "Hazırlanıyor"}
           </span>
         </div>
 
@@ -940,8 +999,10 @@ export function FixedCostPanel() {
               <span>Dağıtım</span>
               <span>Sonraki</span>
               <span>Aylık</span>
+              <span>Hatırlatıcı</span>
               <span>Durum</span>
               <span>Tutar</span>
+              <span>İşlem</span>
             </div>
 
             {fixedCosts.map((item) => (
@@ -963,21 +1024,42 @@ export function FixedCostPanel() {
                 </span>
                 <span>{allocationMethodLabels[item.allocationMethod]}</span>
                 <span>
-                  {item.nextDueAt ? formatDate(item.nextDueAt) : 'Yok'}
+                  {item.nextDueAt ? formatDate(item.nextDueAt) : "Yok"}
                 </span>
                 <span>{formatMoney(toMonthlyEquivalent(item))}</span>
+                <span>
+                  {item.reminderEnabled && item.nextDueAt ? "Aktif" : "Kapalı"}
+                </span>
                 <span>
                   <span
                     className={
                       item.isActive
-                        ? 'status-pill compact active'
-                        : 'status-pill compact completed'
+                        ? "status-pill compact active"
+                        : "status-pill compact completed"
                     }
                   >
-                    {item.isActive ? 'Aktif' : 'Pasif'}
+                    {item.isActive ? "Aktif" : "Pasif"}
                   </span>
                 </span>
                 <b>{formatMoney(toNumber(item.amount))}</b>
+                <span className="table-actions">
+                  <button
+                    aria-label={`${item.name} sabit giderini düzenle`}
+                    className="icon-button"
+                    onClick={() => beginEditFixedCost(item)}
+                    type="button"
+                  >
+                    <Edit3 aria-hidden="true" />
+                  </button>
+                  <button
+                    aria-label={`${item.name} sabit giderini sil`}
+                    className="icon-button danger"
+                    onClick={() => void deleteFixedCost(item)}
+                    type="button"
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </button>
+                </span>
               </div>
             ))}
           </div>
@@ -986,22 +1068,22 @@ export function FixedCostPanel() {
             <EmptyState
               description={
                 hasActiveFilters
-                  ? 'Bu filtrelerle eşleşen sabit gider bulunamadı. Dönem, durum veya araç filtresini temizleyerek tekrar deneyebilirsin.'
-                  : 'Sigorta, MTV, muayene, kredi, telefon ve abonelik giderleri eklendikce günlük ve aylık pay burada görünür.'
+                  ? "Bu filtrelerle eşleşen sabit gider bulunamadı. Dönem, durum veya araç filtresini temizleyerek tekrar deneyebilirsin."
+                  : "Sabit gider eklemeden gerçek net kâr eksik hesaplanır. Sigorta, MTV, muayene, kredi, telefon ve abonelik giderleri günlük ve aylık kâra dağıtılır."
               }
               icon={hasActiveFilters ? FileSearch : CalendarClock}
               title={
                 hasActiveFilters
-                  ? 'Filtreye uygun sabit gider yok.'
-                  : 'Henüz sabit gider kaydı yok.'
+                  ? "Filtreye uygun sabit gider yok."
+                  : "Henüz sabit gider kaydı yok."
               }
               tips={
                 hasActiveFilters
-                  ? ['Durum filtresini kaldır', 'Tutar aralığını genişlet']
+                  ? ["Durum filtresini kaldır", "Tutar aralığını genişlet"]
                   : [
-                      'Preset seç',
-                      'Ödeme donemini belirle',
-                      'Dağıtım metodunu seç'
+                      "Preset seç",
+                      "Ödeme dönemini belirle",
+                      "Dağıtım metodunu seç",
                     ]
               }
             />
@@ -1045,7 +1127,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
         <p>{label}</p>
       </div>
       <strong>{value}</strong>
-      <span>Aktif filtre ve sayfa kapsaminda</span>
+      <span>Aktif filtre ve sayfa kapsamında</span>
     </article>
   );
 }
@@ -1055,33 +1137,60 @@ function buildFixedCostPayload(form: FixedCostFormState) {
     allocationMethod: form.allocationMethod,
     amount: normalizeDecimal(form.amount),
     endsAt: form.endsAt,
-    expenseType: form.expenseType,
+    expenseType: "FIXED",
     isActive: form.isActive,
     name: form.name.trim(),
     nextDueAt: form.nextDueAt,
     note: form.note.trim(),
     period: form.period,
+    reminderEnabled: form.reminderEnabled,
     startsAt: form.startsAt,
-    vehicleId: form.vehicleId
+    vehicleId: form.vehicleId,
   });
+}
+
+function validateFixedCostForm(form: FixedCostFormState) {
+  const amount = Number(normalizeDecimal(form.amount));
+
+  if (!form.vehicleId) {
+    return "Araç seçimi zorunlu.";
+  }
+
+  if (!form.startsAt) {
+    return "Başlangıç tarihi zorunlu.";
+  }
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return "Tutar 0’dan büyük olmalı.";
+  }
+
+  if (form.nextDueAt && form.nextDueAt < form.startsAt) {
+    return "Sonraki ödeme tarihi başlangıçtan önce olamaz.";
+  }
+
+  if (form.endsAt && form.endsAt < form.startsAt) {
+    return "Bitiş tarihi başlangıçtan önce olamaz.";
+  }
+
+  return null;
 }
 
 function removeEmptyValues(values: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(values).filter(
-      ([, value]) => value !== undefined && value !== ''
-    )
+      ([, value]) => value !== undefined && value !== "",
+    ),
   );
 }
 
 function toMonthlyEquivalent(item: RecurringExpense) {
   const amount = toNumber(item.amount);
 
-  if (item.period === 'YEARLY') {
+  if (item.period === "YEARLY") {
     return amount / 12;
   }
 
-  if (item.period === 'DAILY') {
+  if (item.period === "DAILY") {
     return amount * 30;
   }
 
@@ -1091,11 +1200,11 @@ function toMonthlyEquivalent(item: RecurringExpense) {
 function toDailyEquivalent(item: RecurringExpense) {
   const amount = toNumber(item.amount);
 
-  if (item.period === 'YEARLY') {
+  if (item.period === "YEARLY") {
     return amount / 365;
   }
 
-  if (item.period === 'MONTHLY') {
+  if (item.period === "MONTHLY") {
     return amount / 30;
   }
 
@@ -1105,11 +1214,11 @@ function toDailyEquivalent(item: RecurringExpense) {
 function toDailyEquivalentFromForm(form: FixedCostFormState) {
   const amount = toNumber(form.amount);
 
-  if (form.period === 'YEARLY') {
+  if (form.period === "YEARLY") {
     return amount / 365;
   }
 
-  if (form.period === 'MONTHLY') {
+  if (form.period === "MONTHLY") {
     return amount / 30;
   }
 
@@ -1117,7 +1226,7 @@ function toDailyEquivalentFromForm(form: FixedCostFormState) {
 }
 
 function formatVehicleLabel(vehicle: Vehicle) {
-  const name = [vehicle.brand, vehicle.model].filter(Boolean).join(' ');
+  const name = [vehicle.brand, vehicle.model].filter(Boolean).join(" ");
 
   return name ? `${vehicle.plateNumber} - ${name}` : vehicle.plateNumber;
 }
@@ -1125,26 +1234,30 @@ function formatVehicleLabel(vehicle: Vehicle) {
 function vehicleNameById(vehicles: Vehicle[], vehicleId: string) {
   const vehicle = vehicles.find((item) => item.id === vehicleId);
 
-  return vehicle ? formatVehicleLabel(vehicle) : 'Araç';
+  return vehicle ? formatVehicleLabel(vehicle) : "Araç";
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat('tr-TR', {
-    day: '2-digit',
-    month: 'short'
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "2-digit",
+    month: "short",
   }).format(new Date(value));
 }
 
+function toDateInputValue(value?: string | null) {
+  return value ? new Date(value).toISOString().slice(0, 10) : "";
+}
+
 function formatMoney(value: number) {
-  return new Intl.NumberFormat('tr-TR', {
-    currency: 'TRY',
+  return new Intl.NumberFormat("tr-TR", {
+    currency: "TRY",
     maximumFractionDigits: 0,
-    style: 'currency'
+    style: "currency",
   }).format(value);
 }
 
 function normalizeDecimal(value: string) {
-  const normalizedValue = value.trim().replace(',', '.');
+  const normalizedValue = value.trim().replace(",", ".");
 
   return normalizedValue || undefined;
 }

@@ -1,24 +1,24 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   AllocationType,
   ExpenseType,
-  FixedCostAllocationMethod
-} from '@prisma/client';
+  FixedCostAllocationMethod,
+} from "@prisma/client";
 import {
   IsBoolean,
   IsEnum,
   IsISO8601,
   IsOptional,
-  IsString
-} from 'class-validator';
-import { IsDecimalString } from '../../common/validators/decimal-string.decorator';
+  IsString,
+} from "class-validator";
+import { IsDecimalString } from "../../common/validators/decimal-string.decorator";
 
 export class CreateRecurringExpenseDto {
-  @ApiProperty({ example: 'veh_123' })
+  @ApiProperty({ example: "veh_123" })
   @IsString()
   vehicleId!: string;
 
-  @ApiProperty({ example: 'Trafik sigortasi' })
+  @ApiProperty({ example: "Trafik sigortası" })
   @IsString()
   name!: string;
 
@@ -27,7 +27,7 @@ export class CreateRecurringExpenseDto {
   @IsEnum(ExpenseType)
   expenseType?: ExpenseType;
 
-  @ApiProperty({ example: '1200.00' })
+  @ApiProperty({ example: "1200.00" })
   @IsDecimalString()
   amount!: string;
 
@@ -37,22 +37,22 @@ export class CreateRecurringExpenseDto {
 
   @ApiPropertyOptional({
     enum: FixedCostAllocationMethod,
-    example: FixedCostAllocationMethod.CALENDAR_DAY
+    example: FixedCostAllocationMethod.CALENDAR_DAY,
   })
   @IsOptional()
   @IsEnum(FixedCostAllocationMethod)
   allocationMethod?: FixedCostAllocationMethod;
 
-  @ApiProperty({ example: '2026-06-18' })
+  @ApiProperty({ example: "2026-06-18" })
   @IsISO8601()
   startsAt!: string;
 
-  @ApiPropertyOptional({ example: '2027-06-18' })
+  @ApiPropertyOptional({ example: "2027-06-18" })
   @IsOptional()
   @IsISO8601()
   endsAt?: string;
 
-  @ApiPropertyOptional({ example: '2026-07-18' })
+  @ApiPropertyOptional({ example: "2026-07-18" })
   @IsOptional()
   @IsISO8601()
   nextDueAt?: string;
@@ -62,7 +62,12 @@ export class CreateRecurringExpenseDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ example: 'Yillik sigorta taksidi' })
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  reminderEnabled?: boolean;
+
+  @ApiPropertyOptional({ example: "Yıllık sigorta taksidi" })
   @IsOptional()
   @IsString()
   note?: string;

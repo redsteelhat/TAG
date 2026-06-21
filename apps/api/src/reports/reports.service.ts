@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from "@nestjs/common";
 import {
   AllocationType,
   ExpenseEntry,
@@ -7,23 +7,23 @@ import {
   PackageAllocationMethod,
   Prisma,
   RecurringExpense,
-  TagPackage
-} from '@prisma/client';
-import { FinanceCalculationEngine } from '../finance-calculation/finance-calculation.engine';
-import { PrismaService } from '../prisma/prisma.service';
-import { BreakEvenPeriod, BreakEvenQueryDto } from './dto/break-even-query.dto';
-import { DailyProfitQueryDto } from './dto/daily-profit-query.dto';
+  TagPackage,
+} from "@prisma/client";
+import { FinanceCalculationEngine } from "../finance-calculation/finance-calculation.engine";
+import { PrismaService } from "../prisma/prisma.service";
+import { BreakEvenPeriod, BreakEvenQueryDto } from "./dto/break-even-query.dto";
+import { DailyProfitQueryDto } from "./dto/daily-profit-query.dto";
 import {
   HourlyProfitPeriod,
-  HourlyProfitQueryDto
-} from './dto/hourly-profit-query.dto';
-import { KmProfitPeriod, KmProfitQueryDto } from './dto/km-profit-query.dto';
-import { MonthlyProfitQueryDto } from './dto/monthly-profit-query.dto';
-import { ReportOverviewQueryDto } from './dto/report-overview-query.dto';
-import { WeeklyProfitQueryDto } from './dto/weekly-profit-query.dto';
-import { ReportCacheService } from './report-cache.service';
+  HourlyProfitQueryDto,
+} from "./dto/hourly-profit-query.dto";
+import { KmProfitPeriod, KmProfitQueryDto } from "./dto/km-profit-query.dto";
+import { MonthlyProfitQueryDto } from "./dto/monthly-profit-query.dto";
+import { ReportOverviewQueryDto } from "./dto/report-overview-query.dto";
+import { WeeklyProfitQueryDto } from "./dto/weekly-profit-query.dto";
+import { ReportCacheService } from "./report-cache.service";
 
-type ProfitPeriod = 'daily' | 'weekly' | 'monthly';
+type ProfitPeriod = "daily" | "weekly" | "monthly";
 
 interface PeriodRange {
   date: string;
@@ -44,32 +44,32 @@ interface CostBuckets {
 
 @Injectable()
 export class ReportsService {
-  readonly calculationVersion = 'profit-period-v1';
+  readonly calculationVersion = "profit-period-v1";
   private readonly realtimeReportCacheTtlMs = 30_000;
   private readonly periodReportCacheTtlMs = 120_000;
 
   constructor(
     private readonly financeCalculationEngine: FinanceCalculationEngine,
     private readonly prisma: PrismaService,
-    private readonly reportCache: ReportCacheService
+    private readonly reportCache: ReportCacheService,
   ) {}
 
   async calculateDailyProfit(userId: string, query: DailyProfitQueryDto) {
     return this.reportCache.getOrSet(
-      this.buildReportCacheKey(userId, 'daily-profit', query),
+      this.buildReportCacheKey(userId, "daily-profit", query),
       this.realtimeReportCacheTtlMs,
       () =>
         this.calculateProfitForPeriod(
           userId,
           this.resolveDayRange(query.date),
-          query.vehicleId
-        )
+          query.vehicleId,
+        ),
     );
   }
 
   async calculateWeeklyProfit(userId: string, query: WeeklyProfitQueryDto) {
     return this.reportCache.getOrSet(
-      this.buildReportCacheKey(userId, 'weekly-profit', query),
+      this.buildReportCacheKey(userId, "weekly-profit", query),
       this.periodReportCacheTtlMs,
       () =>
         this.calculateProfitForPeriod(
@@ -77,34 +77,34 @@ export class ReportsService {
           query.weekStart
             ? this.resolveWeekRange(query.weekStart, false)
             : this.resolveWeekRange(query.date),
-          query.vehicleId
-        )
+          query.vehicleId,
+        ),
     );
   }
 
   async calculateMonthlyProfit(userId: string, query: MonthlyProfitQueryDto) {
     return this.reportCache.getOrSet(
-      this.buildReportCacheKey(userId, 'monthly-profit', query),
+      this.buildReportCacheKey(userId, "monthly-profit", query),
       this.periodReportCacheTtlMs,
       () =>
         this.calculateProfitForPeriod(
           userId,
           this.resolveMonthRange(query.month ?? query.date),
-          query.vehicleId
-        )
+          query.vehicleId,
+        ),
     );
   }
 
   async calculateKmProfitability(userId: string, query: KmProfitQueryDto) {
     return this.reportCache.getOrSet(
-      this.buildReportCacheKey(userId, 'km-profitability', query),
+      this.buildReportCacheKey(userId, "km-profitability", query),
       this.realtimeReportCacheTtlMs,
       async () => {
         const periodRange = this.resolveKmProfitPeriodRange(query);
         const profit = await this.calculateProfitForPeriod(
           userId,
           periodRange,
-          query.vehicleId
+          query.vehicleId,
         );
         const totalKm = this.decimal(profit.totalKm);
         const grossIncome = this.decimal(profit.grossIncome);
@@ -113,7 +113,7 @@ export class ReportsService {
         const netProfitPerKm =
           this.financeCalculationEngine.calculateKmNetProfit({
             netProfit,
-            totalKm
+            totalKm,
           });
 
         return {
@@ -130,49 +130,49 @@ export class ReportsService {
           costPerKm: this.money(this.divideOrZero(totalCost, totalKm)),
           netProfitPerKm: this.money(netProfitPerKm.value),
           fuelCostPerKm: this.money(
-            this.divideOrZero(this.decimal(profit.fuelCost), totalKm)
+            this.divideOrZero(this.decimal(profit.fuelCost), totalKm),
           ),
           packageCostPerKm: this.money(
-            this.divideOrZero(this.decimal(profit.tagPackageCost), totalKm)
+            this.divideOrZero(this.decimal(profit.tagPackageCost), totalKm),
           ),
           variableExpensePerKm: this.money(
-            this.divideOrZero(this.decimal(profit.variableExpenses), totalKm)
+            this.divideOrZero(this.decimal(profit.variableExpenses), totalKm),
           ),
           fixedExpensePerKm: this.money(
-            this.divideOrZero(this.decimal(profit.fixedExpenses), totalKm)
+            this.divideOrZero(this.decimal(profit.fixedExpenses), totalKm),
           ),
           maintenanceReservePerKm: this.money(
-            this.divideOrZero(this.decimal(profit.maintenanceReserve), totalKm)
+            this.divideOrZero(this.decimal(profit.maintenanceReserve), totalKm),
           ),
           depreciationPerKm: this.money(
-            this.divideOrZero(this.decimal(profit.depreciation), totalKm)
+            this.divideOrZero(this.decimal(profit.depreciation), totalKm),
           ),
           tripCount: profit.tripCount,
           formula: {
-            grossIncomePerKm: 'grossIncome / totalKm',
-            costPerKm: 'totalCost / totalKm',
-            netProfitPerKm: netProfitPerKm.formulaDescription
+            grossIncomePerKm: "grossIncome / totalKm",
+            costPerKm: "totalCost / totalKm",
+            netProfitPerKm: netProfitPerKm.formulaDescription,
           },
           calculationWarnings: netProfitPerKm.warnings,
-          calculationVersion: profit.calculationVersion
+          calculationVersion: profit.calculationVersion,
         };
-      }
+      },
     );
   }
 
   async calculateHourlyProfitability(
     userId: string,
-    query: HourlyProfitQueryDto
+    query: HourlyProfitQueryDto,
   ) {
     return this.reportCache.getOrSet(
-      this.buildReportCacheKey(userId, 'hourly-profitability', query),
+      this.buildReportCacheKey(userId, "hourly-profitability", query),
       this.realtimeReportCacheTtlMs,
       async () => {
         const periodRange = this.resolveHourlyProfitPeriodRange(query);
         const profit = await this.calculateProfitForPeriod(
           userId,
           periodRange,
-          query.vehicleId
+          query.vehicleId,
         );
         const activeHours =
           profit.activeMinutes > 0
@@ -184,7 +184,7 @@ export class ReportsService {
         const netProfitPerHour =
           this.financeCalculationEngine.calculateHourlyNetProfit({
             activeMinutes: profit.activeMinutes,
-            netProfit
+            netProfit,
           });
 
         return {
@@ -199,73 +199,74 @@ export class ReportsService {
           totalCost: profit.totalCost,
           netProfit: profit.netProfit,
           grossIncomePerHour: this.money(
-            this.divideOrZero(grossIncome, activeHours)
+            this.divideOrZero(grossIncome, activeHours),
           ),
           costPerHour: this.money(this.divideOrZero(totalCost, activeHours)),
           netProfitPerHour: this.money(netProfitPerHour.value),
           fuelCostPerHour: this.money(
-            this.divideOrZero(this.decimal(profit.fuelCost), activeHours)
+            this.divideOrZero(this.decimal(profit.fuelCost), activeHours),
           ),
           packageCostPerHour: this.money(
-            this.divideOrZero(this.decimal(profit.tagPackageCost), activeHours)
+            this.divideOrZero(this.decimal(profit.tagPackageCost), activeHours),
           ),
           variableExpensePerHour: this.money(
             this.divideOrZero(
               this.decimal(profit.variableExpenses),
-              activeHours
-            )
+              activeHours,
+            ),
           ),
           fixedExpensePerHour: this.money(
-            this.divideOrZero(this.decimal(profit.fixedExpenses), activeHours)
+            this.divideOrZero(this.decimal(profit.fixedExpenses), activeHours),
           ),
           maintenanceReservePerHour: this.money(
             this.divideOrZero(
               this.decimal(profit.maintenanceReserve),
-              activeHours
-            )
+              activeHours,
+            ),
           ),
           depreciationPerHour: this.money(
-            this.divideOrZero(this.decimal(profit.depreciation), activeHours)
+            this.divideOrZero(this.decimal(profit.depreciation), activeHours),
           ),
           tripCount: profit.tripCount,
           shiftCount: profit.shiftCount,
           formula: {
-            grossIncomePerHour: 'grossIncome / activeHours',
-            costPerHour: 'totalCost / activeHours',
-            netProfitPerHour: netProfitPerHour.formulaDescription
+            grossIncomePerHour: "grossIncome / activeHours",
+            costPerHour: "totalCost / activeHours",
+            netProfitPerHour: netProfitPerHour.formulaDescription,
           },
           calculationWarnings: netProfitPerHour.warnings,
-          calculationVersion: profit.calculationVersion
+          calculationVersion: profit.calculationVersion,
         };
-      }
+      },
     );
   }
 
   async calculateBreakEven(userId: string, query: BreakEvenQueryDto) {
     return this.reportCache.getOrSet(
-      this.buildReportCacheKey(userId, 'break-even', query),
+      this.buildReportCacheKey(userId, "break-even", query),
       this.realtimeReportCacheTtlMs,
       async () => {
         const periodRange = this.resolveBreakEvenPeriodRange(query);
         const profit = await this.calculateProfitForPeriod(
           userId,
           periodRange,
-          query.vehicleId
+          query.vehicleId,
         );
         const grossIncome = this.decimal(profit.grossIncome);
-        const breakEvenResult = this.financeCalculationEngine.calculateBreakEven({
-          depreciationCost: profit.depreciation,
-          fixedCostShare: profit.fixedExpenses,
-          fuelCost: profit.fuelCost,
-          grossIncome,
-          maintenanceReserve: profit.maintenanceReserve,
-          packageShare: profit.tagPackageCost
-        });
+        const breakEvenResult =
+          this.financeCalculationEngine.calculateBreakEven({
+            depreciationCost: profit.depreciation,
+            fixedCostShare: profit.fixedExpenses,
+            fuelCost: profit.fuelCost,
+            grossIncome,
+            maintenanceReserve: profit.maintenanceReserve,
+            packageShare: profit.tagPackageCost,
+          });
         const breakEvenRevenue = breakEvenResult.value.breakEvenTarget;
         const remainingRevenue = breakEvenResult.value.remaining;
         const surplusRevenue = this.positiveDifference(
           grossIncome,
-          breakEvenRevenue
+          breakEvenRevenue,
         );
 
         return {
@@ -281,7 +282,7 @@ export class ReportsService {
           breakEvenProgressPercent: breakEvenResult.value.progress
             .toDecimalPlaces(2)
             .toFixed(2),
-          isBreakEvenReached: breakEvenResult.value.status === 'REACHED',
+          isBreakEvenReached: breakEvenResult.value.status === "REACHED",
           status: breakEvenResult.value.status,
           netProfit: profit.netProfit,
           costBreakdown: {
@@ -290,23 +291,23 @@ export class ReportsService {
             variableExpenses: profit.variableExpenses,
             fixedExpenses: profit.fixedExpenses,
             maintenanceReserve: profit.maintenanceReserve,
-            depreciation: profit.depreciation
+            depreciation: profit.depreciation,
           },
           formula: {
             breakEvenRevenue: breakEvenResult.formulaDescription,
-            remainingRevenue: 'max(breakEvenRevenue - grossIncome, 0)',
-            surplusRevenue: 'max(grossIncome - breakEvenRevenue, 0)'
+            remainingRevenue: "max(breakEvenRevenue - grossIncome, 0)",
+            surplusRevenue: "max(grossIncome - breakEvenRevenue, 0)",
           },
           calculationWarnings: breakEvenResult.warnings,
-          calculationVersion: profit.calculationVersion
+          calculationVersion: profit.calculationVersion,
         };
-      }
+      },
     );
   }
 
   async getReportOverview(userId: string, query: ReportOverviewQueryDto) {
     return this.reportCache.getOrSet(
-      this.buildReportCacheKey(userId, 'overview', query),
+      this.buildReportCacheKey(userId, "overview", query),
       this.realtimeReportCacheTtlMs,
       async () => {
         const [
@@ -315,37 +316,37 @@ export class ReportsService {
           monthlyProfit,
           kmProfitability,
           hourlyProfitability,
-          breakEven
+          breakEven,
         ] = await Promise.all([
           this.calculateDailyProfit(userId, {
             date: query.date,
-            vehicleId: query.vehicleId
+            vehicleId: query.vehicleId,
           }),
           this.calculateWeeklyProfit(userId, {
             date: query.date,
             vehicleId: query.vehicleId,
-            weekStart: query.weekStart
+            weekStart: query.weekStart,
           }),
           this.calculateMonthlyProfit(userId, {
             date: query.date,
             month: query.month,
-            vehicleId: query.vehicleId
+            vehicleId: query.vehicleId,
           }),
           this.calculateKmProfitability(userId, {
             date: query.date,
             period: KmProfitPeriod.DAILY,
-            vehicleId: query.vehicleId
+            vehicleId: query.vehicleId,
           }),
           this.calculateHourlyProfitability(userId, {
             date: query.date,
             period: HourlyProfitPeriod.DAILY,
-            vehicleId: query.vehicleId
+            vehicleId: query.vehicleId,
           }),
           this.calculateBreakEven(userId, {
             date: query.date,
             period: BreakEvenPeriod.DAILY,
-            vehicleId: query.vehicleId
-          })
+            vehicleId: query.vehicleId,
+          }),
         ]);
 
         const dashboard = await this.buildDashboardAggregation(
@@ -355,7 +356,7 @@ export class ReportsService {
           kmProfitability,
           hourlyProfitability,
           breakEven,
-          query.vehicleId
+          query.vehicleId,
         );
 
         return {
@@ -369,36 +370,36 @@ export class ReportsService {
           breakEven,
           dashboard,
           availableReports: [
-            'dailyProfit',
-            'weeklyProfit',
-            'monthlyProfit',
-            'kmProfitability',
-            'hourlyProfitability',
-            'breakEven'
+            "dailyProfit",
+            "weeklyProfit",
+            "monthlyProfit",
+            "kmProfitability",
+            "hourlyProfitability",
+            "breakEven",
           ],
-          calculationVersion: this.calculationVersion
+          calculationVersion: this.calculationVersion,
         };
-      }
+      },
     );
   }
 
   private async buildDashboardAggregation(
     userId: string,
     periodRange: PeriodRange,
-    dailyProfit: Awaited<ReturnType<ReportsService['calculateDailyProfit']>>,
+    dailyProfit: Awaited<ReturnType<ReportsService["calculateDailyProfit"]>>,
     kmProfitability: Awaited<
-      ReturnType<ReportsService['calculateKmProfitability']>
+      ReturnType<ReportsService["calculateKmProfitability"]>
     >,
     hourlyProfitability: Awaited<
-      ReturnType<ReportsService['calculateHourlyProfitability']>
+      ReturnType<ReportsService["calculateHourlyProfitability"]>
     >,
-    breakEven: Awaited<ReturnType<ReportsService['calculateBreakEven']>>,
-    vehicleId?: string
+    breakEven: Awaited<ReturnType<ReportsService["calculateBreakEven"]>>,
+    vehicleId?: string,
   ) {
     const vehicleFilter = vehicleId ? { vehicle_id: vehicleId } : {};
     const dateFilter = {
       gte: periodRange.start,
-      lt: periodRange.nextStart
+      lt: periodRange.nextStart,
     };
     const vehicleWhereFilter = vehicleId ? { id: vehicleId } : {};
     const [recentTrips, shifts, vehiclesWithTripsWithoutFuelAssumption] =
@@ -408,37 +409,37 @@ export class ReportsService {
             user_id: userId,
             deleted_at: null,
             trip_date: dateFilter,
-            ...vehicleFilter
+            ...vehicleFilter,
           },
           orderBy: [
             {
-              trip_date: 'desc'
+              trip_date: "desc",
             },
             {
-              created_at: 'desc'
-            }
+              created_at: "desc",
+            },
           ],
-          take: 5
+          take: 5,
         }),
         this.prisma.shift.findMany({
           where: {
             user_id: userId,
             status: {
-              not: 'CANCELED'
+              not: "CANCELED",
             },
             started_at: dateFilter,
-            ...vehicleFilter
+            ...vehicleFilter,
           },
           orderBy: {
-            started_at: 'desc'
-          }
+            started_at: "desc",
+          },
         }),
         this.prisma.vehicle.findMany({
           where: {
             user_id: userId,
             deleted_at: null,
             average_consumption_l_per_100km: {
-              lte: 0
+              lte: 0,
             },
             trips: {
               some: {
@@ -446,17 +447,17 @@ export class ReportsService {
                 deleted_at: null,
                 trip_date: dateFilter,
                 total_km: {
-                  gt: 0
-                }
-              }
+                  gt: 0,
+                },
+              },
             },
-            ...vehicleWhereFilter
+            ...vehicleWhereFilter,
           },
           select: {
             id: true,
-            plate_number: true
-          }
-        })
+            plate_number: true,
+          },
+        }),
       ]);
 
     const grossIncome = this.decimal(dailyProfit.grossIncome);
@@ -478,16 +479,16 @@ export class ReportsService {
       this.decimal(dailyProfit.actualFuelPurchaseCost).lte(0)
     ) {
       warnings.push({
-        code: 'MISSING_FUEL_PRICE',
+        code: "MISSING_FUEL_PRICE",
         message:
-          'Yakıt fiyatı kaydı olmadığı için yakıt maliyeti 0 görünüyor. Tahmini yakıt için en az bir yakıt kaydı ekle.'
+          "Yakıt fiyatı kaydı olmadığı için yakıt maliyeti 0 görünüyor. Tahmini yakıt için en az bir yakıt kaydı ekle.",
       });
     }
 
     for (const vehicle of vehiclesWithTripsWithoutFuelAssumption) {
       warnings.push({
-        code: 'MISSING_VEHICLE_CONSUMPTION',
-        message: `${vehicle.plate_number} için yakıt varsayımı eksik. Araç ortalama tüketimini güncelle.`
+        code: "MISSING_VEHICLE_CONSUMPTION",
+        message: `${vehicle.plate_number} için yakıt varsayımı eksik. Araç ortalama tüketimini güncelle.`,
       });
     }
 
@@ -505,8 +506,9 @@ export class ReportsService {
       depreciationCost: dailyProfit.depreciation,
       totalKm: dailyProfit.totalKm,
       activeDuration,
-      kmNetProfit:
-        totalKm.gt(0) ? kmProfitability.netProfitPerKm : this.money(new Prisma.Decimal(0)),
+      kmNetProfit: totalKm.gt(0)
+        ? kmProfitability.netProfitPerKm
+        : this.money(new Prisma.Decimal(0)),
       hourlyNetProfit:
         activeDuration > 0
           ? hourlyProfitability.netProfitPerHour
@@ -514,14 +516,13 @@ export class ReportsService {
       breakEvenTarget: this.money(breakEvenTarget),
       breakEvenProgress: breakEvenProgress.toDecimalPlaces(2).toFixed(2),
       breakEvenRemaining: this.money(
-        this.positiveDifference(breakEvenTarget, grossIncome)
+        this.positiveDifference(breakEvenTarget, grossIncome),
       ),
-      breakEvenStatus:
-        breakEvenTarget.lte(0)
-          ? 'NO_TARGET'
-          : grossIncome.gte(breakEvenTarget)
-            ? 'REACHED'
-            : 'IN_PROGRESS',
+      breakEvenStatus: breakEvenTarget.lte(0)
+        ? "NO_TARGET"
+        : grossIncome.gte(breakEvenTarget)
+          ? "REACHED"
+          : "IN_PROGRESS",
       recentTrips: recentTrips.map((trip) => ({
         id: trip.id,
         tripDate: trip.trip_date,
@@ -530,7 +531,7 @@ export class ReportsService {
         dropoffLocation: trip.dropoff_location,
         totalKm: trip.total_km.toFixed(2),
         grossIncome: trip.total_income.toFixed(2),
-        netProfit: trip.true_net_profit.toFixed(2)
+        netProfit: trip.true_net_profit.toFixed(2),
       })),
       expenseImpact: this.buildExpenseImpact(dailyProfit),
       shiftSummary: this.buildShiftSummary(shifts, dailyProfit),
@@ -542,51 +543,51 @@ export class ReportsService {
         dailyProfit.recurringExpenseCount > 0 ||
         dailyProfit.activePackageCount > 0,
       source: {
-        period: 'daily',
-        dateField: 'trip_date / expense_date / started_at',
-        api: '/reports/overview'
-      }
+        period: "daily",
+        dateField: "trip_date / expense_date / started_at",
+        api: "/reports/overview",
+      },
     };
   }
 
   private buildExpenseImpact(
-    dailyProfit: Awaited<ReturnType<ReportsService['calculateDailyProfit']>>
+    dailyProfit: Awaited<ReturnType<ReportsService["calculateDailyProfit"]>>,
   ) {
     const rows = [
       {
-        key: 'fuelCost',
-        label: 'Yakıt',
-        amount: this.decimal(dailyProfit.fuelCost)
+        key: "fuelCost",
+        label: "Yakıt",
+        amount: this.decimal(dailyProfit.fuelCost),
       },
       {
-        key: 'packageShare',
-        label: 'Paket payı',
-        amount: this.decimal(dailyProfit.tagPackageCost)
+        key: "packageShare",
+        label: "Paket payı",
+        amount: this.decimal(dailyProfit.tagPackageCost),
       },
       {
-        key: 'fixedCostShare',
-        label: 'Sabit gider',
-        amount: this.decimal(dailyProfit.fixedExpenses)
+        key: "fixedCostShare",
+        label: "Sabit gider",
+        amount: this.decimal(dailyProfit.fixedExpenses),
       },
       {
-        key: 'maintenanceReserve',
-        label: 'Bakım rezervi',
-        amount: this.decimal(dailyProfit.maintenanceReserve)
+        key: "maintenanceReserve",
+        label: "Bakım rezervi",
+        amount: this.decimal(dailyProfit.maintenanceReserve),
       },
       {
-        key: 'depreciationCost',
-        label: 'Amortisman',
-        amount: this.decimal(dailyProfit.depreciation)
+        key: "depreciationCost",
+        label: "Amortisman",
+        amount: this.decimal(dailyProfit.depreciation),
       },
       {
-        key: 'variableExpenses',
-        label: 'Değişken gider',
-        amount: this.decimal(dailyProfit.variableExpenses)
-      }
+        key: "variableExpenses",
+        label: "Değişken gider",
+        amount: this.decimal(dailyProfit.variableExpenses),
+      },
     ];
     const total = rows.reduce(
       (sum, row) => sum.plus(row.amount),
-      new Prisma.Decimal(0)
+      new Prisma.Decimal(0),
     );
 
     return rows
@@ -599,7 +600,7 @@ export class ReportsService {
           ? Prisma.Decimal.min(row.amount.mul(100).div(total), 100)
               .toDecimalPlaces(0)
               .toNumber()
-          : 0
+          : 0,
       }));
   }
 
@@ -612,62 +613,62 @@ export class ReportsService {
       status: string;
       total_km: Prisma.Decimal | null;
     }>,
-    dailyProfit: Awaited<ReturnType<ReportsService['calculateDailyProfit']>>
+    dailyProfit: Awaited<ReturnType<ReportsService["calculateDailyProfit"]>>,
   ) {
-    const activeShift = shifts.find((shift) => shift.status === 'ACTIVE');
+    const activeShift = shifts.find((shift) => shift.status === "ACTIVE");
     const activeMinutes =
       dailyProfit.activeMinutes ??
       shifts.reduce((sum, shift) => sum + (shift.active_minutes ?? 0), 0);
 
     return {
       activeShiftId: activeShift?.id ?? null,
-      status: activeShift ? 'ACTIVE' : shifts.length > 0 ? 'COMPLETED' : 'NONE',
+      status: activeShift ? "ACTIVE" : shifts.length > 0 ? "COMPLETED" : "NONE",
       startedAt: activeShift?.started_at ?? shifts[0]?.started_at ?? null,
       endedAt: activeShift?.ended_at ?? shifts[0]?.ended_at ?? null,
       activeMinutes,
       totalKm: dailyProfit.totalKm,
       tripCount: dailyProfit.tripCount,
-      shiftCount: dailyProfit.shiftCount
+      shiftCount: dailyProfit.shiftCount,
     };
   }
 
   private buildReportCacheKey(
     userId: string,
     reportType: string,
-    query: object
+    query: object,
   ) {
     const normalizedQuery = Object.entries(query)
-      .filter(([, value]) => value !== undefined && value !== '')
+      .filter(([, value]) => value !== undefined && value !== "")
       .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
 
     return [
-      'reports',
+      "reports",
       this.calculationVersion,
       userId,
       reportType,
-      JSON.stringify(normalizedQuery)
-    ].join(':');
+      JSON.stringify(normalizedQuery),
+    ].join(":");
   }
 
   private async calculateProfitForPeriod(
     userId: string,
     periodRange: PeriodRange,
-    vehicleId?: string
+    vehicleId?: string,
   ) {
     const vehicleFilter = vehicleId
       ? {
-          vehicle_id: vehicleId
+          vehicle_id: vehicleId,
         }
       : {};
     const dateFilter = {
       gte: periodRange.start,
-      lt: periodRange.nextStart
+      lt: periodRange.nextStart,
     };
     const tripWhere: Prisma.TripWhereInput = {
       user_id: userId,
       deleted_at: null,
       trip_date: dateFilter,
-      ...vehicleFilter
+      ...vehicleFilter,
     };
 
     const [
@@ -676,12 +677,12 @@ export class ReportsService {
       directExpenses,
       fuelAggregate,
       recurringExpenses,
-      activePackages
+      activePackages,
     ] = await this.prisma.$transaction([
       this.prisma.trip.aggregate({
         where: tripWhere,
         _count: {
-          _all: true
+          _all: true,
         },
         _sum: {
           allocated_depreciation_cost: true,
@@ -699,47 +700,47 @@ export class ReportsService {
           total_income: true,
           total_km: true,
           true_net_profit: true,
-          trip_km: true
-        }
+          trip_km: true,
+        },
       }),
       this.prisma.shift.aggregate({
         where: {
           user_id: userId,
           status: {
-            not: 'CANCELED'
+            not: "CANCELED",
           },
           started_at: dateFilter,
-          ...vehicleFilter
+          ...vehicleFilter,
         },
         _count: {
-          _all: true
+          _all: true,
         },
         _sum: {
-          active_minutes: true
-        }
+          active_minutes: true,
+        },
       }),
       this.prisma.expenseEntry.findMany({
         where: {
           user_id: userId,
           deleted_at: null,
           expense_date: dateFilter,
-          ...vehicleFilter
-        }
+          ...vehicleFilter,
+        },
       }),
       this.prisma.fuelEntry.aggregate({
         where: {
           user_id: userId,
           deleted_at: null,
           created_at: dateFilter,
-          ...vehicleFilter
+          ...vehicleFilter,
         },
         _count: {
-          _all: true
+          _all: true,
         },
         _sum: {
           amount: true,
-          liters: true
-        }
+          liters: true,
+        },
       }),
       this.prisma.recurringExpense.findMany({
         where: {
@@ -747,20 +748,20 @@ export class ReportsService {
           deleted_at: null,
           is_active: true,
           starts_at: {
-            lt: periodRange.nextStart
+            lt: periodRange.nextStart,
           },
           OR: [
             {
-              ends_at: null
+              ends_at: null,
             },
             {
               ends_at: {
-                gte: periodRange.start
-              }
-            }
+                gte: periodRange.start,
+              },
+            },
           ],
-          ...vehicleFilter
-        }
+          ...vehicleFilter,
+        },
       }),
       this.prisma.tagPackage.findMany({
         where: {
@@ -768,41 +769,41 @@ export class ReportsService {
           deleted_at: null,
           is_active: true,
           starts_at: {
-            lt: periodRange.nextStart
+            lt: periodRange.nextStart,
           },
           ends_at: {
-            gte: periodRange.start
+            gte: periodRange.start,
           },
-          ...vehicleFilter
-        }
-      })
+          ...vehicleFilter,
+        },
+      }),
     ]);
 
     const directCosts = this.calculateDirectExpenseBuckets(directExpenses);
     const recurringCosts = await this.calculateRecurringExpenseBuckets(
       userId,
       recurringExpenses,
-      periodRange
+      periodRange,
     );
     const tagPackageCost = await this.calculateTagPackageCostForPeriod(
       userId,
       activePackages,
-      periodRange
+      periodRange,
     );
     const grossIncome = this.decimal(tripAggregate._sum.total_income);
     const tripGrossIncome = this.decimal(tripAggregate._sum.gross_income);
     const tipAmount = this.decimal(tripAggregate._sum.tip_amount);
     const cancellationIncome = this.decimal(
-      tripAggregate._sum.cancellation_income
+      tripAggregate._sum.cancellation_income,
     );
     const estimatedFuelCost = this.decimal(
-      tripAggregate._sum.estimated_fuel_cost
+      tripAggregate._sum.estimated_fuel_cost,
     );
     const packageCost = tagPackageCost
       .plus(directCosts.package)
       .plus(recurringCosts.package);
     const variableExpenses = this.decimal(
-      tripAggregate._sum.allocated_other_variable_cost
+      tripAggregate._sum.allocated_other_variable_cost,
     )
       .plus(directCosts.variable)
       .plus(recurringCosts.variable);
@@ -810,12 +811,12 @@ export class ReportsService {
       .plus(directCosts.fixed)
       .plus(recurringCosts.fixed);
     const maintenanceReserve = this.decimal(
-      tripAggregate._sum.allocated_maintenance_cost
+      tripAggregate._sum.allocated_maintenance_cost,
     )
       .plus(directCosts.maintenance)
       .plus(recurringCosts.maintenance);
     const depreciation = this.decimal(
-      tripAggregate._sum.allocated_depreciation_cost
+      tripAggregate._sum.allocated_depreciation_cost,
     )
       .plus(directCosts.depreciation)
       .plus(recurringCosts.depreciation);
@@ -827,9 +828,9 @@ export class ReportsService {
           fuelCost: estimatedFuelCost,
           maintenanceReserve,
           packageShare: packageCost,
-          variableCostShare: variableExpenses
+          variableCostShare: variableExpenses,
         },
-        grossIncome
+        grossIncome,
       });
     const totalCost = periodNetProfit.value.totalCost;
     const netProfit = periodNetProfit.value.netProfit;
@@ -853,6 +854,18 @@ export class ReportsService {
       tagPackageCost: this.money(packageCost),
       variableExpenses: this.money(variableExpenses),
       fixedExpenses: this.money(fixedExpenses),
+      dailyFixedCostShare: this.money(
+        periodRange.period === "daily" ? fixedExpenses : new Prisma.Decimal(0),
+      ),
+      weeklyFixedCostShare: this.money(
+        periodRange.period === "weekly" ? fixedExpenses : new Prisma.Decimal(0),
+      ),
+      monthlyFixedCostTotal: this.money(
+        periodRange.period === "monthly"
+          ? fixedExpenses
+          : new Prisma.Decimal(0),
+      ),
+      fixedCostPerKm: this.money(this.divideOrZero(fixedExpenses, totalKm)),
       maintenanceReserve: this.money(maintenanceReserve),
       depreciation: this.money(depreciation),
       totalCost: this.money(totalCost),
@@ -860,14 +873,14 @@ export class ReportsService {
       kmProfit: this.money(
         this.financeCalculationEngine.calculateKmNetProfit({
           netProfit,
-          totalKm
-        }).value
+          totalKm,
+        }).value,
       ),
       hourlyProfit: this.money(
         this.financeCalculationEngine.calculateHourlyNetProfit({
           activeMinutes,
-          netProfit
-        }).value
+          netProfit,
+        }).value,
       ),
       totalKm: totalKm.toFixed(2),
       activeMinutes,
@@ -877,14 +890,14 @@ export class ReportsService {
       recurringExpenseCount: recurringExpenses.length,
       activePackageCount: activePackages.length,
       actualFuelPurchaseCost: this.money(
-        this.decimal(fuelAggregate._sum.amount)
+        this.decimal(fuelAggregate._sum.amount),
       ),
       actualFuelLiters: this.decimal(fuelAggregate._sum.liters).toFixed(3),
       actualFuelEntryCount: fuelAggregate._count._all,
       sourceBreakdown: {
         tripEstimatedFuelCost: this.money(estimatedFuelCost),
         tripAllocatedPackageCostReference: this.money(
-          this.decimal(tripAggregate._sum.allocated_package_cost)
+          this.decimal(tripAggregate._sum.allocated_package_cost),
         ),
         calculatedTagPackageCost: this.money(tagPackageCost),
         directPackageExpenseCost: this.money(directCosts.package),
@@ -892,17 +905,17 @@ export class ReportsService {
         directVariableExpenseCost: this.money(directCosts.variable),
         directFixedExpenseCost: this.money(directCosts.fixed),
         directMaintenanceExpenseCost: this.money(directCosts.maintenance),
-        directDepreciationExpenseCost: this.money(directCosts.depreciation)
+        directDepreciationExpenseCost: this.money(directCosts.depreciation),
       },
       formula: {
         netProfit: periodNetProfit.formulaDescription,
         fuelCost:
-          'estimated consumption from recorded trip km; actual fuel purchases are reported separately',
+          "estimated consumption from recorded trip km; actual fuel purchases are reported separately",
         tagPackageCost:
-          'period active package allocation + direct package expenses + recurring package expenses'
+          "period active package allocation + direct package expenses + recurring package expenses",
       },
       calculationWarnings: periodNetProfit.warnings,
-      calculationVersion: this.calculationVersion
+      calculationVersion: this.calculationVersion,
     };
   }
 
@@ -910,14 +923,14 @@ export class ReportsService {
     return expenses.reduce(
       (buckets, expense) =>
         this.addExpenseToBuckets(buckets, expense.expense_type, expense.amount),
-      this.emptyCostBuckets()
+      this.emptyCostBuckets(),
     );
   }
 
   private async calculateRecurringExpenseBuckets(
     userId: string,
     recurringExpenses: RecurringExpense[],
-    periodRange: PeriodRange
+    periodRange: PeriodRange,
   ): Promise<CostBuckets> {
     const buckets = this.emptyCostBuckets();
 
@@ -925,7 +938,7 @@ export class ReportsService {
       const periodCost = await this.calculateRecurringPeriodCost(
         userId,
         expense,
-        periodRange
+        periodRange,
       );
 
       this.addExpenseToBuckets(buckets, expense.expense_type, periodCost);
@@ -937,7 +950,7 @@ export class ReportsService {
   private addExpenseToBuckets(
     buckets: CostBuckets,
     expenseType: ExpenseType,
-    amount: Prisma.Decimal
+    amount: Prisma.Decimal,
   ) {
     if (expenseType === ExpenseType.PLATFORM_PACKAGE) {
       buckets.package = buckets.package.plus(amount);
@@ -969,26 +982,28 @@ export class ReportsService {
   private async calculateTagPackageCostForPeriod(
     userId: string,
     activePackages: TagPackage[],
-    periodRange: PeriodRange
+    periodRange: PeriodRange,
   ) {
     const costs = await Promise.all(
       activePackages.map((tagPackage) =>
-        this.calculateTagPackageLineForPeriod(userId, tagPackage, periodRange)
-      )
+        this.calculateTagPackageLineForPeriod(userId, tagPackage, periodRange),
+      ),
     );
 
     return costs.reduce(
       (total, cost) => total.plus(cost),
-      new Prisma.Decimal(0)
+      new Prisma.Decimal(0),
     );
   }
 
   private async calculateTagPackageLineForPeriod(
     userId: string,
     tagPackage: TagPackage,
-    periodRange: PeriodRange
+    periodRange: PeriodRange,
   ) {
-    if (tagPackage.allocation_method === PackageAllocationMethod.DIRECT_EXPENSE) {
+    if (
+      tagPackage.allocation_method === PackageAllocationMethod.DIRECT_EXPENSE
+    ) {
       return tagPackage.starts_at >= periodRange.start &&
         tagPackage.starts_at < periodRange.nextStart
         ? tagPackage.amount
@@ -1004,9 +1019,9 @@ export class ReportsService {
             deleted_at: null,
             trip_date: {
               gte: periodRange.start,
-              lt: periodRange.nextStart
-            }
-          }
+              lt: periodRange.nextStart,
+            },
+          },
         }),
         this.prisma.trip.count({
           where: {
@@ -1015,10 +1030,10 @@ export class ReportsService {
             deleted_at: null,
             trip_date: {
               gte: tagPackage.starts_at,
-              lte: tagPackage.ends_at
-            }
-          }
-        })
+              lte: tagPackage.ends_at,
+            },
+          },
+        }),
       ]);
 
       if (packageTripCount === 0) {
@@ -1035,12 +1050,12 @@ export class ReportsService {
       const [periodKm, packageKm] = await Promise.all([
         this.sumTripKm(userId, tagPackage.vehicle_id, {
           gte: periodRange.start,
-          lt: periodRange.nextStart
+          lt: periodRange.nextStart,
         }),
         this.sumTripKm(userId, tagPackage.vehicle_id, {
           gte: tagPackage.starts_at,
-          lte: tagPackage.ends_at
-        })
+          lte: tagPackage.ends_at,
+        }),
       ]);
 
       if (packageKm.lte(0)) {
@@ -1056,12 +1071,12 @@ export class ReportsService {
       const [periodActiveDays, packageActiveDays] = await Promise.all([
         this.countActiveWorkDays(userId, tagPackage.vehicle_id, {
           gte: periodRange.start,
-          lt: periodRange.nextStart
+          lt: periodRange.nextStart,
         }),
         this.countActiveWorkDays(userId, tagPackage.vehicle_id, {
           gte: tagPackage.starts_at,
-          lte: tagPackage.ends_at
-        })
+          lte: tagPackage.ends_at,
+        }),
       ]);
 
       if (packageActiveDays === 0) {
@@ -1077,7 +1092,7 @@ export class ReportsService {
     const coveredDays = this.countCoveredDays(
       periodRange,
       tagPackage.starts_at,
-      tagPackage.ends_at
+      tagPackage.ends_at,
     );
 
     return tagPackage.amount
@@ -1089,12 +1104,12 @@ export class ReportsService {
   private async countActiveWorkDays(
     userId: string,
     vehicleId: string,
-    dateRange: Prisma.DateTimeFilter
+    dateRange: Prisma.DateTimeFilter,
   ) {
     const activeWorkDayKeys = await this.findActiveWorkDayKeysForRange(
       userId,
       vehicleId,
-      dateRange
+      dateRange,
     );
 
     return activeWorkDayKeys.size;
@@ -1103,7 +1118,7 @@ export class ReportsService {
   private async findActiveWorkDayKeysForRange(
     userId: string,
     vehicleId: string,
-    dateRange: Prisma.DateTimeFilter
+    dateRange: Prisma.DateTimeFilter,
   ) {
     const [trips, shifts] = await Promise.all([
       this.prisma.trip.findMany({
@@ -1111,45 +1126,45 @@ export class ReportsService {
           user_id: userId,
           vehicle_id: vehicleId,
           deleted_at: null,
-          trip_date: dateRange
+          trip_date: dateRange,
         },
         select: {
-          trip_date: true
-        }
+          trip_date: true,
+        },
       }),
       this.prisma.shift.findMany({
         where: {
           user_id: userId,
           vehicle_id: vehicleId,
-          started_at: dateRange
+          started_at: dateRange,
         },
         select: {
-          started_at: true
-        }
-      })
+          started_at: true,
+        },
+      }),
     ]);
 
     return new Set([
       ...trips.map((trip) => this.dayKey(trip.trip_date)),
-      ...shifts.map((shift) => this.dayKey(shift.started_at))
+      ...shifts.map((shift) => this.dayKey(shift.started_at)),
     ]);
   }
 
   private async sumTripKm(
     userId: string,
     vehicleId: string,
-    dateRange: Prisma.DateTimeFilter
+    dateRange: Prisma.DateTimeFilter,
   ) {
     const aggregate = await this.prisma.trip.aggregate({
       where: {
         user_id: userId,
         vehicle_id: vehicleId,
         deleted_at: null,
-        trip_date: dateRange
+        trip_date: dateRange,
       },
       _sum: {
-        total_km: true
-      }
+        total_km: true,
+      },
     });
 
     return this.decimal(aggregate._sum.total_km);
@@ -1158,16 +1173,26 @@ export class ReportsService {
   private async calculateRecurringPeriodCost(
     userId: string,
     expense: RecurringExpense,
-    periodRange: PeriodRange
+    periodRange: PeriodRange,
   ) {
     const coveredDays = this.eachCoveredDay(
       periodRange,
       expense.starts_at,
-      expense.ends_at
+      expense.ends_at,
     );
 
     if (coveredDays.length === 0) {
       return new Prisma.Decimal(0);
+    }
+
+    if (
+      expense.allocation_method === FixedCostAllocationMethod.MONTHLY_DIRECT
+    ) {
+      return this.calculateRecurringDirectPeriodCost(
+        expense,
+        periodRange,
+        coveredDays,
+      );
     }
 
     if (expense.allocation_method === FixedCostAllocationMethod.ACTIVE_DAY) {
@@ -1175,7 +1200,7 @@ export class ReportsService {
         userId,
         expense,
         periodRange,
-        coveredDays
+        coveredDays,
       );
     }
 
@@ -1186,9 +1211,43 @@ export class ReportsService {
     return this.calculateRecurringCalendarDayCost(expense, coveredDays);
   }
 
+  private calculateRecurringDirectPeriodCost(
+    expense: RecurringExpense,
+    periodRange: PeriodRange,
+    coveredDays: Date[],
+  ) {
+    if (expense.period === AllocationType.DAILY) {
+      return expense.amount.mul(coveredDays.length).toDecimalPlaces(2);
+    }
+
+    const coveredDayKeys = new Set(coveredDays.map((day) => this.dayKey(day)));
+    const endExclusive = expense.ends_at
+      ? this.minDate(
+          periodRange.nextStart,
+          this.nextUtcDayStart(expense.ends_at),
+        )
+      : periodRange.nextStart;
+    let dueDate = this.startOfUtcDay(expense.next_due_at ?? expense.starts_at);
+    let total = new Prisma.Decimal(0);
+
+    while (dueDate < periodRange.start) {
+      dueDate = this.nextRecurringDueDate(expense.period, dueDate);
+    }
+
+    while (dueDate < endExclusive) {
+      if (coveredDayKeys.has(this.dayKey(dueDate))) {
+        total = total.plus(expense.amount);
+      }
+
+      dueDate = this.nextRecurringDueDate(expense.period, dueDate);
+    }
+
+    return total.toDecimalPlaces(2);
+  }
+
   private calculateRecurringCalendarDayCost(
     expense: RecurringExpense,
-    coveredDays: Date[]
+    coveredDays: Date[],
   ) {
     if (expense.period === AllocationType.DAILY) {
       return expense.amount.mul(coveredDays.length).toDecimalPlaces(2);
@@ -1213,15 +1272,15 @@ export class ReportsService {
     userId: string,
     expense: RecurringExpense,
     periodRange: PeriodRange,
-    coveredDays: Date[]
+    coveredDays: Date[],
   ) {
     const activeDayKeys = await this.findActiveWorkDayKeys(
       userId,
       expense.vehicle_id,
-      periodRange
+      periodRange,
     );
     const activeCoveredDays = coveredDays.filter((day) =>
-      activeDayKeys.has(this.dayKey(day))
+      activeDayKeys.has(this.dayKey(day)),
     );
 
     return this.calculateRecurringCalendarDayCost(expense, activeCoveredDays);
@@ -1230,24 +1289,24 @@ export class ReportsService {
   private async calculateRecurringPerKmCost(
     userId: string,
     expense: RecurringExpense,
-    coveredDays: Date[]
+    coveredDays: Date[],
   ) {
     let total = new Prisma.Decimal(0);
 
     for (const group of this.groupCoveredDaysByRecurringCycle(
       expense.period,
-      coveredDays
+      coveredDays,
     )) {
       const cycleRange = this.resolveRecurringCycleRange(
         expense.period,
-        group.days[0]
+        group.days[0],
       );
       const coveredRange = this.clampRangeToExpense(
         {
           start: group.days[0],
-          nextStart: this.nextUtcDayStart(group.days[group.days.length - 1])
+          nextStart: this.nextUtcDayStart(group.days[group.days.length - 1]),
         },
-        expense
+        expense,
       );
       const denominatorRange = this.clampRangeToExpense(cycleRange, expense);
 
@@ -1261,12 +1320,12 @@ export class ReportsService {
       const [coveredKm, denominatorKm] = await Promise.all([
         this.sumTripKm(userId, expense.vehicle_id, {
           gte: coveredRange.start,
-          lt: coveredRange.nextStart
+          lt: coveredRange.nextStart,
         }),
         this.sumTripKm(userId, expense.vehicle_id, {
           gte: denominatorRange.start,
-          lt: denominatorRange.nextStart
-        })
+          lt: denominatorRange.nextStart,
+        }),
       ]);
 
       if (denominatorKm.lte(0)) {
@@ -1282,7 +1341,7 @@ export class ReportsService {
   private async findActiveWorkDayKeys(
     userId: string,
     vehicleId: string,
-    periodRange: PeriodRange
+    periodRange: PeriodRange,
   ) {
     const [trips, shifts] = await Promise.all([
       this.prisma.trip.findMany({
@@ -1292,12 +1351,12 @@ export class ReportsService {
           deleted_at: null,
           trip_date: {
             gte: periodRange.start,
-            lt: periodRange.nextStart
-          }
+            lt: periodRange.nextStart,
+          },
         },
         select: {
-          trip_date: true
-        }
+          trip_date: true,
+        },
       }),
       this.prisma.shift.findMany({
         where: {
@@ -1305,24 +1364,24 @@ export class ReportsService {
           vehicle_id: vehicleId,
           started_at: {
             gte: periodRange.start,
-            lt: periodRange.nextStart
-          }
+            lt: periodRange.nextStart,
+          },
         },
         select: {
-          started_at: true
-        }
-      })
+          started_at: true,
+        },
+      }),
     ]);
 
     return new Set([
       ...trips.map((trip) => this.dayKey(trip.trip_date)),
-      ...shifts.map((shift) => this.dayKey(shift.started_at))
+      ...shifts.map((shift) => this.dayKey(shift.started_at)),
     ]);
   }
 
   private groupCoveredDaysByRecurringCycle(
     period: AllocationType,
-    coveredDays: Date[]
+    coveredDays: Date[],
   ) {
     const grouped = new Map<string, Date[]>();
 
@@ -1336,7 +1395,7 @@ export class ReportsService {
 
     return [...grouped.entries()].map(([key, days]) => ({
       days,
-      key
+      key,
     }));
   }
 
@@ -1348,7 +1407,7 @@ export class ReportsService {
     if (period === AllocationType.MONTHLY) {
       return `${day.getUTCFullYear()}-${String(day.getUTCMonth() + 1).padStart(
         2,
-        '0'
+        "0",
       )}`;
     }
 
@@ -1362,27 +1421,27 @@ export class ReportsService {
 
       return {
         nextStart,
-        start
+        start,
       };
     }
 
     if (period === AllocationType.MONTHLY) {
       const start = new Date(
-        Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), 1)
+        Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), 1),
       );
       const nextStart = new Date(
-        Date.UTC(day.getUTCFullYear(), day.getUTCMonth() + 1, 1)
+        Date.UTC(day.getUTCFullYear(), day.getUTCMonth() + 1, 1),
       );
 
       return {
         nextStart,
-        start
+        start,
       };
     }
 
     return {
       nextStart: this.nextUtcDayStart(day),
-      start: this.startOfUtcDay(day)
+      start: this.startOfUtcDay(day),
     };
   }
 
@@ -1391,14 +1450,16 @@ export class ReportsService {
       nextStart: Date;
       start: Date;
     },
-    expense: RecurringExpense
+    expense: RecurringExpense,
   ) {
     return {
       nextStart: this.minDate(
         range.nextStart,
-        expense.ends_at ? this.nextUtcDayStart(expense.ends_at) : range.nextStart
+        expense.ends_at
+          ? this.nextUtcDayStart(expense.ends_at)
+          : range.nextStart,
       ),
-      start: this.maxDate(range.start, this.startOfUtcDay(expense.starts_at))
+      start: this.maxDate(range.start, this.startOfUtcDay(expense.starts_at)),
     };
   }
 
@@ -1412,15 +1473,15 @@ export class ReportsService {
       date: start.toISOString().slice(0, 10),
       endDate: start.toISOString().slice(0, 10),
       nextStart,
-      period: 'daily',
+      period: "daily",
       start,
-      startDate: start.toISOString().slice(0, 10)
+      startDate: start.toISOString().slice(0, 10),
     };
   }
 
   private resolveWeekRange(
     dateValue?: string,
-    snapToMonday = true
+    snapToMonday = true,
   ): PeriodRange {
     const date = this.startOfUtcDay(this.parseDate(dateValue));
     const start = new Date(date);
@@ -1441,9 +1502,9 @@ export class ReportsService {
       date: start.toISOString().slice(0, 10),
       endDate: end.toISOString().slice(0, 10),
       nextStart,
-      period: 'weekly',
+      period: "weekly",
       start,
-      startDate: start.toISOString().slice(0, 10)
+      startDate: start.toISOString().slice(0, 10),
     };
   }
 
@@ -1452,10 +1513,10 @@ export class ReportsService {
       ? this.parseDate(`${dateValue}-01`)
       : this.parseDate(dateValue);
     const start = new Date(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1),
     );
     const nextStart = new Date(
-      Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1)
+      Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1),
     );
     const end = new Date(nextStart);
 
@@ -1465,9 +1526,9 @@ export class ReportsService {
       date: start.toISOString().slice(0, 7),
       endDate: end.toISOString().slice(0, 10),
       nextStart,
-      period: 'monthly',
+      period: "monthly",
       start,
-      startDate: start.toISOString().slice(0, 10)
+      startDate: start.toISOString().slice(0, 10),
     };
   }
 
@@ -1494,7 +1555,7 @@ export class ReportsService {
   }
 
   private resolveHourlyProfitPeriodRange(
-    query: HourlyProfitQueryDto
+    query: HourlyProfitQueryDto,
   ): PeriodRange {
     const period =
       query.period ??
@@ -1543,7 +1604,7 @@ export class ReportsService {
     const date = dateValue ? new Date(dateValue) : new Date();
 
     if (Number.isNaN(date.getTime())) {
-      throw new BadRequestException('Invalid date value.');
+      throw new BadRequestException("Invalid date value.");
     }
 
     return date;
@@ -1552,7 +1613,7 @@ export class ReportsService {
   private countCoveredDays(
     periodRange: PeriodRange,
     startsAt: Date,
-    endsAt?: Date | null
+    endsAt?: Date | null,
   ) {
     return this.eachCoveredDay(periodRange, startsAt, endsAt).length;
   }
@@ -1560,12 +1621,12 @@ export class ReportsService {
   private eachCoveredDay(
     periodRange: PeriodRange,
     startsAt: Date,
-    endsAt?: Date | null
+    endsAt?: Date | null,
   ) {
     const start = this.maxDate(periodRange.start, this.startOfUtcDay(startsAt));
     const endNext = this.minDate(
       periodRange.nextStart,
-      endsAt ? this.nextUtcDayStart(endsAt) : periodRange.nextStart
+      endsAt ? this.nextUtcDayStart(endsAt) : periodRange.nextStart,
     );
     const days: Date[] = [];
     const cursor = new Date(start);
@@ -1580,7 +1641,7 @@ export class ReportsService {
 
   private startOfUtcDay(date: Date) {
     return new Date(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
     );
   }
 
@@ -1610,7 +1671,7 @@ export class ReportsService {
       fixed: new Prisma.Decimal(0),
       maintenance: new Prisma.Decimal(0),
       package: new Prisma.Decimal(0),
-      variable: new Prisma.Decimal(0)
+      variable: new Prisma.Decimal(0),
     };
   }
 
@@ -1632,7 +1693,7 @@ export class ReportsService {
 
   private positiveDifference(
     minuend: Prisma.Decimal,
-    subtrahend: Prisma.Decimal
+    subtrahend: Prisma.Decimal,
   ) {
     const difference = minuend.minus(subtrahend);
 
@@ -1641,7 +1702,7 @@ export class ReportsService {
 
   private daysInMonth(date: Date) {
     return new Date(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0),
     ).getUTCDate();
   }
 
@@ -1653,8 +1714,51 @@ export class ReportsService {
     return Math.round((end - start) / (24 * 60 * 60 * 1000));
   }
 
+  private nextRecurringDueDate(period: AllocationType, date: Date) {
+    if (period === AllocationType.YEARLY) {
+      const targetMonth = date.getUTCMonth();
+      const targetDay = date.getUTCDate();
+      const nextYear = date.getUTCFullYear() + 1;
+      const lastDay = new Date(
+        Date.UTC(nextYear, targetMonth + 1, 0),
+      ).getUTCDate();
+
+      return new Date(
+        Date.UTC(nextYear, targetMonth, Math.min(targetDay, lastDay)),
+      );
+    }
+
+    if (period === AllocationType.MONTHLY) {
+      const targetDay = date.getUTCDate();
+      const nextMonthStart = new Date(
+        Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1),
+      );
+      const lastDay = new Date(
+        Date.UTC(
+          nextMonthStart.getUTCFullYear(),
+          nextMonthStart.getUTCMonth() + 1,
+          0,
+        ),
+      ).getUTCDate();
+
+      return new Date(
+        Date.UTC(
+          nextMonthStart.getUTCFullYear(),
+          nextMonthStart.getUTCMonth(),
+          Math.min(targetDay, lastDay),
+        ),
+      );
+    }
+
+    const nextDate = this.startOfUtcDay(date);
+
+    nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+
+    return nextDate;
+  }
+
   private decimal(
-    value?: Prisma.Decimal | string | number | null
+    value?: Prisma.Decimal | string | number | null,
   ): Prisma.Decimal {
     if (value === null || value === undefined) {
       return new Prisma.Decimal(0);

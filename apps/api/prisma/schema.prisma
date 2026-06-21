@@ -76,6 +76,7 @@ enum FixedCostAllocationMethod {
   CALENDAR_DAY
   ACTIVE_DAY
   PER_KM
+  MONTHLY_DIRECT
 }
 
 enum DepreciationModel {
@@ -475,6 +476,7 @@ model RecurringExpense {
   starts_at         DateTime
   ends_at           DateTime?
   next_due_at       DateTime?
+  reminder_enabled  Boolean                   @default(true)
   is_active         Boolean                   @default(true)
   note              String?
   created_at        DateTime                  @default(now())
