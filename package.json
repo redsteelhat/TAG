@@ -19,6 +19,7 @@
     "dev:api": "pnpm --filter @tag/api dev",
     "dev:mobile": "pnpm --filter @tag/mobile dev",
     "dev:web": "pnpm --filter @tag/web dev",
+    "api:load": "node scripts/performance/api-load-test.mjs",
     "api:perf": "node scripts/performance/api-performance-test.mjs",
     "lint": "pnpm -r --if-present lint",
     "postinstall": "pnpm db:generate",

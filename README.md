@@ -106,6 +106,27 @@ PERF_P95_THRESHOLD_MS=500
 PERF_ERROR_RATE_THRESHOLD=0.01
 ```
 
+API load testi:
+
+```bash
+pnpm api:load
+```
+
+Load test tum hedef endpointleri agirlikli olarak karisik cagirir. Varsayilan asamalar `10:10,25:20,50:30,10:10` formatindadir; her parca `concurrency:durationSeconds` anlamina gelir.
+
+```bash
+LOAD_API_BASE_URL=http://localhost:3001/api/v1
+LOAD_STAGES=10:10,25:20,50:30,10:10
+LOAD_P95_THRESHOLD_MS=750
+LOAD_ERROR_RATE_THRESHOLD=0.02
+```
+
+Kisa local smoke test icin:
+
+```bash
+LOAD_STAGES=5:3 pnpm api:load
+```
+
 Mobil uygulama:
 
 ```bash
