@@ -106,6 +106,30 @@ export async function getJson<TResponse>(
   return payload as TResponse;
 }
 
+export async function deleteJson<TResponse>(
+  path: string,
+  options?: {
+    accessToken?: string;
+  }
+) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'DELETE',
+    headers: {
+      ...(options?.accessToken
+        ? { Authorization: `Bearer ${options.accessToken}` }
+        : {})
+    }
+  });
+
+  const payload = await response.json().catch(() => undefined);
+
+  if (!response.ok) {
+    throw new Error(formatApiError(payload));
+  }
+
+  return payload as TResponse;
+}
+
 function formatApiError(payload: unknown) {
   const error = payload as ApiErrorResponse | undefined;
 

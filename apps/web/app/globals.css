@@ -2090,9 +2090,27 @@ h2 {
   background: #e7f6f3;
 }
 
+.icon-button.danger {
+  color: var(--danger);
+}
+
 .icon-button svg {
   width: 17px;
   height: 17px;
+}
+
+.table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trip-breakdown-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
 }
 
 .pagination-bar {

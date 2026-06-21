@@ -30,7 +30,8 @@ describe('FuelCostService', () => {
     expect(result.latestFuelEntryId).toBe('fuel_1');
   });
 
-  it('returns zero cost when no fuel entry exists', async () => {
+  it('uses default fuel price when no fuel entry exists', async () => {
+    process.env.DEFAULT_FUEL_PRICE_PER_LITER = '42';
     const service = new FuelCostService(new FinanceCalculationEngine(), {
       fuelEntry: {
         findFirst: jest.fn().mockResolvedValue(null)
@@ -44,8 +45,13 @@ describe('FuelCostService', () => {
     );
 
     expect(result.latestFuelEntryId).toBeNull();
-    expect(result.latestFuelPricePerLiter.toFixed(3)).toBe('0.000');
-    expect(result.estimatedFuelCost.toFixed(2)).toBe('0.00');
+    expect(result.latestFuelPricePerLiter.toFixed(3)).toBe('42.000');
+    expect(result.estimatedFuelCost.toFixed(2)).toBe('69.30');
+    expect(result.priceSource).toBe('DEFAULT_FUEL_PRICE_PER_LITER');
+    expect(result.warnings).toContainEqual(
+      expect.objectContaining({ code: 'FUEL_PRICE_MISSING' })
+    );
+    delete process.env.DEFAULT_FUEL_PRICE_PER_LITER;
   });
 
   it('builds a fuel cost breakdown', async () => {

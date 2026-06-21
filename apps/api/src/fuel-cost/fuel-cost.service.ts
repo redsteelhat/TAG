@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { FuelEntry, Prisma, Vehicle } from '@prisma/client';
-import { FinanceCalculationEngine } from '../finance-calculation/finance-calculation.engine';
+import {
+  CalculationWarning,
+  FinanceCalculationEngine
+} from '../finance-calculation/finance-calculation.engine';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface FuelCostCalculationResult {
@@ -11,7 +14,9 @@ export interface FuelCostCalculationResult {
   latestFuelEntryId: string | null;
   latestFuelPricePerLiter: Prisma.Decimal;
   method: 'latest_fuel_price_x_vehicle_average_consumption_x_total_km';
+  priceSource: 'DEFAULT_FUEL_PRICE_PER_LITER' | 'LATEST_FUEL_ENTRY' | 'MISSING';
   totalKm: Prisma.Decimal;
+  warnings: CalculationWarning[];
 }
 
 @Injectable()
@@ -30,8 +35,11 @@ export class FuelCostService {
   ): Promise<FuelCostCalculationResult> {
     const totalKm = this.toDecimal(totalKmValue);
     const latestFuelEntry = await this.findLatestFuelEntry(userId, vehicle.id);
+    const defaultFuelPricePerLiter = this.getDefaultFuelPricePerLiter();
     const latestFuelPricePerLiter =
-      latestFuelEntry?.price_per_liter ?? new Prisma.Decimal(0);
+      latestFuelEntry?.price_per_liter ??
+      defaultFuelPricePerLiter ??
+      new Prisma.Decimal(0);
     const estimatedLiters = this.calculateEstimatedLiters(
       totalKm,
       vehicle.average_consumption_l_per_100km
@@ -52,7 +60,25 @@ export class FuelCostService {
       latestFuelEntryId: latestFuelEntry?.id ?? null,
       latestFuelPricePerLiter,
       method: 'latest_fuel_price_x_vehicle_average_consumption_x_total_km',
-      totalKm
+      priceSource: latestFuelEntry
+        ? 'LATEST_FUEL_ENTRY'
+        : defaultFuelPricePerLiter
+          ? 'DEFAULT_FUEL_PRICE_PER_LITER'
+          : 'MISSING',
+      totalKm,
+      warnings: latestFuelEntry
+        ? fuelCost.warnings
+        : [
+            {
+              code: 'FUEL_PRICE_MISSING',
+              message: defaultFuelPricePerLiter
+                ? 'Son yakıt kaydı olmadığı için varsayılan litre fiyatı kullanıldı.'
+                : 'Son yakıt kaydı veya varsayılan litre fiyatı olmadığı için yakıt maliyeti hesaplanamadı.'
+            },
+            ...fuelCost.warnings.filter(
+              (warning) => warning.code !== 'FUEL_PRICE_MISSING'
+            )
+          ]
     };
   }
 
@@ -115,9 +141,27 @@ export class FuelCostService {
       estimatedLiters: result.estimatedLiters.toFixed(3),
       estimatedFuelCost: result.estimatedFuelCost.toFixed(2),
       latestFuelEntryId: result.latestFuelEntryId,
+      priceSource: result.priceSource,
+      warnings: result.warnings,
       method: result.method,
       calculationVersion: this.calculationVersion
     };
+  }
+
+  private getDefaultFuelPricePerLiter() {
+    const rawValue = process.env.DEFAULT_FUEL_PRICE_PER_LITER;
+
+    if (!rawValue) {
+      return null;
+    }
+
+    try {
+      const value = new Prisma.Decimal(rawValue);
+
+      return value.gt(0) ? value : null;
+    } catch {
+      return null;
+    }
   }
 
   private toDecimal(value: string | Prisma.Decimal) {
