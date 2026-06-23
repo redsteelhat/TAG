@@ -2206,6 +2206,59 @@ h2 {
   margin-bottom: 0;
 }
 
+.reminder-control-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.reminder-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.reminder-tabs button {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.reminder-tabs button.active {
+  border-color: rgba(15, 118, 110, 0.35);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.reminder-definition-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.reminder-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.reminder-definition-row {
+  grid-template-columns:
+    minmax(180px, 1.3fr) minmax(120px, 0.8fr) minmax(150px, 1fr)
+    minmax(130px, 0.9fr) minmax(110px, 0.75fr) minmax(110px, 0.75fr)
+    minmax(110px, 0.75fr) minmax(86px, 0.6fr) minmax(94px, 0.65fr);
+}
+
+.reminder-definition-row .status-pill {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
 .reminder-table-row {
   grid-template-columns:
     minmax(130px, 0.9fr) minmax(260px, 1.6fr) minmax(112px, 0.75fr)
@@ -3004,6 +3057,7 @@ h2 {
   .package-entry-grid,
   .fixed-cost-entry-grid,
   .maintenance-entry-grid,
+  .reminder-form-grid,
   .maintenance-plan-preview,
   .depreciation-settings-grid,
   .depreciation-guide-grid,
@@ -3035,6 +3089,10 @@ h2 {
   }
 
   .settings-category-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reminder-definition-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3129,7 +3187,9 @@ h2 {
   .settings-tabs,
   .settings-category-row,
   .reports-custom-range,
-  .report-tabs {
+  .report-tabs,
+  .reminder-tabs,
+  .reminder-definition-row {
     grid-template-columns: 1fr;
   }
 
