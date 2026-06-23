@@ -1,13 +1,14 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
-  UnauthorizedException
-} from '@nestjs/common';
-import { Request } from 'express';
-import { TokenService } from '../auth/token.service';
+  UnauthorizedException,
+} from "@nestjs/common";
+import { Request } from "express";
+import { TokenService } from "../auth/token.service";
 
-const allowedRoles = new Set(['ADMIN', 'SUPER_ADMIN']);
+const allowedRoles = new Set(["ADMIN", "SUPER_ADMIN"]);
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -18,19 +19,23 @@ export class AdminGuard implements CanActivate {
     const token = this.extractBearerToken(request);
 
     if (!token) {
-      throw new UnauthorizedException('Missing admin credentials.');
+      throw new UnauthorizedException("Missing admin credentials.");
     }
 
+    const payload = await this.verifyToken(token);
+
+    if (!allowedRoles.has(payload.role)) {
+      throw new ForbiddenException("Admin role is required.");
+    }
+
+    return true;
+  }
+
+  private async verifyToken(token: string) {
     try {
-      const payload = await this.tokenService.verifyAccessToken(token);
-
-      if (!allowedRoles.has(payload.role)) {
-        throw new UnauthorizedException('Admin role is required.');
-      }
-
-      return true;
+      return await this.tokenService.verifyAccessToken(token);
     } catch {
-      throw new UnauthorizedException('Invalid admin credentials.');
+      throw new UnauthorizedException("Invalid admin credentials.");
     }
   }
 
@@ -41,8 +46,8 @@ export class AdminGuard implements CanActivate {
       return undefined;
     }
 
-    const [type, token] = authorization.split(' ');
+    const [type, token] = authorization.split(" ");
 
-    return type === 'Bearer' && token ? token : undefined;
+    return type === "Bearer" && token ? token : undefined;
   }
 }

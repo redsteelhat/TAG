@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   Car,
   BellRing,
@@ -20,8 +21,9 @@ import {
   Target,
   Wallet,
   Wrench,
-  type LucideIcon
-} from 'lucide-react';
+  type LucideIcon,
+} from "lucide-react";
+import { getStoredUserRole, isAdminRole } from "../lib/auth-storage";
 
 interface AppShellProps {
   eyebrow: string;
@@ -34,6 +36,7 @@ interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
+  adminOnly?: boolean;
 }
 
 interface NavSection {
@@ -43,45 +46,51 @@ interface NavSection {
 
 const navSections: NavSection[] = [
   {
-    title: 'Genel',
+    title: "Genel",
     items: [
-      { label: 'Ana Panel', href: '/', icon: LayoutDashboard },
-      { label: 'Kurulum', href: '/onboarding', icon: ListChecks }
-    ]
+      { label: "Ana Panel", href: "/", icon: LayoutDashboard },
+      { label: "Kurulum", href: "/onboarding", icon: ListChecks },
+    ],
   },
   {
-    title: 'Operasyon',
+    title: "Operasyon",
     items: [
-      { label: 'Gelirler', href: '/income', icon: Wallet },
-      { label: 'Giderler', href: '/expenses', icon: Receipt },
-      { label: 'Sabit Gider', href: '/fixed-costs', icon: CalendarClock },
-      { label: 'Amortisman', href: '/depreciation', icon: Calculator },
-      { label: 'Yakıt', href: '/fuel', icon: Fuel },
-      { label: 'Araçlar', href: '/vehicles', icon: Car },
-      { label: 'Paketler', href: '/packages', icon: Package },
-      { label: 'Bakım', href: '/maintenance', icon: Wrench }
-    ]
+      { label: "Gelirler", href: "/income", icon: Wallet },
+      { label: "Giderler", href: "/expenses", icon: Receipt },
+      { label: "Sabit Gider", href: "/fixed-costs", icon: CalendarClock },
+      { label: "Amortisman", href: "/depreciation", icon: Calculator },
+      { label: "Yakıt", href: "/fuel", icon: Fuel },
+      { label: "Araçlar", href: "/vehicles", icon: Car },
+      { label: "Paketler", href: "/packages", icon: Package },
+      { label: "Bakım", href: "/maintenance", icon: Wrench },
+    ],
   },
   {
-    title: 'Analiz',
+    title: "Analiz",
     items: [
-      { label: 'Raporlar', href: '/reports', icon: ReceiptText },
-      { label: 'Hedefler', href: '/goals', icon: Target },
-      { label: 'Hatırlatıcılar', href: '/reminders', icon: BellRing },
-      { label: 'Dışa Aktar', href: '/exports', icon: Download }
-    ]
+      { label: "Raporlar", href: "/reports", icon: ReceiptText },
+      { label: "Hedefler", href: "/goals", icon: Target },
+      { label: "Hatırlatıcılar", href: "/reminders", icon: BellRing },
+      { label: "Dışa Aktar", href: "/exports", icon: Download },
+    ],
   },
   {
-    title: 'Sistem',
+    title: "Sistem",
     items: [
-      { label: 'Admin', href: '/admin', icon: ShieldCheck },
-      { label: 'Ayarlar', href: '/settings', icon: Settings }
-    ]
-  }
+      { label: "Admin", href: "/admin", icon: ShieldCheck, adminOnly: true },
+      { label: "Ayarlar", href: "/settings", icon: Settings },
+    ],
+  },
 ];
 
 export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
   const pathname = usePathname();
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRole(getStoredUserRole());
+  }, []);
+  const canSeeAdmin = isAdminRole(role);
 
   return (
     <main className="app-shell">
@@ -95,29 +104,39 @@ export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
         </Link>
 
         <nav className="nav-list">
-          {navSections.map((section) => (
-            <div className="nav-section" key={section.title}>
-              <p className="nav-section-title">{section.title}</p>
-              <div className="nav-section-items">
-                {section.items.map((item) => {
-                  const isActive = isActivePath(pathname, item.href);
-                  const Icon = item.icon;
+          {navSections.map((section) => {
+            const visibleItems = section.items.filter(
+              (item) => !item.adminOnly || canSeeAdmin,
+            );
 
-                  return (
-                    <Link
-                      aria-current={isActive ? 'page' : undefined}
-                      className={isActive ? 'nav-item active' : 'nav-item'}
-                      href={item.href}
-                      key={item.href}
-                    >
-                      <Icon aria-hidden="true" className="nav-item-icon" />
-                      <span>{item.label}</span>
-                    </Link>
-                  );
-                })}
+            if (visibleItems.length === 0) {
+              return null;
+            }
+
+            return (
+              <div className="nav-section" key={section.title}>
+                <p className="nav-section-title">{section.title}</p>
+                <div className="nav-section-items">
+                  {visibleItems.map((item) => {
+                    const isActive = isActivePath(pathname, item.href);
+                    const Icon = item.icon;
+
+                    return (
+                      <Link
+                        aria-current={isActive ? "page" : undefined}
+                        className={isActive ? "nav-item active" : "nav-item"}
+                        href={item.href}
+                        key={item.href}
+                      >
+                        <Icon aria-hidden="true" className="nav-item-icon" />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">
@@ -142,7 +161,7 @@ export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
 }
 
 function isActivePath(pathname: string, href: string) {
-  if (href === '/') {
+  if (href === "/") {
     return pathname === href;
   }
 

@@ -1,5 +1,5 @@
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
 
 interface ApiErrorResponse {
   message?: string | string[];
@@ -12,6 +12,11 @@ export interface AuthResponse {
       id: string;
       email: string;
       fullName?: string | null;
+      phone?: string | null;
+      role?: string;
+      subscriptionStatus?: string;
+      trialEndsAt?: string | null;
+      timezone?: string;
     };
     accessToken: string;
     refreshToken: string;
@@ -23,17 +28,17 @@ export async function postJson<TResponse>(
   body: Record<string, unknown>,
   options?: {
     accessToken?: string;
-  }
+  },
 ) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(options?.accessToken
         ? { Authorization: `Bearer ${options.accessToken}` }
-        : {})
+        : {}),
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
 
   const payload = await response.json().catch(() => undefined);
@@ -50,17 +55,17 @@ export async function patchJson<TResponse>(
   body: Record<string, unknown>,
   options?: {
     accessToken?: string;
-  }
+  },
 ) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'PATCH',
+    method: "PATCH",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(options?.accessToken
         ? { Authorization: `Bearer ${options.accessToken}` }
-        : {})
+        : {}),
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
 
   const payload = await response.json().catch(() => undefined);
@@ -77,13 +82,13 @@ export async function getJson<TResponse>(
   options?: {
     accessToken?: string;
     query?: Record<string, string | number | undefined>;
-  }
+  },
 ) {
   const url = new URL(`${API_BASE_URL}${path}`);
 
   if (options?.query) {
     for (const [key, value] of Object.entries(options.query)) {
-      if (value !== undefined && value !== '') {
+      if (value !== undefined && value !== "") {
         url.searchParams.set(key, String(value));
       }
     }
@@ -93,8 +98,8 @@ export async function getJson<TResponse>(
     headers: {
       ...(options?.accessToken
         ? { Authorization: `Bearer ${options.accessToken}` }
-        : {})
-    }
+        : {}),
+    },
   });
 
   const payload = await response.json().catch(() => undefined);
@@ -110,15 +115,15 @@ export async function deleteJson<TResponse>(
   path: string,
   options?: {
     accessToken?: string;
-  }
+  },
 ) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'DELETE',
+    method: "DELETE",
     headers: {
       ...(options?.accessToken
         ? { Authorization: `Bearer ${options.accessToken}` }
-        : {})
-    }
+        : {}),
+    },
   });
 
   const payload = await response.json().catch(() => undefined);
@@ -134,8 +139,8 @@ function formatApiError(payload: unknown) {
   const error = payload as ApiErrorResponse | undefined;
 
   if (Array.isArray(error?.message)) {
-    return error.message.join(' ');
+    return error.message.join(" ");
   }
 
-  return error?.message ?? 'İşlem tamamlanamadı.';
+  return error?.message ?? "İşlem tamamlanamadı.";
 }

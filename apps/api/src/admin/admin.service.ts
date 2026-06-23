@@ -1,20 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 import {
   ExportStatus,
   NotificationStatus,
   SubscriptionStatus,
-  UserRole
-} from '@prisma/client';
-import { HealthService } from '../health/health.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { QueueService } from '../queue/queue.service';
+  UserRole,
+} from "@prisma/client";
+import { HealthService } from "../health/health.service";
+import { PrismaService } from "../prisma/prisma.service";
+import { QueueService } from "../queue/queue.service";
 
 @Injectable()
 export class AdminService {
   constructor(
     private readonly healthService: HealthService,
     private readonly prisma: PrismaService,
-    private readonly queueService: QueueService
+    private readonly queueService: QueueService,
   ) {}
 
   async getOverview() {
@@ -38,32 +38,33 @@ export class AdminService {
       failedExports24h,
       pendingNotifications,
       failedNotifications24h,
+      apiErrorCount24h,
       feedbackOpen,
       recentFeedback,
       auditLogs24h,
-      recentUsers
+      recentUsers,
     ] = await Promise.all([
       this.healthService.getReadiness(),
       this.prisma.user.count({ where: { deleted_at: null } }),
       this.prisma.user.count({
-        where: { deleted_at: null, anonymized_at: null }
+        where: { deleted_at: null, anonymized_at: null },
       }),
       this.prisma.user.count({
-        where: { created_at: { gte: since24h }, deleted_at: null }
+        where: { created_at: { gte: since24h }, deleted_at: null },
       }),
       this.prisma.user.count({
-        where: { created_at: { gte: since7d }, deleted_at: null }
+        where: { created_at: { gte: since7d }, deleted_at: null },
       }),
       this.prisma.user.count({
         where: {
           deleted_at: null,
-          role: { in: [UserRole.ADMIN, UserRole.SUPER_ADMIN] }
-        }
+          role: { in: [UserRole.ADMIN, UserRole.SUPER_ADMIN] },
+        },
       }),
       this.prisma.user.groupBy({
-        by: ['subscription_status'],
+        by: ["subscription_status"],
         where: { deleted_at: null },
-        _count: { _all: true }
+        _count: { _all: true },
       }),
       this.prisma.vehicle.count({ where: { deleted_at: null } }),
       this.prisma.trip.count({ where: { deleted_at: null } }),
@@ -71,60 +72,89 @@ export class AdminService {
       this.prisma.fuelEntry.count({ where: { deleted_at: null } }),
       this.prisma.maintenanceEntry.count({ where: { deleted_at: null } }),
       this.prisma.exportJob.groupBy({
-        by: ['status'],
-        _count: { _all: true }
+        by: ["status"],
+        _count: { _all: true },
       }),
       this.prisma.exportJob.count({
         where: {
           status: ExportStatus.FAILED,
-          updated_at: { gte: since24h }
-        }
+          updated_at: { gte: since24h },
+        },
       }),
       this.prisma.notification.count({
         where: {
-          status: NotificationStatus.PENDING
-        }
+          status: NotificationStatus.PENDING,
+        },
       }),
       this.prisma.notification.count({
         where: {
           created_at: { gte: since24h },
-          status: NotificationStatus.FAILED
-        }
+          status: NotificationStatus.FAILED,
+        },
+      }),
+      this.prisma.auditLog.count({
+        where: {
+          action: {
+            contains: "error",
+          },
+          created_at: { gte: since24h },
+        },
       }),
       this.prisma.feedback.count({
         where: {
-          status: 'OPEN'
-        }
+          status: "OPEN",
+        },
       }),
       this.prisma.feedback.findMany({
         include: {
           user: {
             select: {
-              id: true
-            }
-          }
+              id: true,
+            },
+          },
         },
-        orderBy: { created_at: 'desc' },
-        take: 5
+        orderBy: { created_at: "desc" },
+        take: 5,
       }),
       this.prisma.auditLog.count({
         where: {
-          created_at: { gte: since24h }
-        }
+          created_at: { gte: since24h },
+        },
       }),
       this.prisma.user.findMany({
-        orderBy: { created_at: 'desc' },
+        orderBy: { created_at: "desc" },
         select: {
+          _count: {
+            select: {
+              expense_entries: true,
+              fuel_entries: true,
+              maintenance_entries: true,
+              tag_packages: true,
+              trips: true,
+              vehicles: true,
+            },
+          },
+          sessions: {
+            orderBy: { created_at: "desc" },
+            select: {
+              created_at: true,
+              last_used_at: true,
+            },
+            take: 1,
+          },
           created_at: true,
+          email: true,
+          full_name: true,
           id: true,
+          phone: true,
           role: true,
-          subscription_status: true
+          subscription_status: true,
         },
         take: 8,
         where: {
-          deleted_at: null
-        }
-      })
+          deleted_at: null,
+        },
+      }),
     ]);
 
     const queue = this.queueService.getStats();
@@ -140,28 +170,35 @@ export class AdminService {
         admins: adminUsers,
         bySubscription: this.toEnumCountMap(
           usersBySubscription,
-          'subscription_status',
-          Object.values(SubscriptionStatus)
-        )
+          "subscription_status",
+          Object.values(SubscriptionStatus),
+        ),
       },
       records: {
         expenses,
         fuelEntries,
         maintenanceEntries,
         trips,
-        vehicles
+        vehicles,
       },
       operations: {
         auditLogs24h,
         exportJobs: this.toEnumCountMap(
           exportsByStatus,
-          'status',
-          Object.values(ExportStatus)
+          "status",
+          Object.values(ExportStatus),
         ),
         failedExports24h,
         failedNotifications24h,
+        apiErrorCount24h,
+        paymentSubscriptionIssues:
+          this.toEnumCountMap(
+            usersBySubscription,
+            "subscription_status",
+            Object.values(SubscriptionStatus),
+          ).PAST_DUE ?? 0,
         pendingNotifications,
-        queue
+        queue,
       },
       feedback: {
         open: feedbackOpen,
@@ -170,15 +207,29 @@ export class AdminService {
           createdAt: item.created_at,
           rating: item.rating,
           status: item.status,
-          userId: item.user.id
-        }))
+          userId: item.user.id,
+        })),
       },
       recentUsers: recentUsers.map((user) => ({
         id: user.id,
+        fullName: user.full_name,
+        email: user.email,
+        phone: user.phone,
         createdAt: user.created_at,
+        lastLoginAt:
+          user.sessions[0]?.last_used_at ??
+          user.sessions[0]?.created_at ??
+          null,
         role: user.role,
-        subscriptionStatus: user.subscription_status
-      }))
+        subscriptionStatus: user.subscription_status,
+        vehicleCount: user._count.vehicles,
+        recordCount:
+          user._count.trips +
+          user._count.expense_entries +
+          user._count.fuel_entries +
+          user._count.maintenance_entries +
+          user._count.tag_packages,
+      })),
     };
   }
 
@@ -193,7 +244,7 @@ export class AdminService {
   private toEnumCountMap<TItem extends Record<string, unknown>>(
     items: TItem[],
     key: keyof TItem,
-    values: string[]
+    values: string[],
   ) {
     const counts = Object.fromEntries(values.map((value) => [value, 0]));
 
@@ -201,7 +252,7 @@ export class AdminService {
       const value = item[key];
       const count = item._count as { _all: number } | undefined;
 
-      if (typeof value === 'string' && count) {
+      if (typeof value === "string" && count) {
         counts[value] = count._all;
       }
     }
