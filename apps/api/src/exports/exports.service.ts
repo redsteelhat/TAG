@@ -62,6 +62,10 @@ export class ExportsService {
     return this.createReportExport(userId, dto, ExportFormat.PDF);
   }
 
+  async createCsvExport(userId: string, dto: CreateExcelExportDto) {
+    return this.createReportExport(userId, dto, ExportFormat.CSV);
+  }
+
   private async createReportExport(
     userId: string,
     dto: CreateExcelExportDto,
@@ -77,6 +81,17 @@ export class ExportsService {
         status: ExportStatus.PENDING,
         user_id: userId
       }
+    });
+
+    await this.notificationsService.createImmediate({
+      body: `${periodRange.startDate} - ${periodRange.endDate} dönemi ${format} raporun hazırlanıyor. Tamamlandığında indirilebilir olacak.`,
+      metadata: {
+        exportJobId: exportJob.id,
+        format
+      },
+      title: 'Rapor hazırlanıyor',
+      type: NotificationType.SYSTEM_ANNOUNCEMENT,
+      userId
     });
 
     this.queueService.enqueue(
@@ -96,6 +111,7 @@ export class ExportsService {
 
     return this.toExportJobResponse(exportJob);
   }
+
 
   private async processReportExport(input: {
     dto: CreateExcelExportDto;
@@ -117,10 +133,50 @@ export class ExportsService {
         }
       });
 
-      const file =
-        format === ExportFormat.PDF
-          ? await this.buildPdfReport(userId, period, periodRange, dto)
-          : await this.buildExcelWorkbook(userId, period, periodRange, dto);
+      let file: Buffer;
+
+      if (format === ExportFormat.PDF) {
+        file = await this.buildPdfReport(userId, period, periodRange, dto);
+      } else {
+        const [trips, expenses, fuelEntries, maintenanceEntries, packages, recurringExpenses] =
+          await Promise.all([
+            this.findTrips(userId, periodRange, dto.vehicleId),
+            this.findExpenses(userId, periodRange, dto.vehicleId),
+            this.findFuelEntries(userId, periodRange, dto.vehicleId),
+            this.findMaintenanceEntries(userId, periodRange, dto.vehicleId),
+            this.findPackages(userId, periodRange, dto.vehicleId),
+            this.findRecurringExpenses(userId, periodRange, dto.vehicleId)
+          ]);
+
+        if (format === ExportFormat.CSV) {
+          file = this.buildCsvReport(
+            userId,
+            period,
+            periodRange,
+            dto,
+            trips,
+            expenses,
+            fuelEntries,
+            maintenanceEntries,
+            packages,
+            recurringExpenses
+          );
+        } else {
+          file = await this.buildExcelWorkbook(
+            userId,
+            period,
+            periodRange,
+            dto,
+            trips,
+            expenses,
+            fuelEntries,
+            maintenanceEntries,
+            packages,
+            recurringExpenses
+          );
+        }
+      }
+
       const storageKey = this.buildStorageKey(userId, exportJobId, format);
       const absolutePath = this.resolveStoragePath(storageKey);
 
@@ -140,13 +196,13 @@ export class ExportsService {
       });
 
       await this.notificationsService.createImmediate({
-        body: `${periodRange.startDate} - ${periodRange.endDate} donemi ${format} raporun hazır.`,
+        body: `${periodRange.startDate} - ${periodRange.endDate} dönemi ${format} raporun hazır.`,
         metadata: {
           exportJobId: completedJob.id,
           fileUrl: completedJob.file_url,
           format
         },
-        title: 'Raporun hazır',
+        title: 'Rapor hazır',
         type: NotificationType.EXPORT_READY,
         userId
       });
@@ -237,7 +293,13 @@ export class ExportsService {
     userId: string,
     period: ExcelExportPeriod,
     periodRange: ExportPeriodRange,
-    dto: CreateExcelExportDto
+    dto: CreateExcelExportDto,
+    trips: any[],
+    expenses: any[],
+    fuelEntries: any[],
+    maintenanceEntries: any[],
+    packages: any[],
+    recurringExpenses: any[]
   ) {
     const report = await this.calculateReport(userId, period, dto);
     const sheets: WorkbookSheet[] = [
@@ -248,14 +310,6 @@ export class ExportsService {
     ];
 
     if (dto.includeRawData ?? true) {
-      const [trips, expenses, fuelEntries, maintenanceEntries] =
-        await Promise.all([
-          this.findTrips(userId, periodRange, dto.vehicleId),
-          this.findExpenses(userId, periodRange, dto.vehicleId),
-          this.findFuelEntries(userId, periodRange, dto.vehicleId),
-          this.findMaintenanceEntries(userId, periodRange, dto.vehicleId)
-        ]);
-
       sheets.push(
         {
           name: 'Seferler',
@@ -272,12 +326,21 @@ export class ExportsService {
         {
           name: 'Bakım',
           rows: this.buildMaintenanceRows(maintenanceEntries)
+        },
+        {
+          name: 'Paketler',
+          rows: this.buildPackageRows(packages)
+        },
+        {
+          name: 'Sabit Giderler',
+          rows: this.buildRecurringExpenseRows(recurringExpenses)
         }
       );
     }
 
     return this.xlsxBuilder.build(sheets);
   }
+
 
   private async buildPdfReport(
     userId: string,
@@ -749,14 +812,202 @@ export class ExportsService {
     );
   }
 
+  private findPackages(
+    userId: string,
+    periodRange: ExportPeriodRange,
+    vehicleId?: string
+  ) {
+    return this.prisma.tagPackage.findMany({
+      where: {
+        user_id: userId,
+        vehicle_id: vehicleId,
+        deleted_at: null,
+        starts_at: {
+          lt: periodRange.nextStart
+        },
+        ends_at: {
+          gte: periodRange.start
+        }
+      },
+      orderBy: {
+        starts_at: 'asc'
+      }
+    });
+  }
+
+  private findRecurringExpenses(
+    userId: string,
+    periodRange: ExportPeriodRange,
+    vehicleId?: string
+  ) {
+    return this.prisma.recurringExpense.findMany({
+      where: {
+        user_id: userId,
+        vehicle_id: vehicleId,
+        deleted_at: null,
+        starts_at: {
+          lt: periodRange.nextStart
+        },
+        OR: [
+          { ends_at: null },
+          { ends_at: { gte: periodRange.start } }
+        ]
+      },
+      orderBy: {
+        starts_at: 'asc'
+      }
+    });
+  }
+
+  private buildCsvReport(
+    userId: string,
+    period: ExcelExportPeriod,
+    periodRange: ExportPeriodRange,
+    dto: CreateExcelExportDto,
+    trips: any[],
+    expenses: any[],
+    fuelEntries: any[],
+    maintenanceEntries: any[],
+    packages: any[],
+    recurringExpenses: any[]
+  ): Buffer {
+    const lines: string[] = [];
+
+    lines.push(['TAG Sürücü Finans Raporu - Ham Kayıtlar'].map(c => this.escapeCsvCell(c)).join(';'));
+    lines.push([`Dönem: ${periodRange.startDate} - ${periodRange.endDate}`].map(c => this.escapeCsvCell(c)).join(';'));
+    lines.push('');
+
+    lines.push(['SEFERLER'].map(c => this.escapeCsvCell(c)).join(';'));
+    const tripRows = this.buildTripRows(trips);
+    tripRows.forEach(row => {
+      lines.push(row.map(c => this.escapeCsvCell(c)).join(';'));
+    });
+    lines.push('');
+
+    lines.push(['GİDERLER'].map(c => this.escapeCsvCell(c)).join(';'));
+    const expenseRows = this.buildExpenseRows(expenses);
+    expenseRows.forEach(row => {
+      lines.push(row.map(c => this.escapeCsvCell(c)).join(';'));
+    });
+    lines.push('');
+
+    lines.push(['YAKIT KAYITLARI'].map(c => this.escapeCsvCell(c)).join(';'));
+    const fuelRows = this.buildFuelRows(fuelEntries);
+    fuelRows.forEach(row => {
+      lines.push(row.map(c => this.escapeCsvCell(c)).join(';'));
+    });
+    lines.push('');
+
+    lines.push(['BAKIM KAYITLARI'].map(c => this.escapeCsvCell(c)).join(';'));
+    const maintenanceRows = this.buildMaintenanceRows(maintenanceEntries);
+    maintenanceRows.forEach(row => {
+      lines.push(row.map(c => this.escapeCsvCell(c)).join(';'));
+    });
+    lines.push('');
+
+    lines.push(['TAG PAKETLERİ'].map(c => this.escapeCsvCell(c)).join(';'));
+    const packageRows = this.buildPackageRows(packages);
+    packageRows.forEach(row => {
+      lines.push(row.map(c => this.escapeCsvCell(c)).join(';'));
+    });
+    lines.push('');
+
+    lines.push(['SABİT GİDERLER'].map(c => this.escapeCsvCell(c)).join(';'));
+    const recurringRows = this.buildRecurringExpenseRows(recurringExpenses);
+    recurringRows.forEach(row => {
+      lines.push(row.map(c => this.escapeCsvCell(c)).join(';'));
+    });
+
+    return Buffer.from(lines.join('\r\n'), 'utf8');
+  }
+
+  private escapeCsvCell(cell: unknown): string {
+    if (cell === null || cell === undefined) {
+      return '';
+    }
+    const val = cell instanceof Date ? cell.toISOString() : String(cell);
+    if (val.includes(';') || val.includes('"') || val.includes('\n') || val.includes('\r')) {
+      return `"${val.replace(/"/g, '""')}"`;
+    }
+    return val;
+  }
+
+  private buildPackageRows(packages: any[]) {
+    return [
+      [
+        'Paket Adı',
+        'Tutar',
+        'Başlangıç Tarihi',
+        'Bitiş Tarihi',
+        'Gün Sayısı',
+        'Dağıtım Yöntemi',
+        'Başabaş Hedefi',
+        'Durum',
+        'Not'
+      ],
+      ...packages.map((pkg) => [
+        pkg.name,
+        pkg.amount.toFixed(2),
+        pkg.starts_at.toISOString().slice(0, 10),
+        pkg.ends_at.toISOString().slice(0, 10),
+        pkg.duration_days,
+        pkg.allocation_method,
+        pkg.break_even_target ? pkg.break_even_target.toFixed(2) : '-',
+        pkg.is_active ? 'Aktif' : 'Pasif',
+        pkg.note
+      ])
+    ];
+  }
+
+  private buildRecurringExpenseRows(recurringExpenses: any[]) {
+    return [
+      [
+        'Gider Adı',
+        'Tip',
+        'Tutar',
+        'Periyot',
+        'Dağıtım Yöntemi',
+        'Başlangıç Tarihi',
+        'Bitiş Tarihi',
+        'Sonraki Vade',
+        'Hatırlatıcı',
+        'Durum',
+        'Not'
+      ],
+      ...recurringExpenses.map((expense) => [
+        expense.name,
+        expense.expense_type,
+        expense.amount.toFixed(2),
+        expense.period,
+        expense.allocation_method,
+        expense.starts_at.toISOString().slice(0, 10),
+        expense.ends_at ? expense.ends_at.toISOString().slice(0, 10) : '-',
+        expense.next_due_at ? expense.next_due_at.toISOString().slice(0, 10) : '-',
+        expense.reminder_enabled ? 'Evet' : 'Hayır',
+        expense.is_active ? 'Aktif' : 'Pasif',
+        expense.note
+      ])
+    ];
+  }
+
   private extensionForFormat(format: ExportFormat) {
-    return format === ExportFormat.PDF ? 'pdf' : 'xlsx';
+    if (format === ExportFormat.PDF) {
+      return 'pdf';
+    }
+    if (format === ExportFormat.CSV) {
+      return 'csv';
+    }
+    return 'xlsx';
   }
 
   private mimeTypeForFormat(format: ExportFormat) {
-    return format === ExportFormat.PDF
-      ? 'application/pdf'
-      : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    if (format === ExportFormat.PDF) {
+      return 'application/pdf';
+    }
+    if (format === ExportFormat.CSV) {
+      return 'text/csv';
+    }
+    return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   }
 
   private resolveStoragePath(storageKey: string) {
@@ -788,3 +1039,4 @@ export class ExportsService {
     };
   }
 }
+

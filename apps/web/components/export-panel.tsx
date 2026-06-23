@@ -16,7 +16,7 @@ import { EmptyState } from './empty-state';
 import { API_BASE_URL, getJson, postJson } from '../lib/api-client';
 import { getAccessToken } from '../lib/auth-storage';
 
-type ExportFormat = 'PDF' | 'XLSX';
+type ExportFormat = 'PDF' | 'XLSX' | 'CSV';
 type ExportPeriod = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 type ExportStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 type SortDirection = 'asc' | 'desc';
@@ -204,9 +204,54 @@ export function ExportPanel() {
     setIsSubmitting(true);
     setMessage(null);
 
+    // Client-side validations
+    if (!form.format || !['XLSX', 'PDF', 'CSV'].includes(form.format)) {
+      setMessage('Dosya formatı zorunludur.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!form.period || !['DAILY', 'WEEKLY', 'MONTHLY'].includes(form.period)) {
+      setMessage('Dönem zorunludur.');
+      setIsSubmitting(false);
+      return;
+    }
+    // Vehicle validation
+    if (form.vehicleId && !vehicles.some((v) => v.id === form.vehicleId)) {
+      setMessage('Geçersiz araç seçimi.');
+      setIsSubmitting(false);
+      return;
+    }
+    // Date validations based on period
+    if (form.period === 'DAILY') {
+      if (!form.date || Number.isNaN(Date.parse(form.date))) {
+        setMessage('Geçerli bir tarih seçilmesi zorunludur.');
+        setIsSubmitting(false);
+        return;
+      }
+    } else if (form.period === 'WEEKLY') {
+      if (!form.weekStart || Number.isNaN(Date.parse(form.weekStart))) {
+        setMessage('Geçerli bir hafta başlangıç tarihi seçilmesi zorunludur.');
+        setIsSubmitting(false);
+        return;
+      }
+    } else if (form.period === 'MONTHLY') {
+      if (!form.month || !/^\d{4}-\d{2}$/.test(form.month)) {
+        setMessage('Geçerli bir ay seçilmesi zorunludur (Yıl-Ay).');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     try {
+      let endpoint = '/exports/excel';
+      if (form.format === 'PDF') {
+        endpoint = '/exports/pdf';
+      } else if (form.format === 'CSV') {
+        endpoint = '/exports/csv';
+      }
+
       const response = await postJson<ExportJobResponse>(
-        form.format === 'PDF' ? '/exports/pdf' : '/exports/excel',
+        endpoint,
         removeEmptyValues({
           date: form.period === 'DAILY' ? form.date : undefined,
           includeRawData: form.includeRawData,
@@ -225,7 +270,7 @@ export function ExportPanel() {
       setPage(1);
       await fetchJobs(accessToken, 1);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Dışa aktarma alınamadı.');
+      setMessage(error instanceof Error ? error.message : 'Dışa aktarma talebi oluşturulamadı.');
     } finally {
       setIsSubmitting(false);
     }
@@ -318,8 +363,9 @@ export function ExportPanel() {
                   }))
                 }
               >
-                <option value="XLSX">Excel XLSX</option>
-                <option value="PDF">PDF rapor</option>
+                <option value="XLSX">Excel XLSX: Ham Veri + Hesaplama</option>
+                <option value="PDF">PDF: Özet Finans Raporu</option>
+                <option value="CSV">CSV: Ham Kayıt Aktarımı</option>
               </select>
             </label>
 
@@ -422,7 +468,7 @@ export function ExportPanel() {
                 }
                 type="checkbox"
               />
-              Ham sefer, gider, yakıt ve bakım verilerini dahil et
+              Ham verileri dahil et (Gelir, gider, yakıt, bakım, paket ve sabit gider kayıtları)
             </label>
 
             <button
@@ -462,8 +508,9 @@ export function ExportPanel() {
               onChange={(event) => setFormatFilter(event.target.value)}
             >
               <option value="">Tümü</option>
-              <option value="XLSX">Excel</option>
+              <option value="XLSX">Excel XLSX</option>
               <option value="PDF">PDF</option>
+              <option value="CSV">CSV</option>
             </select>
           </label>
 
@@ -510,13 +557,13 @@ export function ExportPanel() {
               description={
                 hasActiveFilters
                   ? 'Bu filtrelerle eşleşen dışa aktarma dosyası bulunamadı. Dosya formatı veya durum filtresini temizleyebilirsin.'
-                  : 'PDF veya Excel dışa aktarma talebi oluşturduğunda kuyruk durumu ve indirme aksiyonu burada görünür.'
+                  : 'PDF, Excel veya CSV dışa aktarma talebi oluşturduğunda kuyruk durumu ve indirme aksiyonu burada görünür.'
               }
               icon={hasActiveFilters ? FileSearch : FileSpreadsheet}
               title={
                 hasActiveFilters
                   ? 'Filtreye uygun dışa aktarma yok.'
-                  : 'Henüz export kaydı yok.'
+                  : 'Henüz dışa aktarma kaydı yok.'
               }
               tips={
                 hasActiveFilters
@@ -534,8 +581,8 @@ export function ExportPanel() {
               <span>Dosya formatı</span>
               <span>Dönem</span>
               <span>Durum</span>
-              <span>Oluşturma</span>
-              <span>Tamamlanma</span>
+              <span>Oluşturma zamanı</span>
+              <span>Tamamlanma zamanı</span>
               <span>Hata</span>
               <span>İndir</span>
             </div>
@@ -548,11 +595,14 @@ export function ExportPanel() {
               >
                 <span className="export-format-cell">
                   {job.format === 'PDF' ? (
-                    <FileText aria-hidden="true" className="inline-icon" />
+                    <FileText aria-hidden="true" className="inline-icon" style={{ color: '#ef4444' }} />
+                  ) : job.format === 'CSV' ? (
+                    <FileText aria-hidden="true" className="inline-icon" style={{ color: '#3b82f6' }} />
                   ) : (
                     <FileSpreadsheet
                       aria-hidden="true"
                       className="inline-icon"
+                      style={{ color: '#10b981' }}
                     />
                   )}
                   {job.format}
@@ -570,7 +620,9 @@ export function ExportPanel() {
                 <span>
                   {job.completedAt ? formatDateTime(job.completedAt) : '-'}
                 </span>
-                <span>{job.errorMessage ?? '-'}</span>
+                <span className="error-message-cell" title={job.errorMessage ?? undefined}>
+                  {getFriendlyErrorMessage(job.errorMessage)}
+                </span>
                 <span>
                   <button
                     aria-label="İndir"
@@ -620,9 +672,24 @@ export function ExportPanel() {
 }
 
 function buildFileName(job: ExportJob) {
-  const extension = job.format === 'PDF' ? 'pdf' : 'xlsx';
+  const extension = job.format === 'PDF' ? 'pdf' : job.format === 'CSV' ? 'csv' : 'xlsx';
 
   return `tag-finans-${job.periodStart.slice(0, 10)}-${job.periodEnd.slice(0, 10)}.${extension}`;
+}
+
+function getFriendlyErrorMessage(message: string | null | undefined): string {
+  if (!message) return '-';
+  const lowerMsg = message.toLowerCase();
+  if (lowerMsg.includes('invalid export date')) {
+    return 'Geçersiz dışa aktarma tarihi belirtildi.';
+  }
+  if (lowerMsg.includes('not found') || lowerMsg.includes('bulunamadı')) {
+    return 'Dosya veya talep bulunamadı.';
+  }
+  if (lowerMsg.includes('failed') || lowerMsg.includes('hata')) {
+    return 'Rapor oluşturulurken bir hata oluştu.';
+  }
+  return message;
 }
 
 function formatDate(value: string) {

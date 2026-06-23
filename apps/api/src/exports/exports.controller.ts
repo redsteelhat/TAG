@@ -57,6 +57,23 @@ export class ExportsController {
     };
   }
 
+  @Post('csv')
+  @ApiOperation({ summary: 'Ham kayıt aktarımı için CSV çıktısı oluştur' })
+  @AuditLog({
+    action: 'export.csv.create',
+    entityType: 'export_job',
+    entityIdPath: 'data.id'
+  })
+  async createCsvExport(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateExcelExportDto
+  ) {
+    return {
+      data: await this.exportsService.createCsvExport(user.id, dto)
+    };
+  }
+
+
   @Get()
   @ApiOperation({ summary: 'Geçerli kullanıcının dışa aktarma taleplerini listele' })
   async findAll(
