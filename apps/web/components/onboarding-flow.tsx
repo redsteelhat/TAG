@@ -242,6 +242,38 @@ export function OnboardingFlow() {
       return;
     }
 
+    const plateNormalized = vehicleForm.plateNumber.replace(/\s+/g, "").toUpperCase();
+    if (!plateNormalized) {
+      setMessage("Plaka zorunludur.");
+      return;
+    }
+    if (toNumber(vehicleForm.averageConsumption) <= 0) {
+      setMessage("Ortalama yakıt tüketimi 0'dan büyük olmalıdır.");
+      return;
+    }
+    if (vehicleForm.odometerKm && toNumber(vehicleForm.odometerKm) < 0) {
+      setMessage("Km sayacı negatif olamaz.");
+      return;
+    }
+    if (vehicleForm.modelYear) {
+      const year = Number(vehicleForm.modelYear);
+      const currentYear = new Date().getFullYear();
+      if (year < 1950 || year > currentYear + 1) {
+        setMessage(`Model yılı 1950 ile ${currentYear + 1} arasında olmalıdır.`);
+        return;
+      }
+    }
+    if (vehicleForm.depreciationEnabled) {
+      if (toNumber(vehicleForm.annualDepreciationAmount) <= 0) {
+        setMessage("Yıllık değer kaybı 0'dan büyük olmalıdır.");
+        return;
+      }
+      if (vehicleForm.depreciationModel === "PER_KM" && toNumber(vehicleForm.annualEstimatedKm) <= 0) {
+        setMessage("Km bazlı amortisman için yıllık tahmini km 0'dan büyük olmalıdır.");
+        return;
+      }
+    }
+
     setIsSavingVehicle(true);
     setMessage(null);
 
@@ -303,6 +335,11 @@ export function OnboardingFlow() {
       return;
     }
 
+    if (toNumber(preferenceForm.dailyTargetNetProfit) < 0) {
+      setMessage("Günlük net kâr hedefi negatif olamaz.");
+      return;
+    }
+
     setIsSavingPreferences(true);
     setMessage(null);
 
@@ -350,6 +387,25 @@ export function OnboardingFlow() {
 
     if (!selectedVehicleId) {
       setMessage("Paket kaydetmek için önce araç seçmelisin.");
+      return;
+    }
+
+    const pkgAmount = toNumber(normalizeDecimal(packageForm.amount));
+    if (pkgAmount <= 0) {
+      setMessage("Paket tutarı 0'dan büyük olmalıdır.");
+      return;
+    }
+    const duration = Number(packageForm.durationDays);
+    if (!packageForm.durationDays || Number.isNaN(duration) || duration <= 0) {
+      setMessage("Paket gün sayısı 0'dan büyük olmalıdır.");
+      return;
+    }
+    if (!packageForm.startsAt || !packageForm.endsAt) {
+      setMessage("Başlangıç ve bitiş tarihleri zorunlu.");
+      return;
+    }
+    if (new Date(packageForm.endsAt) < new Date(packageForm.startsAt)) {
+      setMessage("Bitiş tarihi başlangıç tarihinden önce olamaz.");
       return;
     }
 
@@ -898,4 +954,10 @@ function addDays(dateValue: string, days: number) {
   date.setUTCDate(date.getUTCDate() + days);
 
   return date.toISOString().slice(0, 10);
+}
+
+function toNumber(value: string | number | null | undefined) {
+  const parsedValue = Number(value);
+
+  return Number.isFinite(parsedValue) ? parsedValue : 0;
 }

@@ -985,7 +985,22 @@ export function FixedCostPanel() {
           </span>
         </div>
 
-        {message ? <p className="form-alert">{message}</p> : null}
+        {message ? (
+          <div className="form-alert-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", margin: "8px 0" }}>
+            <p className="form-alert">{message}</p>
+            <button
+              className="secondary-button compact"
+              onClick={() => {
+                setMessage(null);
+                void fetchFixedCosts(accessToken, page);
+              }}
+              type="button"
+            >
+              <RefreshCw aria-hidden="true" className="inline-icon" />
+              Yenile
+            </button>
+          </div>
+        ) : null}
 
         {fixedCosts.length > 0 ? (
           <div className="data-table" role="table" aria-label="Sabit giderler">

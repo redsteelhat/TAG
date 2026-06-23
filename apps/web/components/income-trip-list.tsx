@@ -918,7 +918,22 @@ export function IncomeTripList() {
           </span>
         </div>
 
-        {message ? <p className="form-alert">{message}</p> : null}
+        {message ? (
+          <div className="form-alert-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", margin: "8px 0" }}>
+            <p className="form-alert">{message}</p>
+            <button
+              className="secondary-button compact"
+              onClick={() => {
+                setMessage(null);
+                void fetchTrips(accessToken, page);
+              }}
+              type="button"
+            >
+              <RefreshCw aria-hidden="true" className="inline-icon" />
+              Yenile
+            </button>
+          </div>
+        ) : null}
 
         {trips.length > 0 ? (
           <div className="data-table" role="table" aria-label="Gelir seferleri">
@@ -1188,7 +1203,6 @@ function validateTripForm(form: TripFormState): TripFormValidationResult {
   }
 
   const nonNegativeFields: Array<[keyof TripFormState, string]> = [
-    ['grossIncome', 'Brüt gelir negatif olamaz.'],
     ['tipAmount', 'Bahşiş negatif olamaz.'],
     ['cancellationIncome', 'İptal geliri negatif olamaz.'],
     ['tripKm', 'Sefer km negatif olamaz.'],
@@ -1203,8 +1217,8 @@ function validateTripForm(form: TripFormState): TripFormValidationResult {
     }
   }
 
-  if (!form.grossIncome) {
-    return { message: 'Brüt gelir zorunlu.' };
+  if (!form.grossIncome || Number(normalizeDecimal(form.grossIncome) ?? 0) <= 0) {
+    return { message: 'Brüt gelir 0’dan büyük olmalı.' };
   }
 
   const startedAt = combineDateAndTime(form.tripDate, form.startedAt);

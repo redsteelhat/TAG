@@ -835,9 +835,26 @@ export function PackagePanel() {
           </span>
         </div>
 
-        {message ? <p className="form-alert">{message}</p> : null}
+        {message ? (
+          <div className="form-alert-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", margin: "8px 0" }}>
+            <p className="form-message">{message}</p>
+            <button
+              className="secondary-button compact"
+              onClick={() => {
+                setMessage(null);
+                void fetchPackages(accessToken);
+              }}
+              type="button"
+            >
+              <RefreshCw aria-hidden="true" className="inline-icon" />
+              Yenile
+            </button>
+          </div>
+        ) : null}
 
-        {packages.length > 0 ? (
+        {isLoading ? (
+          <div className="data-table-empty">Paketler yükleniyor...</div>
+        ) : packages.length > 0 ? (
           <div className="data-table" role="table" aria-label="Paket giderleri">
             <div
               className="data-table-row data-table-head package-table-row"

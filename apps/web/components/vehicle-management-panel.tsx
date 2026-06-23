@@ -392,7 +392,22 @@ export function VehicleManagementPanel() {
             </div>
           </div>
 
-          {message ? <p className="form-message">{message}</p> : null}
+          {message ? (
+            <div className="form-alert-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", margin: "8px 0" }}>
+              <p className="form-message">{message}</p>
+              <button
+                className="secondary-button compact"
+                onClick={() => {
+                  setMessage(null);
+                  void fetchVehicles();
+                }}
+                type="button"
+              >
+                <RefreshCw aria-hidden="true" className="inline-icon" />
+                Yenile
+              </button>
+            </div>
+          ) : null}
 
           {isLoading ? (
             <div className="data-table-empty">Araçlar yükleniyor.</div>

@@ -155,6 +155,8 @@ export function DailyIncomeDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
 
+  const [retryTrigger, setRetryTrigger] = useState(0);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -210,7 +212,7 @@ export function DailyIncomeDashboard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [retryTrigger]);
 
   const cards = useMemo(() => {
     if (needsLogin) {
@@ -367,7 +369,25 @@ export function DailyIncomeDashboard() {
         })}
       </section>
 
-      {error ? <p className="form-alert">{error}</p> : null}
+      {error ? (
+        <section className="panel empty-state-panel">
+          <EmptyState
+            description="Ana panel metrikleri yüklenirken bir bağlantı hatası oluştu. Lütfen tekrar deneyin."
+            icon={AlertTriangle}
+            title="Metrikler Yüklenemedi"
+          />
+          <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
+            <button
+              className="secondary-button"
+              onClick={() => setRetryTrigger((prev) => prev + 1)}
+              type="button"
+            >
+              <RefreshCw aria-hidden="true" className="inline-icon" />
+              Yenile
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {!isLoading && overview && !overview.dashboard.hasData ? (
         <section className="panel empty-state-panel">
@@ -407,7 +427,17 @@ function DashboardDetails({ dashboard }: { dashboard: DashboardAggregation }) {
           <div className="break-even-list">
             {dashboard.warnings.map((warning) => (
               <div className="expense-row" key={warning.code}>
-                <span>{warning.message}</span>
+                <span>
+                  {warning.code === "FUEL_PRICE_MISSING" || warning.code === "NO_FUEL_PRICE"
+                    ? "Yakıt varsayımı eksik"
+                    : warning.code === "FIXED_COST_NOT_DEFINED" || warning.code === "NO_RECURRING_EXPENSE"
+                      ? "Sabit gider tanımlanmadı"
+                      : warning.code === "MAINTENANCE_NOT_DEFINED" || warning.code === "NO_MAINTENANCE_RESERVE"
+                        ? "Bakım rezervi hesaplanmıyor"
+                        : warning.code === "DEPRECIATION_DISABLED" || warning.code === "NO_DEPRECIATION"
+                          ? "Amortisman kapalı"
+                          : warning.message}
+                </span>
               </div>
             ))}
           </div>

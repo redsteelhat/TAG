@@ -455,6 +455,22 @@ export function ExpenseList() {
       return;
     }
 
+    const amountVal = toNumber(normalizeDecimal(quickExpenseForm.amount) ?? '');
+    if (amountVal <= 0) {
+      setFormMessage('Gider tutarı 0’dan büyük olmalı.');
+      return;
+    }
+
+    if (!quickExpenseForm.expenseDate) {
+      setFormMessage('Gider tarihi zorunlu.');
+      return;
+    }
+
+    if (quickExpenseForm.odometerKm && toNumber(normalizeDecimal(quickExpenseForm.odometerKm) ?? '') < 0) {
+      setFormMessage('Km sayacı negatif olamaz.');
+      return;
+    }
+
     setIsSavingExpense(true);
     setFormMessage(null);
 
@@ -943,7 +959,22 @@ export function ExpenseList() {
           </span>
         </div>
 
-        {message ? <p className="form-alert">{message}</p> : null}
+        {message ? (
+          <div className="form-alert-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", margin: "8px 0" }}>
+            <p className="form-alert">{message}</p>
+            <button
+              className="secondary-button compact"
+              onClick={() => {
+                setMessage(null);
+                void fetchExpenses(accessToken, page);
+              }}
+              type="button"
+            >
+              <RefreshCw aria-hidden="true" className="inline-icon" />
+              Yenile
+            </button>
+          </div>
+        ) : null}
 
         {expenses.length > 0 ? (
           <div className="data-table" role="table" aria-label="Giderler">
