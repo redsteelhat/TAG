@@ -1,12 +1,10 @@
-import { ModulePlaceholder } from '../../components/module-placeholder';
+import { AppShell } from "../../components/app-shell";
+import { SettingsPanel } from "../../components/settings-panel";
 
 export default function SettingsPage() {
   return (
-    <ModulePlaceholder
-      description="Kullanıcı, kategori, araç varsayımı, sabit gider dağıtım metodu ve amortisman ayarları burada yapılacak."
-      eyebrow="Sistem ayarlari"
-      primaryActionLabel="Ayar Ekle"
-      title="Ayarlar"
-    />
+    <AppShell eyebrow="Sistem yönetimi" title="Ayarlar">
+      <SettingsPanel />
+    </AppShell>
   );
 }

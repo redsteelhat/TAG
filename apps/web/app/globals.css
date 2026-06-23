@@ -2615,6 +2615,226 @@ h2 {
   margin: 16px 0 0;
 }
 
+.settings-page {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-tabs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.settings-tabs button {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 12px;
+}
+
+.settings-tabs button.active {
+  background: var(--accent-soft);
+  border-color: rgba(15, 118, 110, 0.35);
+  color: var(--accent-strong);
+}
+
+.settings-tabs svg,
+.settings-action svg,
+.settings-session-row svg {
+  flex: 0 0 auto;
+  height: 17px;
+  width: 17px;
+}
+
+.settings-grid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+}
+
+.settings-grid.wide {
+  grid-template-columns: 1fr;
+}
+
+.settings-form-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-form-grid.compact {
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.6fr) auto;
+}
+
+.settings-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-toggle-list,
+.settings-session-list,
+.settings-action-panel,
+.settings-placeholder-list {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-toggle-row {
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex !important;
+  gap: 12px !important;
+  padding: 12px;
+}
+
+.settings-toggle-row input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  min-height: 18px;
+  width: 18px;
+}
+
+.settings-toggle-row span {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-toggle-row small,
+.settings-action small,
+.settings-session-row span,
+.subscription-card small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.settings-preset-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.settings-preset-block {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.settings-preset-block > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-category-row {
+  grid-template-columns:
+    minmax(180px, 1.1fr) minmax(150px, 0.8fr) minmax(80px, 0.45fr)
+    minmax(80px, 0.45fr) minmax(190px, 0.9fr);
+}
+
+.settings-category-row input,
+.settings-category-row select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  min-height: 38px;
+  padding: 0 10px;
+  width: 100%;
+}
+
+.settings-session-row,
+.settings-action,
+.subscription-card {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+}
+
+.settings-session-row > div,
+.settings-action span,
+.subscription-card {
+  min-width: 0;
+}
+
+.settings-session-row > div,
+.settings-action span {
+  display: grid;
+  gap: 3px;
+}
+
+.settings-session-row b {
+  color: var(--accent-strong);
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.settings-action {
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.settings-action:hover {
+  border-color: rgba(15, 118, 110, 0.35);
+}
+
+.settings-action.danger {
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.subscription-card {
+  align-items: flex-start;
+  display: grid;
+}
+
+.subscription-card strong {
+  font-size: 28px;
+}
+
+.settings-loading {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-weight: 800;
+  gap: 10px;
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -2645,6 +2865,10 @@ h2 {
   .metric-grid,
   .content-grid,
   .dashboard-grid,
+  .settings-grid,
+  .settings-form-grid,
+  .settings-form-grid.compact,
+  .settings-preset-grid,
   .landing-benefit-grid,
   .landing-module-grid,
   .landing-pricing-grid,
@@ -2683,6 +2907,14 @@ h2 {
   }
 
   .data-table-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-category-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2767,6 +2999,11 @@ h2 {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-tabs,
+  .settings-category-row {
     grid-template-columns: 1fr;
   }
 
