@@ -4,7 +4,7 @@
   --surface: #ffffff;
   --surface-muted: #edf2f4;
   --text: #152028;
-  --muted: #62717c;
+  --muted: #4e5e6a;
   --line: #d9e2e6;
   --accent: #0f766e;
   --accent-strong: #115e59;
@@ -1554,6 +1554,11 @@ h2 {
 .inline-icon {
   width: 14px;
   height: 14px;
+}
+
+.primary-button .inline-icon,
+.secondary-button .inline-icon {
+  margin-right: 6px;
 }
 
 .report-filter-grid {
@@ -3139,21 +3144,95 @@ h2 {
   }
 }
 
-@media (max-width: 980px) {
+.topbar-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-menu-toggle {
+  display: none;
+}
+
+.sidebar-header-mobile {
+  display: none;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 21, 28, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 999;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 1023px) {
   .app-shell {
     grid-template-columns: 1fr;
   }
 
   .sidebar {
-    border-right: 0;
-    min-height: auto;
-    max-height: none;
-    padding: 16px;
-    position: static;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 80vw;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 24px rgba(13, 21, 28, 0.25);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 100vh;
+    max-height: 100vh;
+    background: #101820;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    overflow-y: auto;
   }
 
-  .nav-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    margin-right: 12px;
+  }
+
+  .sidebar-header-mobile {
+    display: flex;
+    justify-content: flex-end;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    margin-bottom: 16px;
+  }
+
+  .sidebar-header-mobile .icon-button {
+    background: transparent;
+    border: none;
+    color: #c8d5da;
+    cursor: pointer;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .workspace {
@@ -3216,32 +3295,8 @@ h2 {
     grid-template-columns: 1fr;
   }
 
-  .data-table-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .settings-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .settings-category-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .vehicle-table-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .vehicle-form-panel {
     position: static;
-  }
-
-  .reminder-definition-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .report-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .onboarding-hero,
@@ -3328,13 +3383,7 @@ h2 {
     grid-template-columns: 1fr;
   }
 
-  .settings-tabs,
-  .settings-category-row,
-  .vehicle-table-row,
-  .reports-custom-range,
-  .report-tabs,
-  .reminder-tabs,
-  .reminder-definition-row {
+  .reports-custom-range {
     grid-template-columns: 1fr;
   }
 
@@ -3443,5 +3492,127 @@ h2 {
   flex-direction: column;
   gap: 8px;
   width: 100%;
+}
+
+/* --- RESPONSIVE GRIDS AND LAYOUT SYSTEM --- */
+
+/* Wide Desktop Screens (1280px+) */
+@media (min-width: 1280px) {
+  .trip-editor-grid,
+  .quick-expense-grid,
+  .fuel-entry-grid,
+  .package-entry-grid,
+  .fixed-cost-entry-grid,
+  .maintenance-entry-grid,
+  .reminder-form-grid,
+  .settings-form-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+  .metric-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Laptop Screens (1024px to 1279px) */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .trip-editor-grid,
+  .quick-expense-grid,
+  .fuel-entry-grid,
+  .package-entry-grid,
+  .fixed-cost-entry-grid,
+  .maintenance-entry-grid,
+  .reminder-form-grid,
+  .settings-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Tablet & Mobile Screens (< 1024px) */
+@media (max-width: 1023px) {
+  .trip-editor-grid,
+  .quick-expense-grid,
+  .fuel-entry-grid,
+  .package-entry-grid,
+  .fixed-cost-entry-grid,
+  .maintenance-entry-grid,
+  .reminder-form-grid,
+  .settings-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Phone Screens (< 768px) */
+@media (max-width: 767px) {
+  .metric-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .workspace {
+    padding: 16px !important;
+  }
+  .panel {
+    padding: 16px !important;
+  }
+  .metric-card {
+    padding: 14px !important;
+  }
+}
+
+/* Table scroll setups */
+@media (max-width: 1023px) {
+  .data-table,
+  .admin-table {
+    display: block !important;
+    overflow-x: auto !important;
+    width: 100% !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+  }
+  .data-table-row,
+  .admin-table-row,
+  .vehicle-table-row,
+  .settings-category-row,
+  .reminder-definition-row,
+  .reminder-table-row,
+  .maintenance-table-row {
+    min-width: 960px !important;
+    margin-bottom: 8px;
+  }
+}
+
+/* Horizontal scrollable tab buttons on mobile */
+@media (max-width: 767px) {
+  .report-tabs,
+  .settings-tabs,
+  .reminder-tabs {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    gap: 8px !important;
+    padding: 4px 0 8px 0 !important;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none; /* Hide standard scrollbar */
+  }
+  
+  .report-tabs::-webkit-scrollbar,
+  .settings-tabs::-webkit-scrollbar,
+  .reminder-tabs::-webkit-scrollbar {
+    display: none; /* Hide scrollbar for Chrome/Safari */
+  }
+  
+  .report-tabs button,
+  .settings-tabs button,
+  .reminder-tabs button {
+    flex: 0 0 auto !important;
+    scroll-snap-align: start;
+    margin: 0 !important;
+  }
 }
 

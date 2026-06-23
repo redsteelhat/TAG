@@ -13,6 +13,7 @@ import {
   Fuel,
   ListChecks,
   LayoutDashboard,
+  Menu,
   Package,
   Receipt,
   ReceiptText,
@@ -21,6 +22,7 @@ import {
   Target,
   Wallet,
   Wrench,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { getStoredUserRole, isAdminRole } from "../lib/auth-storage";
@@ -86,15 +88,33 @@ const navSections: NavSection[] = [
 export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
   const pathname = usePathname();
   const [role, setRole] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     setRole(getStoredUserRole());
   }, []);
   const canSeeAdmin = isAdminRole(role);
 
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname]);
+
   return (
     <main className="app-shell">
-      <aside className="sidebar" aria-label="Ana navigasyon">
+      {isSidebarOpen ? (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      ) : null}
+
+      <aside className={`sidebar ${isSidebarOpen ? "open" : ""}`} aria-label="Ana navigasyon">
+        <div className="sidebar-header-mobile">
+          <button className="icon-button" onClick={() => setIsSidebarOpen(false)} type="button" aria-label="Menüyü kapat">
+            <X aria-hidden="true" />
+          </button>
+        </div>
+
         <Link className="brand" href="/">
           <span className="brand-mark">TF</span>
           <div>
@@ -147,9 +167,19 @@ export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
 
       <section className="workspace">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">{eyebrow}</p>
-            <h1>{title}</h1>
+          <div className="topbar-title-wrapper">
+            <button
+              className="mobile-menu-toggle"
+              onClick={() => setIsSidebarOpen(true)}
+              type="button"
+              aria-label="Menüyü aç"
+            >
+              <Menu aria-hidden="true" />
+            </button>
+            <div>
+              <p className="eyebrow">{eyebrow}</p>
+              <h1>{title}</h1>
+            </div>
           </div>
           {actions ? <div className="actions">{actions}</div> : null}
         </header>
