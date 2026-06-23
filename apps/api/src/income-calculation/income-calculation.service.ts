@@ -220,7 +220,7 @@ export class IncomeCalculationService {
   }
 
   async calculateDepreciationCost(
-    userId: string,
+    _userId: string,
     vehicle: Vehicle,
     totalKm: Prisma.Decimal,
     input: {
@@ -228,13 +228,11 @@ export class IncomeCalculationService {
       tripDate: Date;
     },
   ) {
-    const showInProfit = await this.shouldShowDepreciationInProfit(userId);
-
     return this.financeCalculationEngine.calculateDepreciation({
       date: input.tripDate,
       depreciationEnabled: vehicle.depreciation_enabled,
       model: vehicle.depreciation_model,
-      showInProfit,
+      showInProfit: true,
       totalKm,
       yearlyEstimatedKm: vehicle.annual_estimated_km,
       yearlyValueLoss: vehicle.annual_depreciation_amount,
@@ -303,23 +301,6 @@ export class IncomeCalculationService {
     );
 
     return maintenanceCostPerKm.mul(totalKm).toDecimalPlaces(2);
-  }
-
-  private async shouldShowDepreciationInProfit(userId: string) {
-    if (!this.prisma) {
-      return true;
-    }
-
-    const profile = await this.prisma.driverProfile.findUnique({
-      where: {
-        user_id: userId,
-      },
-      select: {
-        show_depreciation_in_profit: true,
-      },
-    });
-
-    return profile?.show_depreciation_in_profit ?? true;
   }
 
   private resolveTripDate(

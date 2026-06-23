@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
+import Link from "next/link";
 import {
   AlertTriangle,
   BarChart3,
+  Calculator,
   Clock,
   FileSearch,
   Fuel,
@@ -14,12 +15,12 @@ import {
   Route,
   TrendingUp,
   WalletCards,
-  Wrench
-} from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { getJson } from '../lib/api-client';
-import { getAccessToken } from '../lib/auth-storage';
-import { EmptyState } from './empty-state';
+  Wrench,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { getJson } from "../lib/api-client";
+import { getAccessToken } from "../lib/auth-storage";
+import { EmptyState } from "./empty-state";
 
 interface ProfitReport {
   activeMinutes: number;
@@ -44,7 +45,7 @@ interface BreakEvenReport {
   breakEvenRevenue: string;
   isBreakEvenReached: boolean;
   remainingRevenue: string;
-  status: 'IN_PROGRESS' | 'NO_TARGET' | 'REACHED';
+  status: "IN_PROGRESS" | "NO_TARGET" | "REACHED";
 }
 
 interface DashboardTrip {
@@ -69,7 +70,7 @@ interface ShiftSummary {
   activeMinutes: number;
   activeShiftId: string | null;
   shiftCount: number;
-  status: 'ACTIVE' | 'COMPLETED' | 'NONE';
+  status: "ACTIVE" | "COMPLETED" | "NONE";
   totalKm: string;
   tripCount: number;
 }
@@ -83,9 +84,14 @@ interface DashboardAggregation {
   activeDuration: number;
   breakEvenProgress: string;
   breakEvenRemaining: string;
-  breakEvenStatus: 'IN_PROGRESS' | 'NO_TARGET' | 'REACHED';
+  breakEvenStatus: "IN_PROGRESS" | "NO_TARGET" | "REACHED";
   breakEvenTarget: string;
   depreciationCost: string;
+  depreciationStatus: {
+    effect: string;
+    enabled: boolean;
+    message: string;
+  };
   expenseImpact: ExpenseImpactItem[];
   fixedCostShare: string;
   fuelCost: string;
@@ -128,16 +134,19 @@ type MetricCard = {
 };
 
 const quickActions = [
-  { label: 'Sefer ekle', href: '/income', icon: Plus },
-  { label: 'Gider ekle', href: '/expenses', icon: ReceiptText },
-  { label: 'Yakıt ekle', href: '/fuel', icon: Fuel },
-  { label: 'Bakım ekle', href: '/maintenance', icon: Wrench }
+  { label: "Sefer ekle", href: "/income", icon: Plus },
+  { label: "Gider ekle", href: "/expenses", icon: ReceiptText },
+  { label: "Yakıt ekle", href: "/fuel", icon: Fuel },
+  { label: "Bakım ekle", href: "/maintenance", icon: Wrench },
 ];
 
-const breakEvenStatusLabels: Record<DashboardAggregation['breakEvenStatus'], string> = {
-  IN_PROGRESS: 'Devam ediyor',
-  NO_TARGET: 'Hedef tanımlı değil',
-  REACHED: 'Aşıldı'
+const breakEvenStatusLabels: Record<
+  DashboardAggregation["breakEvenStatus"],
+  string
+> = {
+  IN_PROGRESS: "Devam ediyor",
+  NO_TARGET: "Hedef tanımlı değil",
+  REACHED: "Aşıldı",
 };
 
 export function DailyIncomeDashboard() {
@@ -167,13 +176,16 @@ export function DailyIncomeDashboard() {
 
       try {
         const today = getLocalDateInputValue();
-        const response = await getJson<ReportOverviewResponse>('/reports/overview', {
-          accessToken,
-          query: {
-            date: today,
-            month: today.slice(0, 7)
-          }
-        });
+        const response = await getJson<ReportOverviewResponse>(
+          "/reports/overview",
+          {
+            accessToken,
+            query: {
+              date: today,
+              month: today.slice(0, 7),
+            },
+          },
+        );
 
         if (isMounted) {
           setOverview(response.data);
@@ -183,7 +195,7 @@ export function DailyIncomeDashboard() {
           setError(
             loadError instanceof Error
               ? loadError.message
-              : 'Ana panel metrikleri alınamadı.'
+              : "Ana panel metrikleri alınamadı.",
           );
         }
       } finally {
@@ -202,86 +214,121 @@ export function DailyIncomeDashboard() {
 
   const cards = useMemo(() => {
     if (needsLogin) {
-      return buildStateCards('Giriş gerekli', 'Oturum açıldığında ana panel verisi yüklenir');
+      return buildStateCards(
+        "Giriş gerekli",
+        "Oturum açıldığında ana panel verisi yüklenir",
+      );
     }
 
     if (isLoading) {
-      return buildStateCards('Yükleniyor', 'Finans motoru rapor özeti hesaplanıyor', '...');
+      return buildStateCards(
+        "Yükleniyor",
+        "Finans motoru rapor özeti hesaplanıyor",
+        "...",
+      );
     }
 
     if (error || !overview) {
-      return buildStateCards('API hatası', error ?? 'Ana panel metrikleri alınamadı');
+      return buildStateCards(
+        "API hatası",
+        error ?? "Ana panel metrikleri alınamadı",
+      );
     }
 
     const dashboard = overview.dashboard;
     const netProfit = toNumber(dashboard.todayNetProfit);
     const totalKm = toNumber(dashboard.totalKm);
     const activeMinutes = dashboard.activeDuration ?? 0;
-    const breakEvenProgress = clamp(toNumber(dashboard.breakEvenProgress), 0, 100);
+    const breakEvenProgress = clamp(
+      toNumber(dashboard.breakEvenProgress),
+      0,
+      100,
+    );
 
     return [
       {
         detail: `${dashboard.recentTrips.length} son kayıt / ${overview.dailyProfit.tripCount} sefer`,
         icon: WalletCards,
-        label: 'Bugünkü brüt gelir',
-        trend: overview.dailyProfit.tripCount > 0 ? 'Canlı rapor' : 'Kayıt yok',
-        value: formatMoneyValue(dashboard.todayGrossIncome)
+        label: "Bugünkü brüt gelir",
+        trend: overview.dailyProfit.tripCount > 0 ? "Canlı rapor" : "Kayıt yok",
+        value: formatMoneyValue(dashboard.todayGrossIncome),
       },
       {
-        detail: 'Yakıt, paket ve dağıtılmış giderler düşüldü',
+        detail: "Yakıt, paket ve dağıtılmış giderler düşüldü",
         icon: TrendingUp,
-        label: 'Bugünkü net kâr',
-        trend: netProfit >= 0 ? 'Kârda' : 'Zararda',
-        value: formatMoneyValue(dashboard.todayNetProfit)
+        label: "Bugünkü net kâr",
+        trend: netProfit >= 0 ? "Kârda" : "Zararda",
+        value: formatMoneyValue(dashboard.todayNetProfit),
       },
       {
-        detail: 'Yakıt, paket, sabit gider, bakım ve amortisman',
+        detail: "Yakıt, paket, sabit gider, bakım ve amortisman",
         icon: ReceiptText,
-        label: 'Bugünkü toplam gider',
-        trend: 'Finans motoru',
-        value: formatMoneyValue(dashboard.todayTotalExpense)
+        label: "Bugünkü toplam gider",
+        trend: "Finans motoru",
+        value: formatMoneyValue(dashboard.todayTotalExpense),
       },
       {
-        detail: totalKm > 0 ? `${formatNumber(totalKm)} km toplam kullanım` : 'Veri yok',
+        detail: dashboard.depreciationStatus.message,
+        icon: Calculator,
+        label: "Amortisman etkisi",
+        trend: dashboard.depreciationStatus.enabled
+          ? "Gerçek kâr maliyeti"
+          : "Nakit bazlı",
+        value: dashboard.depreciationStatus.enabled
+          ? `-${formatMoneyValue(dashboard.depreciationStatus.effect)}`
+          : "Kapalı",
+      },
+      {
+        detail:
+          totalKm > 0
+            ? `${formatNumber(totalKm)} km toplam kullanım`
+            : "Veri yok",
         icon: Route,
-        label: 'Km başı net kâr',
-        trend: totalKm > 0 ? 'Hesaplandı' : 'Km gerekli',
-        value: totalKm > 0 ? `${formatNumber(toNumber(dashboard.kmNetProfit), 2)} TL` : 'Veri yok'
+        label: "Km başı net kâr",
+        trend: totalKm > 0 ? "Hesaplandı" : "Km gerekli",
+        value:
+          totalKm > 0
+            ? `${formatNumber(toNumber(dashboard.kmNetProfit), 2)} TL`
+            : "Veri yok",
       },
       {
-        detail: activeMinutes > 0 ? `${formatDuration(activeMinutes)} aktif süre` : 'Süre gerekli',
+        detail:
+          activeMinutes > 0
+            ? `${formatDuration(activeMinutes)} aktif süre`
+            : "Süre gerekli",
         icon: Clock,
-        label: 'Saatlik net kâr',
-        trend: activeMinutes > 0 ? 'Hesaplandı' : 'Süre gerekli',
+        label: "Saatlik net kâr",
+        trend: activeMinutes > 0 ? "Hesaplandı" : "Süre gerekli",
         value:
           activeMinutes > 0
             ? formatMoneyValue(dashboard.hourlyNetProfit)
-            : 'Veri yok'
+            : "Veri yok",
       },
       {
         detail:
           dashboard.warnings.length > 0
             ? dashboard.warnings[0].message
-            : 'Seferlerden tahmini yakıt etkisi',
+            : "Seferlerden tahmini yakıt etkisi",
         icon: Fuel,
-        label: 'Yakıt maliyeti',
-        trend: dashboard.warnings.length > 0 ? 'Varsayım gerekli' : 'Kârı azaltıyor',
-        value: formatMoneyValue(dashboard.fuelCost)
+        label: "Yakıt maliyeti",
+        trend:
+          dashboard.warnings.length > 0 ? "Varsayım gerekli" : "Kârı azaltıyor",
+        value: formatMoneyValue(dashboard.fuelCost),
       },
       {
         detail: `Kalan: ${formatMoneyValue(dashboard.breakEvenRemaining)}`,
         icon: Gauge,
-        label: 'Başabaş durumu',
+        label: "Başabaş durumu",
         trend: breakEvenStatusLabels[dashboard.breakEvenStatus],
-        value: `%${formatNumber(breakEvenProgress, 0)}`
+        value: `%${formatNumber(breakEvenProgress, 0)}`,
       },
       {
         detail: `Eşik: ${formatMoneyValue(dashboard.breakEvenTarget)}`,
         icon: PackageCheck,
-        label: 'Paket / operasyon payı',
-        trend: toNumber(dashboard.packageShare) > 0 ? 'Dağıtıldı' : 'Paket yok',
-        value: formatMoneyValue(dashboard.packageShare)
-      }
+        label: "Paket / operasyon payı",
+        trend: toNumber(dashboard.packageShare) > 0 ? "Dağıtıldı" : "Paket yok",
+        value: formatMoneyValue(dashboard.packageShare),
+      },
     ] satisfies MetricCard[];
   }, [error, isLoading, needsLogin, overview]);
 
@@ -331,7 +378,11 @@ export function DailyIncomeDashboard() {
             eyebrow="Bugün kayıt yok"
             icon={FileSearch}
             title="Ana panel için gerçek kayıt bekleniyor."
-            tips={['Sefer ekle', 'Yakıt veya gider ekle', 'Paket payını tanımla']}
+            tips={[
+              "Sefer ekle",
+              "Yakıt veya gider ekle",
+              "Paket payını tanımla",
+            ]}
           />
         </section>
       ) : null}
@@ -386,17 +437,23 @@ function DashboardDetails({ dashboard }: { dashboard: DashboardAggregation }) {
               role="progressbar"
               aria-valuemax={100}
               aria-valuemin={0}
-              aria-valuenow={Math.round(clamp(toNumber(dashboard.breakEvenProgress), 0, 100))}
+              aria-valuenow={Math.round(
+                clamp(toNumber(dashboard.breakEvenProgress), 0, 100),
+              )}
             >
-              <span style={{ width: `${clamp(toNumber(dashboard.breakEvenProgress), 0, 100)}%` }} />
+              <span
+                style={{
+                  width: `${clamp(toNumber(dashboard.breakEvenProgress), 0, 100)}%`,
+                }}
+              />
             </div>
             <div className="break-even-list">
               {[
-                ['Paket payı', dashboard.packageShare],
-                ['Yakıt', dashboard.fuelCost],
-                ['Sabit gider', dashboard.fixedCostShare],
-                ['Bakım rezervi', dashboard.maintenanceReserve],
-                ['Amortisman', dashboard.depreciationCost]
+                ["Paket payı", dashboard.packageShare],
+                ["Yakıt", dashboard.fuelCost],
+                ["Sabit gider", dashboard.fixedCostShare],
+                ["Bakım rezervi", dashboard.maintenanceReserve],
+                ["Amortisman", dashboard.depreciationCost],
               ].map(([name, amount]) => (
                 <div className="expense-row" key={name}>
                   <span>{name}</span>
@@ -453,7 +510,11 @@ function DashboardDetails({ dashboard }: { dashboard: DashboardAggregation }) {
                 const Icon = action.icon;
 
                 return (
-                  <Link className="quick-action" href={action.href} key={action.href}>
+                  <Link
+                    className="quick-action"
+                    href={action.href}
+                    key={action.href}
+                  >
                     <Icon aria-hidden="true" />
                     <span>{action.label}</span>
                   </Link>
@@ -508,7 +569,7 @@ function DashboardDetails({ dashboard }: { dashboard: DashboardAggregation }) {
                 <strong>
                   {dashboard.shiftSummary.activeMinutes > 0
                     ? formatDuration(dashboard.shiftSummary.activeMinutes)
-                    : 'Süre gerekli'}
+                    : "Süre gerekli"}
                 </strong>
               </div>
               <div>
@@ -516,7 +577,7 @@ function DashboardDetails({ dashboard }: { dashboard: DashboardAggregation }) {
                 <strong>
                   {toNumber(dashboard.shiftSummary.totalKm) > 0
                     ? `${formatNumber(toNumber(dashboard.shiftSummary.totalKm), 1)} km`
-                    : 'Veri yok'}
+                    : "Veri yok"}
                 </strong>
               </div>
               <div>
@@ -531,64 +592,68 @@ function DashboardDetails({ dashboard }: { dashboard: DashboardAggregation }) {
   );
 }
 
-function buildStateCards(trend: string, detail: string, value = '-'): MetricCard[] {
+function buildStateCards(
+  trend: string,
+  detail: string,
+  value = "-",
+): MetricCard[] {
   return [
     {
       detail,
       icon: WalletCards,
-      label: 'Bugünkü brüt gelir',
+      label: "Bugünkü brüt gelir",
       trend,
-      value
+      value,
     },
     {
       detail,
       icon: TrendingUp,
-      label: 'Bugünkü net kâr',
+      label: "Bugünkü net kâr",
       trend,
-      value
+      value,
     },
     {
       detail,
       icon: ReceiptText,
-      label: 'Bugünkü toplam gider',
+      label: "Bugünkü toplam gider",
       trend,
-      value
+      value,
     },
     {
       detail,
       icon: Route,
-      label: 'Km başı net kâr',
+      label: "Km başı net kâr",
       trend,
-      value
+      value,
     },
     {
       detail,
       icon: Clock,
-      label: 'Saatlik net kâr',
+      label: "Saatlik net kâr",
       trend,
-      value
+      value,
     },
     {
       detail,
       icon: Fuel,
-      label: 'Yakıt maliyeti',
+      label: "Yakıt maliyeti",
       trend,
-      value
+      value,
     },
     {
       detail,
       icon: Gauge,
-      label: 'Başabaş durumu',
+      label: "Başabaş durumu",
       trend,
-      value
+      value,
     },
     {
       detail,
       icon: PackageCheck,
-      label: 'Paket / operasyon payı',
+      label: "Paket / operasyon payı",
       trend,
-      value
-    }
+      value,
+    },
   ];
 }
 
@@ -602,18 +667,18 @@ function getLocalDateInputValue() {
 function formatTripTime(trip: DashboardTrip) {
   const date = trip.startedAt ?? trip.tripDate;
 
-  return new Intl.DateTimeFormat('tr-TR', {
-    hour: '2-digit',
-    minute: '2-digit'
+  return new Intl.DateTimeFormat("tr-TR", {
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(new Date(date));
 }
 
 function formatRoute(trip: DashboardTrip) {
   if (trip.pickupLocation || trip.dropoffLocation) {
-    return `${trip.pickupLocation ?? 'Başlangıç yok'} - ${trip.dropoffLocation ?? 'Bitiş yok'}`;
+    return `${trip.pickupLocation ?? "Başlangıç yok"} - ${trip.dropoffLocation ?? "Bitiş yok"}`;
   }
 
-  return 'Lokasyon girilmedi';
+  return "Lokasyon girilmedi";
 }
 
 function formatMoneyValue(value: string | number | null | undefined) {
@@ -621,17 +686,17 @@ function formatMoneyValue(value: string | number | null | undefined) {
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat('tr-TR', {
-    currency: 'TRY',
+  return new Intl.NumberFormat("tr-TR", {
+    currency: "TRY",
     maximumFractionDigits: 0,
-    style: 'currency'
+    style: "currency",
   }).format(value);
 }
 
 function formatNumber(value: number, maximumFractionDigits = 1) {
-  return new Intl.NumberFormat('tr-TR', {
+  return new Intl.NumberFormat("tr-TR", {
     maximumFractionDigits,
-    minimumFractionDigits: 0
+    minimumFractionDigits: 0,
   }).format(value);
 }
 

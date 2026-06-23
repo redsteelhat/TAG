@@ -1839,6 +1839,53 @@ h2 {
   margin-bottom: 0;
 }
 
+.depreciation-guide-panel,
+.depreciation-formula-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.depreciation-guide-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.depreciation-guide-grid,
+.depreciation-formula-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.depreciation-guide-grid {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+}
+
+.depreciation-formula-grid {
+  display: grid;
+  margin-top: 16px;
+}
+
+.depreciation-formula-grid > div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.depreciation-formula-grid span,
+.depreciation-formula-grid small {
+  display: block;
+  color: var(--muted);
+}
+
+.depreciation-formula-grid strong {
+  display: block;
+  margin: 4px 0;
+}
+
 .depreciation-preview {
   display: flex;
   align-items: center;
@@ -2615,6 +2662,8 @@ h2 {
   .maintenance-entry-grid,
   .maintenance-plan-preview,
   .depreciation-settings-grid,
+  .depreciation-guide-grid,
+  .depreciation-formula-grid,
   .export-request-grid,
   .export-bottom-row,
   .quick-expense-bottom-row,

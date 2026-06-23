@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { Calculator, RefreshCw, Save } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { getJson, patchJson } from '../lib/api-client';
-import { getAccessToken } from '../lib/auth-storage';
+import { Calculator, RefreshCw, Save } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { getJson, patchJson } from "../lib/api-client";
+import { getAccessToken } from "../lib/auth-storage";
 
-type DepreciationModel = 'MONTHLY' | 'PER_KM';
+type DepreciationModel = "MONTHLY" | "PER_KM";
 
 interface Vehicle {
   id: string;
@@ -30,17 +30,21 @@ interface VehicleResponse {
 interface DepreciationFormState {
   annualDepreciationAmount: string;
   annualEstimatedKm: string;
+  currentVehicleValue: string;
   depreciationEnabled: boolean;
   depreciationModel: DepreciationModel;
+  nextYearVehicleValue: string;
   vehicleId: string;
 }
 
 const emptyForm: DepreciationFormState = {
-  annualDepreciationAmount: '',
-  annualEstimatedKm: '',
+  annualDepreciationAmount: "",
+  annualEstimatedKm: "",
+  currentVehicleValue: "",
   depreciationEnabled: false,
-  depreciationModel: 'PER_KM',
-  vehicleId: ''
+  depreciationModel: "PER_KM",
+  nextYearVehicleValue: "",
+  vehicleId: "",
 };
 
 export function DepreciationSettingsPanel() {
@@ -53,19 +57,25 @@ export function DepreciationSettingsPanel() {
 
   const selectedVehicle = useMemo(
     () => vehicles.find((vehicle) => vehicle.id === form.vehicleId) ?? null,
-    [form.vehicleId, vehicles]
+    [form.vehicleId, vehicles],
   );
 
   const annualDepreciation = toNumber(form.annualDepreciationAmount);
   const annualKm = toNumber(form.annualEstimatedKm);
+  const currentVehicleValue = toNumber(form.currentVehicleValue);
+  const nextYearVehicleValue = toNumber(form.nextYearVehicleValue);
+  const guidedAnnualDepreciation = Math.max(
+    currentVehicleValue - nextYearVehicleValue,
+    0,
+  );
   const monthlyDepreciation = annualDepreciation / 12;
-  const perKmDepreciation =
-    annualKm > 0 ? annualDepreciation / annualKm : 0;
+  const dailyDepreciation = monthlyDepreciation / daysInMonth(new Date());
+  const perKmDepreciation = annualKm > 0 ? annualDepreciation / annualKm : 0;
   const sampleDailyKm = 120;
   const sampleDailyCost =
-    form.depreciationModel === 'PER_KM'
+    form.depreciationModel === "PER_KM"
       ? perKmDepreciation * sampleDailyKm
-      : monthlyDepreciation / 22;
+      : dailyDepreciation;
 
   useEffect(() => {
     setAccessToken(getAccessToken());
@@ -81,7 +91,7 @@ export function DepreciationSettingsPanel() {
 
   async function fetchVehicles(token = accessToken) {
     if (!token) {
-      setMessage('Amortisman ayarlarini görmek için önce giriş yapmalısın.');
+      setMessage("Amortisman ayarlarini görmek için önce giriş yapmalısın.");
       return;
     }
 
@@ -89,17 +99,17 @@ export function DepreciationSettingsPanel() {
     setMessage(null);
 
     try {
-      const response = await getJson<VehiclesResponse>('/vehicles', {
-        accessToken: token
+      const response = await getJson<VehiclesResponse>("/vehicles", {
+        accessToken: token,
       });
 
       setVehicles(response.data);
       hydrateFormFromVehicle(
-        response.data.find((vehicle) => vehicle.isActive) ?? response.data[0]
+        response.data.find((vehicle) => vehicle.isActive) ?? response.data[0],
       );
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Araçlar yüklenemedi.'
+        error instanceof Error ? error.message : "Araçlar yüklenemedi.",
       );
     } finally {
       setIsLoading(false);
@@ -113,11 +123,13 @@ export function DepreciationSettingsPanel() {
     }
 
     setForm({
-      annualDepreciationAmount: vehicle.annualDepreciationAmount ?? '',
-      annualEstimatedKm: vehicle.annualEstimatedKm ?? '',
+      annualDepreciationAmount: vehicle.annualDepreciationAmount ?? "",
+      annualEstimatedKm: vehicle.annualEstimatedKm ?? "",
+      currentVehicleValue: "",
       depreciationEnabled: vehicle.depreciationEnabled,
-      depreciationModel: vehicle.depreciationModel ?? 'PER_KM',
-      vehicleId: vehicle.id
+      depreciationModel: vehicle.depreciationModel ?? "PER_KM",
+      nextYearVehicleValue: "",
+      vehicleId: vehicle.id,
     });
   }
 
@@ -125,12 +137,19 @@ export function DepreciationSettingsPanel() {
     event.preventDefault();
 
     if (!accessToken) {
-      setMessage('Amortisman ayari için önce giriş yapmalısın.');
+      setMessage("Amortisman ayarı için önce giriş yapmalısın.");
       return;
     }
 
     if (!form.vehicleId) {
-      setMessage('Önce araç seçmelisin.');
+      setMessage("Önce araç seçmelisin.");
+      return;
+    }
+
+    const validationMessage = validateDepreciationForm(form);
+
+    if (validationMessage) {
+      setMessage(validationMessage);
       return;
     }
 
@@ -150,23 +169,25 @@ export function DepreciationSettingsPanel() {
           depreciationEnabled: form.depreciationEnabled,
           depreciationModel: form.depreciationEnabled
             ? form.depreciationModel
-            : undefined
+            : undefined,
         }),
         {
-          accessToken
-        }
+          accessToken,
+        },
       );
 
       setVehicles((currentVehicles) =>
         currentVehicles.map((vehicle) =>
-          vehicle.id === response.data.id ? response.data : vehicle
-        )
+          vehicle.id === response.data.id ? response.data : vehicle,
+        ),
       );
       hydrateFormFromVehicle(response.data);
-      setMessage('Amortisman ayari kaydedildi.');
+      setMessage("Amortisman ayarı kaydedildi.");
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Amortisman ayari kaydedilemedi.'
+        error instanceof Error
+          ? error.message
+          : "Amortisman ayarı kaydedilemedi.",
       );
     } finally {
       setIsSaving(false);
@@ -185,12 +206,12 @@ export function DepreciationSettingsPanel() {
           <strong>{formatMoney(perKmDepreciation)}</strong>
         </article>
         <article className="metric-card">
-          <span>120 km ornek gün maliyeti</span>
+          <span>120 km örnek gün maliyeti</span>
           <strong>{formatMoney(sampleDailyCost)}</strong>
         </article>
         <article className="metric-card">
           <span>Durum</span>
-          <strong>{form.depreciationEnabled ? 'Aktif' : 'Kapali'}</strong>
+          <strong>{form.depreciationEnabled ? "Aktif" : "Kapalı"}</strong>
         </article>
       </section>
 
@@ -199,10 +220,10 @@ export function DepreciationSettingsPanel() {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Araç yıpranma maliyeti</p>
-              <h2>Amortisman ayari</h2>
+              <h2>Amortisman ayarı</h2>
             </div>
             <span className="status-pill">
-              {selectedVehicle?.plateNumber ?? 'Araç seç'}
+              {selectedVehicle?.plateNumber ?? "Araç seç"}
             </span>
           </div>
 
@@ -214,7 +235,7 @@ export function DepreciationSettingsPanel() {
                 value={form.vehicleId}
                 onChange={(event) => {
                   const vehicle = vehicles.find(
-                    (item) => item.id === event.target.value
+                    (item) => item.id === event.target.value,
                   );
 
                   hydrateFormFromVehicle(vehicle);
@@ -223,7 +244,8 @@ export function DepreciationSettingsPanel() {
                 <option value="">Araç seç</option>
                 {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.plateNumber} {vehicle.brand ?? ''} {vehicle.model ?? ''}
+                    {vehicle.plateNumber} {vehicle.brand ?? ""}{" "}
+                    {vehicle.model ?? ""}
                   </option>
                 ))}
               </select>
@@ -237,7 +259,7 @@ export function DepreciationSettingsPanel() {
                 onChange={(event) =>
                   setForm((currentForm) => ({
                     ...currentForm,
-                    depreciationModel: event.target.value as DepreciationModel
+                    depreciationModel: event.target.value as DepreciationModel,
                   }))
                 }
               >
@@ -256,7 +278,7 @@ export function DepreciationSettingsPanel() {
                 onChange={(event) =>
                   setForm((currentForm) => ({
                     ...currentForm,
-                    annualDepreciationAmount: event.target.value
+                    annualDepreciationAmount: event.target.value,
                   }))
                 }
               />
@@ -272,11 +294,74 @@ export function DepreciationSettingsPanel() {
                 onChange={(event) =>
                   setForm((currentForm) => ({
                     ...currentForm,
-                    annualEstimatedKm: event.target.value
+                    annualEstimatedKm: event.target.value,
                   }))
                 }
               />
             </label>
+          </div>
+
+          <div className="depreciation-guide-panel">
+            <div className="panel-heading compact">
+              <div>
+                <p className="eyebrow">Değer kaybı rehberi</p>
+                <h3>Yıllık değer kaybını hesapla</h3>
+              </div>
+              <span className="status-pill">
+                {formatMoney(guidedAnnualDepreciation)}
+              </span>
+            </div>
+
+            <div className="depreciation-guide-grid">
+              <label>
+                Araç mevcut değeri
+                <input
+                  disabled={!form.depreciationEnabled}
+                  inputMode="decimal"
+                  placeholder="950000"
+                  value={form.currentVehicleValue}
+                  onChange={(event) =>
+                    setForm((currentForm) => ({
+                      ...currentForm,
+                      currentVehicleValue: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+
+              <label>
+                Tahmini 1 yıl sonraki değer
+                <input
+                  disabled={!form.depreciationEnabled}
+                  inputMode="decimal"
+                  placeholder="890000"
+                  value={form.nextYearVehicleValue}
+                  onChange={(event) =>
+                    setForm((currentForm) => ({
+                      ...currentForm,
+                      nextYearVehicleValue: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+
+              <button
+                className="secondary-button"
+                disabled={
+                  !form.depreciationEnabled || guidedAnnualDepreciation <= 0
+                }
+                onClick={() =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    annualDepreciationAmount:
+                      guidedAnnualDepreciation.toFixed(2),
+                  }))
+                }
+                type="button"
+              >
+                Yıllık değer kaybına uygula
+              </button>
+            </div>
           </div>
 
           <label className="checkbox-row">
@@ -285,12 +370,12 @@ export function DepreciationSettingsPanel() {
               onChange={(event) =>
                 setForm((currentForm) => ({
                   ...currentForm,
-                  depreciationEnabled: event.target.checked
+                  depreciationEnabled: event.target.checked,
                 }))
               }
               type="checkbox"
             />
-            Bu araçin amortismanini net kâr hesabına dahil et
+            Bu aracın amortismanını net kâr hesabına dahil et
           </label>
 
           {message ? <p className="form-message">{message}</p> : null}
@@ -305,9 +390,13 @@ export function DepreciationSettingsPanel() {
               <RefreshCw aria-hidden="true" className="inline-icon" />
               Yenile
             </button>
-            <button className="primary-button" disabled={isSaving} type="submit">
+            <button
+              className="primary-button"
+              disabled={isSaving}
+              type="submit"
+            >
               <Save aria-hidden="true" className="inline-icon" />
-              {isSaving ? 'Kaydediliyor' : 'Ayari kaydet'}
+              {isSaving ? "Kaydediliyor" : "Ayarı kaydet"}
             </button>
           </div>
         </form>
@@ -316,14 +405,32 @@ export function DepreciationSettingsPanel() {
           <p className="eyebrow">Hesaplama etkisi</p>
           <h2>Amortisman nakit çıkışı değil, gerçek kâr maliyetidir.</h2>
           <ul>
-            <li>Km bazlı modelde her seferin toplam km’si kadar pay ayrilir.</li>
-            <li>Aylık modelde aylık değer kaybı seferlere dağıtılır.</li>
-            <li>Ayar kapaliyken sefer ve rapor net kârında amortisman sıfırlanir.</li>
+            <li>Km bazlı model: yıllık değer kaybı / yıllık tahmini km.</li>
+            <li>Aylık model: yıllık değer kaybı / 12 / ayın gün sayısı.</li>
+            <li>
+              Ayar kapalıyken sefer ve rapor net kârında amortisman sıfırlanır.
+            </li>
           </ul>
+
+          <div className="depreciation-formula-grid">
+            <div>
+              <span>Km bazlı</span>
+              <strong>{formatMoney(perKmDepreciation)} / km</strong>
+              <small>
+                {formatMoney(annualDepreciation)} / {formatKm(annualKm)}
+              </small>
+            </div>
+            <div>
+              <span>Aylık</span>
+              <strong>{formatMoney(monthlyDepreciation)}</strong>
+              <small>Günlük: {formatMoney(dailyDepreciation)}</small>
+            </div>
+          </div>
+
           <div className="depreciation-preview">
             <Calculator aria-hidden="true" />
             <div>
-              <span>Ornek gün</span>
+              <span>Örnek gün</span>
               <strong>{formatMoney(sampleDailyCost)}</strong>
             </div>
           </div>
@@ -334,7 +441,7 @@ export function DepreciationSettingsPanel() {
 }
 
 function normalizeDecimal(value: string) {
-  const normalizedValue = value.trim().replace(',', '.');
+  const normalizedValue = value.trim().replace(",", ".");
 
   return normalizedValue || undefined;
 }
@@ -342,21 +449,72 @@ function normalizeDecimal(value: string) {
 function removeEmptyValues(values: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(values).filter(
-      ([, value]) => value !== undefined && value !== ''
-    )
+      ([, value]) => value !== undefined && value !== "",
+    ),
   );
 }
 
 function toNumber(value: string) {
-  const parsed = Number(value.replace(',', '.'));
+  const parsed = Number(value.replace(",", "."));
 
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function validateDepreciationForm(form: DepreciationFormState) {
+  if (!form.vehicleId) {
+    return "Araç seçimi zorunlu.";
+  }
+
+  if (!form.depreciationEnabled) {
+    return null;
+  }
+
+  if (!form.depreciationModel) {
+    return "Amortisman modeli zorunlu.";
+  }
+
+  const annualDepreciation = Number(
+    normalizeDecimal(form.annualDepreciationAmount),
+  );
+  const annualKm = Number(normalizeDecimal(form.annualEstimatedKm));
+
+  if (!Number.isFinite(annualDepreciation) || annualDepreciation <= 0) {
+    return "Yıllık değer kaybı 0’dan büyük olmalı.";
+  }
+
+  if (
+    form.depreciationModel === "PER_KM" &&
+    (!Number.isFinite(annualKm) || annualKm <= 0)
+  ) {
+    return "Km bazlı amortisman için yıllık tahmini km 0’dan büyük olmalı.";
+  }
+
+  if (
+    form.annualEstimatedKm.trim() &&
+    (!Number.isFinite(annualKm) || annualKm <= 0)
+  ) {
+    return "Yıllık tahmini km 0’dan büyük olmalı.";
+  }
+
+  return null;
+}
+
+function daysInMonth(date: Date) {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+}
+
 function formatMoney(value: number) {
-  return new Intl.NumberFormat('tr-TR', {
-    currency: 'TRY',
+  return new Intl.NumberFormat("tr-TR", {
+    currency: "TRY",
     maximumFractionDigits: 2,
-    style: 'currency'
+    style: "currency",
   }).format(value);
+}
+
+function formatKm(value: number) {
+  return `${new Intl.NumberFormat("tr-TR", {
+    maximumFractionDigits: 0,
+  }).format(value)} km`;
 }

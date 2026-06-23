@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import {
   AllocationType,
+  DepreciationModel,
   ExpenseEntry,
   ExpenseType,
   FixedCostAllocationMethod,
@@ -459,6 +460,18 @@ export class ReportsService {
           },
         }),
       ]);
+    const depreciationEnabledVehicleCount =
+      typeof (this.prisma.vehicle as unknown as { count?: unknown }).count ===
+      "function"
+        ? await this.prisma.vehicle.count({
+            where: {
+              user_id: userId,
+              deleted_at: null,
+              depreciation_enabled: true,
+              ...vehicleWhereFilter,
+            },
+          })
+        : 0;
 
     const grossIncome = this.decimal(dailyProfit.grossIncome);
     const breakEvenTarget = this.decimal(breakEven.breakEvenRevenue);
@@ -504,6 +517,14 @@ export class ReportsService {
       fixedCostShare: dailyProfit.fixedExpenses,
       maintenanceReserve: dailyProfit.maintenanceReserve,
       depreciationCost: dailyProfit.depreciation,
+      depreciationStatus: {
+        enabled: depreciationEnabledVehicleCount > 0,
+        effect: dailyProfit.depreciation,
+        message:
+          depreciationEnabledVehicleCount > 0
+            ? `Amortisman etkisi: -${this.money(this.decimal(dailyProfit.depreciation))}`
+            : "Amortisman kapalı, net kâr nakit bazlı gösteriliyor.",
+      },
       totalKm: dailyProfit.totalKm,
       activeDuration,
       kmNetProfit: totalKm.gt(0)
@@ -541,7 +562,9 @@ export class ReportsService {
         dailyProfit.directExpenseCount > 0 ||
         dailyProfit.actualFuelEntryCount > 0 ||
         dailyProfit.recurringExpenseCount > 0 ||
-        dailyProfit.activePackageCount > 0,
+        dailyProfit.activePackageCount > 0 ||
+        this.decimal(dailyProfit.maintenanceReserve).gt(0) ||
+        this.decimal(dailyProfit.depreciation).gt(0),
       source: {
         period: "daily",
         dateField: "trip_date / expense_date / started_at",
@@ -822,9 +845,13 @@ export class ReportsService {
       .plus(directCosts.maintenance)
       .plus(recurringCosts.maintenance)
       .plus(maintenanceEntryReserve);
-    const depreciation = this.decimal(
-      tripAggregate._sum.allocated_depreciation_cost,
-    )
+    const vehicleDepreciation =
+      await this.calculateVehicleDepreciationForPeriod(
+        userId,
+        periodRange,
+        vehicleId,
+      );
+    const depreciation = vehicleDepreciation
       .plus(directCosts.depreciation)
       .plus(recurringCosts.depreciation);
     const periodNetProfit =
@@ -913,6 +940,7 @@ export class ReportsService {
         directFixedExpenseCost: this.money(directCosts.fixed),
         directMaintenanceExpenseCost: this.money(directCosts.maintenance),
         maintenanceEntryReserveCost: this.money(maintenanceEntryReserve),
+        calculatedVehicleDepreciationCost: this.money(vehicleDepreciation),
         directDepreciationExpenseCost: this.money(directCosts.depreciation),
       },
       formula: {
@@ -923,6 +951,8 @@ export class ReportsService {
           "period active package allocation + direct package expenses + recurring package expenses",
         maintenanceReserve:
           "latest maintenance cost-per-km plans x period trip kilometers",
+        depreciation:
+          "current vehicle depreciation settings allocated by km or calendar day",
       },
       calculationWarnings: periodNetProfit.warnings,
       calculationVersion: this.calculationVersion,
@@ -1040,6 +1070,124 @@ export class ReportsService {
         return total.plus(tripKm.mul(costPerKm));
       }, new Prisma.Decimal(0))
       .toDecimalPlaces(2);
+  }
+
+  private async calculateVehicleDepreciationForPeriod(
+    userId: string,
+    periodRange: PeriodRange,
+    vehicleId?: string,
+  ) {
+    const prismaWithVehicle = this.prisma as unknown as {
+      vehicle?: {
+        findMany?: unknown;
+      };
+    };
+    const tripDelegate = this.prisma.trip as unknown as {
+      groupBy?: unknown;
+    };
+
+    if (
+      typeof prismaWithVehicle.vehicle?.findMany !== "function" ||
+      typeof tripDelegate.groupBy !== "function"
+    ) {
+      return new Prisma.Decimal(0);
+    }
+
+    const vehicleFilter = vehicleId
+      ? {
+          id: vehicleId,
+        }
+      : {};
+    const tripVehicleFilter = vehicleId
+      ? {
+          vehicle_id: vehicleId,
+        }
+      : {};
+    const [vehicles, tripKmByVehicle] = await Promise.all([
+      this.prisma.vehicle.findMany({
+        where: {
+          user_id: userId,
+          deleted_at: null,
+          depreciation_enabled: true,
+          ...vehicleFilter,
+        },
+      }),
+      this.prisma.trip.groupBy({
+        by: ["vehicle_id"],
+        where: {
+          user_id: userId,
+          deleted_at: null,
+          trip_date: {
+            gte: periodRange.start,
+            lt: periodRange.nextStart,
+          },
+          ...tripVehicleFilter,
+        },
+        _sum: {
+          total_km: true,
+        },
+      }),
+    ]);
+    const tripKmByVehicleId = new Map(
+      tripKmByVehicle.map((group) => [
+        group.vehicle_id,
+        this.decimal(group._sum.total_km),
+      ]),
+    );
+
+    return vehicles
+      .reduce((total, vehicle) => {
+        if (vehicle.depreciation_model === DepreciationModel.MONTHLY) {
+          return total.plus(
+            this.calculateMonthlyVehicleDepreciation(vehicle, periodRange),
+          );
+        }
+
+        const totalKm =
+          tripKmByVehicleId.get(vehicle.id) ?? new Prisma.Decimal(0);
+        const depreciation =
+          this.financeCalculationEngine.calculateDepreciation({
+            date: periodRange.start,
+            depreciationEnabled: vehicle.depreciation_enabled,
+            model: vehicle.depreciation_model,
+            showInProfit: true,
+            totalKm,
+            yearlyEstimatedKm: vehicle.annual_estimated_km,
+            yearlyValueLoss: vehicle.annual_depreciation_amount,
+          });
+
+        return total.plus(depreciation.value);
+      }, new Prisma.Decimal(0))
+      .toDecimalPlaces(2);
+  }
+
+  private calculateMonthlyVehicleDepreciation(
+    vehicle: {
+      annual_depreciation_amount: Prisma.Decimal | null;
+      depreciation_enabled: boolean;
+      depreciation_model: DepreciationModel | null;
+    },
+    periodRange: PeriodRange,
+  ) {
+    const yearlyValueLoss = this.decimal(vehicle.annual_depreciation_amount);
+
+    if (
+      !vehicle.depreciation_enabled ||
+      vehicle.depreciation_model !== DepreciationModel.MONTHLY ||
+      yearlyValueLoss.lte(0)
+    ) {
+      return new Prisma.Decimal(0);
+    }
+
+    let total = new Prisma.Decimal(0);
+    const cursor = new Date(periodRange.start);
+
+    while (cursor < periodRange.nextStart) {
+      total = total.plus(yearlyValueLoss.div(12).div(this.daysInMonth(cursor)));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    return total.toDecimalPlaces(2);
   }
 
   private async calculateRecurringExpenseBuckets(

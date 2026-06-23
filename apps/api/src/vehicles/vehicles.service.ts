@@ -2,24 +2,28 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  NotFoundException
-} from '@nestjs/common';
-import { DepreciationModel, Prisma, Vehicle } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateVehicleDto } from './dto/create-vehicle.dto';
-import { UpdateDepreciationSettingsDto } from './dto/update-depreciation-settings.dto';
-import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+  NotFoundException,
+} from "@nestjs/common";
+import { DepreciationModel, Prisma, Vehicle } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
+import { ReportCacheService } from "../reports/report-cache.service";
+import { CreateVehicleDto } from "./dto/create-vehicle.dto";
+import { UpdateDepreciationSettingsDto } from "./dto/update-depreciation-settings.dto";
+import { UpdateVehicleDto } from "./dto/update-vehicle.dto";
 
 @Injectable()
 export class VehiclesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reportCacheService?: ReportCacheService,
+  ) {}
 
   async create(userId: string, dto: CreateVehicleDto) {
     const existingVehicleCount = await this.prisma.vehicle.count({
       where: {
         user_id: userId,
-        deleted_at: null
-      }
+        deleted_at: null,
+      },
     });
     const shouldBeActive = existingVehicleCount === 0;
 
@@ -29,11 +33,11 @@ export class VehiclesService {
           await tx.vehicle.updateMany({
             where: {
               user_id: userId,
-              deleted_at: null
+              deleted_at: null,
             },
             data: {
-              is_active: false
-            }
+              is_active: false,
+            },
           });
         }
 
@@ -41,15 +45,17 @@ export class VehiclesService {
           data: {
             ...this.toVehicleCreateData(dto),
             user_id: userId,
-            is_active: shouldBeActive
-          }
+            is_active: shouldBeActive,
+          },
         });
       });
+
+      this.invalidateReportCache(userId);
 
       return this.toVehicleResponse(vehicle);
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
-        throw new ConflictException('Vehicle plate already exists.');
+        throw new ConflictException("Vehicle plate already exists.");
       }
 
       throw error;
@@ -60,9 +66,9 @@ export class VehiclesService {
     const vehicles = await this.prisma.vehicle.findMany({
       where: {
         user_id: userId,
-        deleted_at: null
+        deleted_at: null,
       },
-      orderBy: [{ is_active: 'desc' }, { created_at: 'desc' }]
+      orderBy: [{ is_active: "desc" }, { created_at: "desc" }],
     });
 
     return vehicles.map((vehicle) => this.toVehicleResponse(vehicle));
@@ -80,15 +86,17 @@ export class VehiclesService {
     try {
       const vehicle = await this.prisma.vehicle.update({
         where: {
-          id
+          id,
         },
-        data: this.toVehicleUpdateData(dto, currentVehicle)
+        data: this.toVehicleUpdateData(dto, currentVehicle),
       });
+
+      this.invalidateReportCache(userId);
 
       return this.toVehicleResponse(vehicle);
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
-        throw new ConflictException('Vehicle plate already exists.');
+        throw new ConflictException("Vehicle plate already exists.");
       }
 
       throw error;
@@ -98,17 +106,19 @@ export class VehiclesService {
   async updateDepreciationSettings(
     userId: string,
     id: string,
-    dto: UpdateDepreciationSettingsDto
+    dto: UpdateDepreciationSettingsDto,
   ) {
     const currentVehicle = await this.findOwnedVehicle(userId, id);
     const vehicle = await this.prisma.vehicle.update({
       where: {
-        id
+        id,
       },
       data: {
-        ...this.toDepreciationUpdateData(dto, currentVehicle)
-      }
+        ...this.toDepreciationUpdateData(dto, currentVehicle),
+      },
     });
+
+    this.invalidateReportCache(userId);
 
     return this.toVehicleResponse(vehicle);
   }
@@ -118,12 +128,12 @@ export class VehiclesService {
 
     await this.prisma.vehicle.update({
       where: {
-        id
+        id,
       },
       data: {
         deleted_at: new Date(),
-        is_active: false
-      }
+        is_active: false,
+      },
     });
 
     if (vehicle.is_active) {
@@ -132,12 +142,12 @@ export class VehiclesService {
           user_id: userId,
           deleted_at: null,
           id: {
-            not: id
-          }
+            not: id,
+          },
         },
         orderBy: {
-          created_at: 'desc'
-        }
+          created_at: "desc",
+        },
       });
 
       if (nextVehicle) {
@@ -145,8 +155,10 @@ export class VehiclesService {
       }
     }
 
+    this.invalidateReportCache(userId);
+
     return {
-      success: true
+      success: true,
     };
   }
 
@@ -157,37 +169,39 @@ export class VehiclesService {
       await tx.vehicle.updateMany({
         where: {
           user_id: userId,
-          deleted_at: null
+          deleted_at: null,
         },
         data: {
-          is_active: false
-        }
+          is_active: false,
+        },
       });
 
       const activeVehicle = await tx.vehicle.update({
         where: {
-          id
+          id,
         },
         data: {
-          is_active: true
-        }
+          is_active: true,
+        },
       });
 
       await tx.driverProfile.upsert({
         where: {
-          user_id: userId
+          user_id: userId,
         },
         create: {
           user_id: userId,
-          default_vehicle_id: id
+          default_vehicle_id: id,
         },
         update: {
-          default_vehicle_id: id
-        }
+          default_vehicle_id: id,
+        },
       });
 
       return activeVehicle;
     });
+
+    this.invalidateReportCache(userId);
 
     return this.toVehicleResponse(vehicle);
   }
@@ -197,26 +211,26 @@ export class VehiclesService {
       where: {
         id,
         user_id: userId,
-        deleted_at: null
-      }
+        deleted_at: null,
+      },
     });
 
     if (!vehicle) {
-      throw new NotFoundException('Vehicle not found.');
+      throw new NotFoundException("Vehicle not found.");
     }
 
     return vehicle;
   }
 
   private normalizePlate(plateNumber?: string) {
-    return plateNumber?.replace(/\s+/g, '').toUpperCase();
+    return plateNumber?.replace(/\s+/g, "").toUpperCase();
   }
 
   private toVehicleCreateData(dto: CreateVehicleDto) {
     const plateNumber = this.normalizePlate(dto.plateNumber);
 
     if (!plateNumber) {
-      throw new ConflictException('Vehicle plate is required.');
+      throw new ConflictException("Vehicle plate is required.");
     }
 
     return {
@@ -227,7 +241,7 @@ export class VehiclesService {
       fuel_type: dto.fuelType,
       average_consumption_l_per_100km: dto.averageConsumptionLPer100Km,
       odometer_km: dto.odometerKm,
-      ...this.toDepreciationCreateData(dto)
+      ...this.toDepreciationCreateData(dto),
     };
   }
 
@@ -273,7 +287,7 @@ export class VehiclesService {
         annual_depreciation_amount: null,
         annual_estimated_km: null,
         depreciation_enabled: false,
-        depreciation_model: null
+        depreciation_model: null,
       };
     }
 
@@ -281,20 +295,20 @@ export class VehiclesService {
       annualDepreciationAmount: dto.annualDepreciationAmount,
       annualEstimatedKm: dto.annualEstimatedKm,
       depreciationEnabled: true,
-      depreciationModel: dto.depreciationModel
+      depreciationModel: dto.depreciationModel,
     });
 
     return {
       annual_depreciation_amount: dto.annualDepreciationAmount,
       annual_estimated_km: dto.annualEstimatedKm,
       depreciation_enabled: true,
-      depreciation_model: dto.depreciationModel
+      depreciation_model: dto.depreciationModel,
     };
   }
 
   private toDepreciationUpdateData(
     dto: UpdateVehicleDto | UpdateDepreciationSettingsDto,
-    currentVehicle: Vehicle
+    currentVehicle: Vehicle,
   ) {
     const hasDepreciationInput =
       dto.depreciationEnabled !== undefined ||
@@ -314,7 +328,7 @@ export class VehiclesService {
         annual_depreciation_amount: null,
         annual_estimated_km: null,
         depreciation_enabled: false,
-        depreciation_model: null
+        depreciation_model: null,
       };
     }
 
@@ -330,14 +344,14 @@ export class VehiclesService {
       annualDepreciationAmount,
       annualEstimatedKm,
       depreciationEnabled,
-      depreciationModel
+      depreciationModel,
     });
 
     return {
       annual_depreciation_amount: annualDepreciationAmount,
       annual_estimated_km: annualEstimatedKm ?? null,
       depreciation_enabled: true,
-      depreciation_model: depreciationModel
+      depreciation_model: depreciationModel,
     };
   }
 
@@ -353,37 +367,48 @@ export class VehiclesService {
 
     if (!settings.depreciationModel) {
       throw new BadRequestException(
-        'Depreciation model is required when depreciation is enabled.'
+        "Depreciation model is required when depreciation is enabled.",
       );
     }
 
     if (!settings.annualDepreciationAmount) {
       throw new BadRequestException(
-        'Annual depreciation amount is required when depreciation is enabled.'
+        "Annual depreciation amount is required when depreciation is enabled.",
       );
     }
 
-    if (
-      new Prisma.Decimal(settings.annualDepreciationAmount).lte(0)
-    ) {
+    if (new Prisma.Decimal(settings.annualDepreciationAmount).lte(0)) {
       throw new BadRequestException(
-        'Annual depreciation amount must be greater than zero.'
+        "Annual depreciation amount must be greater than zero.",
       );
     }
 
     if (settings.depreciationModel === DepreciationModel.PER_KM) {
       if (!settings.annualEstimatedKm) {
         throw new BadRequestException(
-          'Annual estimated km is required for per-kilometer depreciation.'
+          "Annual estimated km is required for per-kilometer depreciation.",
         );
       }
 
       if (new Prisma.Decimal(settings.annualEstimatedKm).lte(0)) {
         throw new BadRequestException(
-          'Annual estimated km must be greater than zero.'
+          "Annual estimated km must be greater than zero.",
         );
       }
+    } else if (
+      settings.annualEstimatedKm !== undefined &&
+      settings.annualEstimatedKm !== null &&
+      settings.annualEstimatedKm !== "" &&
+      new Prisma.Decimal(settings.annualEstimatedKm).lte(0)
+    ) {
+      throw new BadRequestException(
+        "Annual estimated km must be greater than zero.",
+      );
     }
+  }
+
+  private invalidateReportCache(userId: string) {
+    this.reportCacheService?.deleteByUser(userId);
   }
 
   private toVehicleResponse(vehicle: Vehicle) {
@@ -404,14 +429,14 @@ export class VehiclesService {
         vehicle.annual_depreciation_amount?.toFixed(2) ?? null,
       annualEstimatedKm: vehicle.annual_estimated_km?.toFixed(1) ?? null,
       createdAt: vehicle.created_at,
-      updatedAt: vehicle.updated_at
+      updatedAt: vehicle.updated_at,
     };
   }
 
   private isUniqueConstraintError(error: unknown) {
     return (
       error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
+      error.code === "P2002"
     );
   }
 }

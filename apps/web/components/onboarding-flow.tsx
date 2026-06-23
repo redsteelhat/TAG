@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Calculator,
   Car,
   CheckCircle2,
   Fuel,
   Package,
-  Target
-} from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { getJson, patchJson, postJson } from '../lib/api-client';
-import { getAccessToken } from '../lib/auth-storage';
+  Target,
+} from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { getJson, patchJson, postJson } from "../lib/api-client";
+import { getAccessToken } from "../lib/auth-storage";
 
-type FuelType = 'DIESEL' | 'GASOLINE' | 'LPG' | 'HYBRID' | 'ELECTRIC' | 'OTHER';
-type DepreciationModel = 'MONTHLY' | 'PER_KM';
-type FixedCostAllocationMethod = 'ACTIVE_DAY' | 'CALENDAR_DAY' | 'PER_KM';
-type PackageAllocationMethod = 'PER_DAY' | 'PER_TRIP' | 'PER_KM';
+type FuelType = "DIESEL" | "GASOLINE" | "LPG" | "HYBRID" | "ELECTRIC" | "OTHER";
+type DepreciationModel = "MONTHLY" | "PER_KM";
+type FixedCostAllocationMethod = "ACTIVE_DAY" | "CALENDAR_DAY" | "PER_KM";
+type PackageAllocationMethod = "PER_DAY" | "PER_TRIP" | "PER_KM";
 
 interface Vehicle {
   id: string;
@@ -87,71 +87,71 @@ interface PackageFormState {
 const today = new Date().toISOString().slice(0, 10);
 
 const fuelOptions: Array<{ label: string; value: FuelType }> = [
-  { label: 'Dizel', value: 'DIESEL' },
-  { label: 'Benzin', value: 'GASOLINE' },
-  { label: 'LPG', value: 'LPG' },
-  { label: 'Hibrit', value: 'HYBRID' },
-  { label: 'Elektrik', value: 'ELECTRIC' },
-  { label: 'Diğer', value: 'OTHER' }
+  { label: "Dizel", value: "DIESEL" },
+  { label: "Benzin", value: "GASOLINE" },
+  { label: "LPG", value: "LPG" },
+  { label: "Hibrit", value: "HYBRID" },
+  { label: "Elektrik", value: "ELECTRIC" },
+  { label: "Diğer", value: "OTHER" },
 ];
 
 const fixedAllocationOptions: Array<{
   label: string;
   value: FixedCostAllocationMethod;
 }> = [
-  { label: 'Aktif calisilan günlere bol', value: 'ACTIVE_DAY' },
-  { label: 'Takvim günlerine bol', value: 'CALENDAR_DAY' },
-  { label: 'Km’ye bol', value: 'PER_KM' }
+  { label: "Aktif calisilan günlere bol", value: "ACTIVE_DAY" },
+  { label: "Takvim günlerine bol", value: "CALENDAR_DAY" },
+  { label: "Km’ye bol", value: "PER_KM" },
 ];
 
 const packageAllocationOptions: Array<{
   label: string;
   value: PackageAllocationMethod;
 }> = [
-  { label: 'Gune bol', value: 'PER_DAY' },
-  { label: 'Sefere bol', value: 'PER_TRIP' },
-  { label: 'Km’ye bol', value: 'PER_KM' }
+  { label: "Gune bol", value: "PER_DAY" },
+  { label: "Sefere bol", value: "PER_TRIP" },
+  { label: "Km’ye bol", value: "PER_KM" },
 ];
 
 const initialVehicleForm: VehicleFormState = {
-  annualDepreciationAmount: '',
-  annualEstimatedKm: '',
-  averageConsumption: '',
-  brand: '',
+  annualDepreciationAmount: "",
+  annualEstimatedKm: "",
+  averageConsumption: "",
+  brand: "",
   depreciationEnabled: false,
-  depreciationModel: 'PER_KM',
-  fuelType: 'GASOLINE',
-  model: '',
-  modelYear: '',
-  odometerKm: '',
-  plateNumber: ''
+  depreciationModel: "PER_KM",
+  fuelType: "GASOLINE",
+  model: "",
+  modelYear: "",
+  odometerKm: "",
+  plateNumber: "",
 };
 
 const initialPreferenceForm: PreferenceFormState = {
-  dailyTargetNetProfit: '1500',
-  fixedCostAllocationMethod: 'ACTIVE_DAY',
-  showDepreciationInProfit: true
+  dailyTargetNetProfit: "1500",
+  fixedCostAllocationMethod: "ACTIVE_DAY",
+  showDepreciationInProfit: true,
 };
 
 const initialPackageForm: PackageFormState = {
-  allocationMethod: 'PER_DAY',
-  amount: '',
-  breakEvenTarget: '',
-  durationDays: '7',
+  allocationMethod: "PER_DAY",
+  amount: "",
+  breakEvenTarget: "",
+  durationDays: "7",
   endsAt: addDays(today, 6),
-  name: 'Haftalık operasyon paketi',
-  startsAt: today
+  name: "Haftalık operasyon paketi",
+  startsAt: today,
 };
 
 export function OnboardingFlow() {
   const router = useRouter();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [selectedVehicleId, setSelectedVehicleId] = useState("");
   const [vehicleForm, setVehicleForm] =
     useState<VehicleFormState>(initialVehicleForm);
   const [preferenceForm, setPreferenceForm] = useState<PreferenceFormState>(
-    initialPreferenceForm
+    initialPreferenceForm,
   );
   const [packageForm, setPackageForm] =
     useState<PackageFormState>(initialPackageForm);
@@ -163,12 +163,12 @@ export function OnboardingFlow() {
   const [completedSteps, setCompletedSteps] = useState({
     package: false,
     preferences: false,
-    vehicle: false
+    vehicle: false,
   });
 
   const selectedVehicle = useMemo(
     () => vehicles.find((vehicle) => vehicle.id === selectedVehicleId),
-    [selectedVehicleId, vehicles]
+    [selectedVehicleId, vehicles],
   );
   const completionPercent =
     (Number(completedSteps.vehicle) +
@@ -195,10 +195,10 @@ export function OnboardingFlow() {
 
     try {
       const [vehiclesResponse, profileResponse] = await Promise.all([
-        getJson<VehiclesResponse>('/vehicles', { accessToken: token }),
-        getJson<DriverProfileResponse>('/driver-profile', {
-          accessToken: token
-        })
+        getJson<VehiclesResponse>("/vehicles", { accessToken: token }),
+        getJson<DriverProfileResponse>("/driver-profile", {
+          accessToken: token,
+        }),
       ]);
       const activeVehicle =
         vehiclesResponse.data.find((vehicle) => vehicle.isActive) ??
@@ -206,11 +206,11 @@ export function OnboardingFlow() {
 
       setVehicles(vehiclesResponse.data);
       setSelectedVehicleId(
-        profileResponse.data.defaultVehicleId ?? activeVehicle?.id ?? ''
+        profileResponse.data.defaultVehicleId ?? activeVehicle?.id ?? "",
       );
       setCompletedSteps((current) => ({
         ...current,
-        vehicle: vehiclesResponse.data.length > 0
+        vehicle: vehiclesResponse.data.length > 0,
       }));
       setPreferenceForm({
         dailyTargetNetProfit:
@@ -221,13 +221,13 @@ export function OnboardingFlow() {
           initialPreferenceForm.fixedCostAllocationMethod,
         showDepreciationInProfit:
           profileResponse.data.showDepreciationInProfit ??
-          initialPreferenceForm.showDepreciationInProfit
+          initialPreferenceForm.showDepreciationInProfit,
       });
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Onboarding verileri yüklenemedi.'
+          : "Onboarding verileri yüklenemedi.",
       );
     } finally {
       setIsLoading(false);
@@ -238,7 +238,7 @@ export function OnboardingFlow() {
     event.preventDefault();
 
     if (!accessToken) {
-      setMessage('Araç oluşturmak için önce giriş yapmalısın.');
+      setMessage("Araç oluşturmak için önce giriş yapmalısın.");
       return;
     }
 
@@ -247,7 +247,7 @@ export function OnboardingFlow() {
 
     try {
       const response = await postJson<VehicleResponse>(
-        '/vehicles',
+        "/vehicles",
         removeEmptyValues({
           annualDepreciationAmount: vehicleForm.depreciationEnabled
             ? normalizeDecimal(vehicleForm.annualDepreciationAmount)
@@ -256,7 +256,7 @@ export function OnboardingFlow() {
             ? normalizeDecimal(vehicleForm.annualEstimatedKm)
             : undefined,
           averageConsumptionLPer100Km: normalizeDecimal(
-            vehicleForm.averageConsumption
+            vehicleForm.averageConsumption,
           ),
           brand: vehicleForm.brand.trim(),
           depreciationEnabled: vehicleForm.depreciationEnabled,
@@ -269,9 +269,11 @@ export function OnboardingFlow() {
             ? Number(vehicleForm.modelYear)
             : undefined,
           odometerKm: normalizeDecimal(vehicleForm.odometerKm),
-          plateNumber: vehicleForm.plateNumber.replace(/\s+/g, '').toUpperCase()
+          plateNumber: vehicleForm.plateNumber
+            .replace(/\s+/g, "")
+            .toUpperCase(),
         }),
-        { accessToken }
+        { accessToken },
       );
 
       setVehicles((currentVehicles) => [response.data, ...currentVehicles]);
@@ -281,7 +283,7 @@ export function OnboardingFlow() {
       setMessage(`${response.data.plateNumber} plakali araç hazır.`);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Araç kaydedilemedi.'
+        error instanceof Error ? error.message : "Araç kaydedilemedi.",
       );
     } finally {
       setIsSavingVehicle(false);
@@ -292,12 +294,12 @@ export function OnboardingFlow() {
     event.preventDefault();
 
     if (!accessToken) {
-      setMessage('Tercihleri kaydetmek için önce giriş yapmalısın.');
+      setMessage("Tercihleri kaydetmek için önce giriş yapmalısın.");
       return;
     }
 
     if (!selectedVehicleId) {
-      setMessage('Önce varsayılan araç seç veya yeni araç oluştur.');
+      setMessage("Önce varsayılan araç seç veya yeni araç oluştur.");
       return;
     }
 
@@ -306,25 +308,24 @@ export function OnboardingFlow() {
 
     try {
       await patchJson<DriverProfileResponse>(
-        '/driver-profile',
+        "/driver-profile",
         removeEmptyValues({
           dailyTargetNetProfit: normalizeDecimal(
-            preferenceForm.dailyTargetNetProfit
+            preferenceForm.dailyTargetNetProfit,
           ),
           defaultVehicleId: selectedVehicleId,
           fixedCostAllocationMethod: preferenceForm.fixedCostAllocationMethod,
-          showDepreciationInProfit: preferenceForm.showDepreciationInProfit
         }),
-        { accessToken }
+        { accessToken },
       );
 
       setCompletedSteps((current) => ({ ...current, preferences: true }));
-      setMessage('Finans tercihleri kaydedildi.');
+      setMessage("Finans tercihleri kaydedildi.");
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Finans tercihleri kaydedilemedi.'
+          : "Finans tercihleri kaydedilemedi.",
       );
     } finally {
       setIsSavingPreferences(false);
@@ -337,18 +338,18 @@ export function OnboardingFlow() {
     if (!packageForm.amount.trim()) {
       setCompletedSteps((current) => ({ ...current, package: true }));
       setMessage(
-        'Paket adımi atlandi. Daha sonra Paketler ekranindan eklenebilir.'
+        "Paket adımi atlandi. Daha sonra Paketler ekranindan eklenebilir.",
       );
       return;
     }
 
     if (!accessToken) {
-      setMessage('Paket kaydetmek için önce giriş yapmalısın.');
+      setMessage("Paket kaydetmek için önce giriş yapmalısın.");
       return;
     }
 
     if (!selectedVehicleId) {
-      setMessage('Paket kaydetmek için önce araç seçmelisin.');
+      setMessage("Paket kaydetmek için önce araç seçmelisin.");
       return;
     }
 
@@ -357,7 +358,7 @@ export function OnboardingFlow() {
 
     try {
       await postJson<TagPackageResponse>(
-        '/tag-packages',
+        "/tag-packages",
         removeEmptyValues({
           allocationMethod: packageForm.allocationMethod,
           amount: normalizeDecimal(packageForm.amount),
@@ -369,16 +370,16 @@ export function OnboardingFlow() {
           isActive: true,
           name: packageForm.name.trim(),
           startsAt: packageForm.startsAt,
-          vehicleId: selectedVehicleId
+          vehicleId: selectedVehicleId,
         }),
-        { accessToken }
+        { accessToken },
       );
 
       setCompletedSteps((current) => ({ ...current, package: true }));
-      setMessage('Paket gideri kaydedildi.');
+      setMessage("Paket gideri kaydedildi.");
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Paket kaydedilemedi.'
+        error instanceof Error ? error.message : "Paket kaydedilemedi.",
       );
     } finally {
       setIsSavingPackage(false);
@@ -386,27 +387,27 @@ export function OnboardingFlow() {
   }
 
   function finishOnboarding() {
-    localStorage.setItem('tag.onboardingCompleted', new Date().toISOString());
-    router.push('/');
+    localStorage.setItem("tag.onboardingCompleted", new Date().toISOString());
+    router.push("/");
   }
 
   function updateVehicleForm<Key extends keyof VehicleFormState>(
     key: Key,
-    value: VehicleFormState[Key]
+    value: VehicleFormState[Key],
   ) {
     setVehicleForm((currentForm) => ({ ...currentForm, [key]: value }));
   }
 
   function updatePreferenceForm<Key extends keyof PreferenceFormState>(
     key: Key,
-    value: PreferenceFormState[Key]
+    value: PreferenceFormState[Key],
   ) {
     setPreferenceForm((currentForm) => ({ ...currentForm, [key]: value }));
   }
 
   function updatePackageForm<Key extends keyof PackageFormState>(
     key: Key,
-    value: PackageFormState[Key]
+    value: PackageFormState[Key],
   ) {
     setPackageForm((currentForm) => ({ ...currentForm, [key]: value }));
   }
@@ -504,7 +505,7 @@ export function OnboardingFlow() {
               <input
                 autoComplete="off"
                 onChange={(event) =>
-                  updateVehicleForm('plateNumber', event.target.value)
+                  updateVehicleForm("plateNumber", event.target.value)
                 }
                 placeholder="34 ABC 123"
                 required={vehicles.length === 0}
@@ -516,7 +517,7 @@ export function OnboardingFlow() {
               Yakıt tipi
               <select
                 onChange={(event) =>
-                  updateVehicleForm('fuelType', event.target.value as FuelType)
+                  updateVehicleForm("fuelType", event.target.value as FuelType)
                 }
                 value={vehicleForm.fuelType}
               >
@@ -533,7 +534,7 @@ export function OnboardingFlow() {
               <input
                 inputMode="decimal"
                 onChange={(event) =>
-                  updateVehicleForm('averageConsumption', event.target.value)
+                  updateVehicleForm("averageConsumption", event.target.value)
                 }
                 placeholder="7.50"
                 required={vehicles.length === 0}
@@ -546,7 +547,7 @@ export function OnboardingFlow() {
               <input
                 inputMode="decimal"
                 onChange={(event) =>
-                  updateVehicleForm('odometerKm', event.target.value)
+                  updateVehicleForm("odometerKm", event.target.value)
                 }
                 placeholder="85000"
                 value={vehicleForm.odometerKm}
@@ -557,7 +558,7 @@ export function OnboardingFlow() {
               Marka
               <input
                 onChange={(event) =>
-                  updateVehicleForm('brand', event.target.value)
+                  updateVehicleForm("brand", event.target.value)
                 }
                 placeholder="Toyota"
                 value={vehicleForm.brand}
@@ -568,7 +569,7 @@ export function OnboardingFlow() {
               Model
               <input
                 onChange={(event) =>
-                  updateVehicleForm('model', event.target.value)
+                  updateVehicleForm("model", event.target.value)
                 }
                 placeholder="Corolla"
                 value={vehicleForm.model}
@@ -580,7 +581,7 @@ export function OnboardingFlow() {
             <input
               checked={vehicleForm.depreciationEnabled}
               onChange={(event) =>
-                updateVehicleForm('depreciationEnabled', event.target.checked)
+                updateVehicleForm("depreciationEnabled", event.target.checked)
               }
               type="checkbox"
             />
@@ -594,8 +595,8 @@ export function OnboardingFlow() {
                 <select
                   onChange={(event) =>
                     updateVehicleForm(
-                      'depreciationModel',
-                      event.target.value as DepreciationModel
+                      "depreciationModel",
+                      event.target.value as DepreciationModel,
                     )
                   }
                   value={vehicleForm.depreciationModel}
@@ -611,8 +612,8 @@ export function OnboardingFlow() {
                   inputMode="decimal"
                   onChange={(event) =>
                     updateVehicleForm(
-                      'annualDepreciationAmount',
-                      event.target.value
+                      "annualDepreciationAmount",
+                      event.target.value,
                     )
                   }
                   placeholder="60000"
@@ -625,7 +626,7 @@ export function OnboardingFlow() {
                 <input
                   inputMode="decimal"
                   onChange={(event) =>
-                    updateVehicleForm('annualEstimatedKm', event.target.value)
+                    updateVehicleForm("annualEstimatedKm", event.target.value)
                   }
                   placeholder="30000"
                   value={vehicleForm.annualEstimatedKm}
@@ -638,7 +639,7 @@ export function OnboardingFlow() {
             className="primary-button"
             disabled={isSavingVehicle || isLoading}
           >
-            {isSavingVehicle ? 'Kaydediliyor' : 'Aracı kaydet'}
+            {isSavingVehicle ? "Kaydediliyor" : "Aracı kaydet"}
           </button>
         </form>
 
@@ -675,8 +676,8 @@ export function OnboardingFlow() {
                 inputMode="decimal"
                 onChange={(event) =>
                   updatePreferenceForm(
-                    'dailyTargetNetProfit',
-                    event.target.value
+                    "dailyTargetNetProfit",
+                    event.target.value,
                   )
                 }
                 placeholder="1500"
@@ -689,8 +690,8 @@ export function OnboardingFlow() {
               <select
                 onChange={(event) =>
                   updatePreferenceForm(
-                    'fixedCostAllocationMethod',
-                    event.target.value as FixedCostAllocationMethod
+                    "fixedCostAllocationMethod",
+                    event.target.value as FixedCostAllocationMethod,
                   )
                 }
                 value={preferenceForm.fixedCostAllocationMethod}
@@ -704,25 +705,11 @@ export function OnboardingFlow() {
             </label>
           </div>
 
-          <label className="checkbox-row">
-            <input
-              checked={preferenceForm.showDepreciationInProfit}
-              onChange={(event) =>
-                updatePreferenceForm(
-                  'showDepreciationInProfit',
-                  event.target.checked
-                )
-              }
-              type="checkbox"
-            />
-            Amortisman gerçek net kâr hesabına dahil edilsin
-          </label>
-
           <button
             className="primary-button"
             disabled={isSavingPreferences || vehicles.length === 0}
           >
-            {isSavingPreferences ? 'Kaydediliyor' : 'Tercihleri kaydet'}
+            {isSavingPreferences ? "Kaydediliyor" : "Tercihleri kaydet"}
           </button>
         </form>
 
@@ -744,7 +731,7 @@ export function OnboardingFlow() {
               Paket adı
               <input
                 onChange={(event) =>
-                  updatePackageForm('name', event.target.value)
+                  updatePackageForm("name", event.target.value)
                 }
                 value={packageForm.name}
               />
@@ -755,7 +742,7 @@ export function OnboardingFlow() {
               <input
                 inputMode="decimal"
                 onChange={(event) =>
-                  updatePackageForm('amount', event.target.value)
+                  updatePackageForm("amount", event.target.value)
                 }
                 placeholder="700"
                 value={packageForm.amount}
@@ -766,7 +753,7 @@ export function OnboardingFlow() {
               Başlangıç
               <input
                 onChange={(event) =>
-                  updatePackageForm('startsAt', event.target.value)
+                  updatePackageForm("startsAt", event.target.value)
                 }
                 type="date"
                 value={packageForm.startsAt}
@@ -777,7 +764,7 @@ export function OnboardingFlow() {
               Bitiş
               <input
                 onChange={(event) =>
-                  updatePackageForm('endsAt', event.target.value)
+                  updatePackageForm("endsAt", event.target.value)
                 }
                 type="date"
                 value={packageForm.endsAt}
@@ -789,7 +776,7 @@ export function OnboardingFlow() {
               <input
                 inputMode="numeric"
                 onChange={(event) =>
-                  updatePackageForm('durationDays', event.target.value)
+                  updatePackageForm("durationDays", event.target.value)
                 }
                 value={packageForm.durationDays}
               />
@@ -800,8 +787,8 @@ export function OnboardingFlow() {
               <select
                 onChange={(event) =>
                   updatePackageForm(
-                    'allocationMethod',
-                    event.target.value as PackageAllocationMethod
+                    "allocationMethod",
+                    event.target.value as PackageAllocationMethod,
                   )
                 }
                 value={packageForm.allocationMethod}
@@ -819,7 +806,7 @@ export function OnboardingFlow() {
               <input
                 inputMode="decimal"
                 onChange={(event) =>
-                  updatePackageForm('breakEvenTarget', event.target.value)
+                  updatePackageForm("breakEvenTarget", event.target.value)
                 }
                 placeholder="1240"
                 value={packageForm.breakEvenTarget}
@@ -831,7 +818,7 @@ export function OnboardingFlow() {
             className="primary-button"
             disabled={isSavingPackage || !selectedVehicleId}
           >
-            {isSavingPackage ? 'Kaydediliyor' : 'Paketi kaydet veya atla'}
+            {isSavingPackage ? "Kaydediliyor" : "Paketi kaydet veya atla"}
           </button>
         </form>
       </section>
@@ -842,7 +829,7 @@ export function OnboardingFlow() {
           <h2>
             {selectedVehicle
               ? `${selectedVehicle.plateNumber} için hesaplama hazır.`
-              : 'Araç seçildiğinde hesaplama hazır olacak.'}
+              : "Araç seçildiğinde hesaplama hazır olacak."}
           </h2>
           <p>
             Eksik kalan giderleri daha sonra sabit gider, yakıt ve bakım
@@ -866,7 +853,7 @@ function StepCard({
   description,
   done,
   icon: Icon,
-  label
+  label,
 }: {
   description: string;
   done: boolean;
@@ -874,7 +861,7 @@ function StepCard({
   label: string;
 }) {
   return (
-    <article className={done ? 'onboarding-step done' : 'onboarding-step'}>
+    <article className={done ? "onboarding-step done" : "onboarding-step"}>
       <Icon aria-hidden="true" />
       <div>
         <strong>{label}</strong>
@@ -886,13 +873,13 @@ function StepCard({
 }
 
 function formatVehicleLabel(vehicle: Vehicle) {
-  const name = [vehicle.brand, vehicle.model].filter(Boolean).join(' ');
+  const name = [vehicle.brand, vehicle.model].filter(Boolean).join(" ");
 
   return name ? `${vehicle.plateNumber} - ${name}` : vehicle.plateNumber;
 }
 
 function normalizeDecimal(value: string) {
-  const normalizedValue = value.trim().replace(',', '.');
+  const normalizedValue = value.trim().replace(",", ".");
 
   return normalizedValue || undefined;
 }
@@ -900,8 +887,8 @@ function normalizeDecimal(value: string) {
 function removeEmptyValues(values: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(values).filter(
-      ([, value]) => value !== undefined && value !== ''
-    )
+      ([, value]) => value !== undefined && value !== "",
+    ),
   );
 }
 

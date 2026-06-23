@@ -1,5 +1,6 @@
 import {
   AllocationType,
+  DepreciationModel,
   ExpenseType,
   FixedCostAllocationMethod,
   PackageAllocationMethod,
@@ -236,6 +237,109 @@ describe("ReportsService", () => {
     expect(result.totalCost).toBe("80.00");
     expect(result.netProfit).toBe("920.00");
     expect(result.sourceBreakdown.maintenanceEntryReserveCost).toBe("80.00");
+    expectProfitReportFormula(result);
+  });
+
+  it("calculates depreciation from current vehicle settings in daily profit", async () => {
+    const prisma = {
+      $transaction: jest.fn((queries: Array<Promise<unknown>>) =>
+        Promise.all(queries),
+      ),
+      trip: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 2,
+          },
+          _sum: {
+            allocated_depreciation_cost: new Prisma.Decimal("0"),
+            allocated_fixed_cost: new Prisma.Decimal("0"),
+            allocated_maintenance_cost: new Prisma.Decimal("0"),
+            allocated_other_variable_cost: new Prisma.Decimal("0"),
+            allocated_package_cost: new Prisma.Decimal("0"),
+            cash_net_profit: new Prisma.Decimal("1000"),
+            cancellation_income: new Prisma.Decimal("0"),
+            deadhead_km: new Prisma.Decimal("20"),
+            duration_minutes: 120,
+            estimated_fuel_cost: new Prisma.Decimal("0"),
+            gross_income: new Prisma.Decimal("1000"),
+            tip_amount: new Prisma.Decimal("0"),
+            total_income: new Prisma.Decimal("1000"),
+            total_km: new Prisma.Decimal("100"),
+            true_net_profit: new Prisma.Decimal("1000"),
+            trip_km: new Prisma.Decimal("80"),
+          },
+        }),
+        groupBy: jest.fn().mockResolvedValue([
+          {
+            _sum: {
+              total_km: new Prisma.Decimal("100"),
+            },
+            vehicle_id: "vehicle_1",
+          },
+        ]),
+      },
+      vehicle: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            annual_depreciation_amount: new Prisma.Decimal("60000"),
+            annual_estimated_km: new Prisma.Decimal("30000"),
+            depreciation_enabled: true,
+            depreciation_model: DepreciationModel.PER_KM,
+            id: "vehicle_1",
+          },
+        ]),
+      },
+      shift: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 1,
+          },
+          _sum: {
+            active_minutes: 120,
+          },
+        }),
+      },
+      expenseEntry: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      fuelEntry: {
+        aggregate: jest.fn().mockResolvedValue({
+          _count: {
+            _all: 0,
+          },
+          _sum: {
+            amount: null,
+            liters: null,
+          },
+        }),
+      },
+      recurringExpense: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      maintenanceEntry: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      tagPackage: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new ReportsService(
+      new FinanceCalculationEngine(),
+      prisma as never,
+      new ReportCacheService(),
+    );
+
+    const result = await service.calculateDailyProfit("user_1", {
+      date: "2026-06-18",
+      vehicleId: "vehicle_1",
+    });
+
+    expect(result.depreciation).toBe("200.00");
+    expect(result.totalCost).toBe("200.00");
+    expect(result.netProfit).toBe("800.00");
+    expect(result.sourceBreakdown.calculatedVehicleDepreciationCost).toBe(
+      "200.00",
+    );
     expectProfitReportFormula(result);
   });
 
