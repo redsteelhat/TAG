@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   Menu,
   Package,
+  Plus,
   Receipt,
   ReceiptText,
   Settings,
@@ -118,8 +119,8 @@ export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
         <Link className="brand" href="/">
           <span className="brand-mark">TF</span>
           <div>
-            <p className="brand-name">TAG Finans</p>
-            <p className="brand-subtitle">Sürücü operasyon paneli</p>
+            <p className="brand-name">TAG Financials</p>
+            <p className="brand-subtitle">Gerçek Net Kâr Motoru</p>
           </div>
         </Link>
 
@@ -160,8 +161,14 @@ export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
         </nav>
 
         <div className="sidebar-footer">
-          <span className="sidebar-footer-label">MVP odağı</span>
-          <strong>Gerçek net kâr hesabı</strong>
+          <Link className="primary-button full-width" href="/income" style={{ justifyContent: 'center' }}>
+            <Plus aria-hidden="true" style={{ width: 16, height: 16, flexShrink: 0 }} />
+            Yeni Kayıt Ekle
+          </Link>
+          <Link className="sidebar-settings-link" href="/settings">
+            <Settings aria-hidden="true" style={{ width: 15, height: 15 }} />
+            Ayarlar
+          </Link>
         </div>
       </aside>
 
@@ -184,7 +191,9 @@ export function AppShell({ eyebrow, title, actions, children }: AppShellProps) {
           {actions ? <div className="actions">{actions}</div> : null}
         </header>
 
-        {children}
+        <div className="workspace-content">
+          {children}
+        </div>
       </section>
     </main>
   );
