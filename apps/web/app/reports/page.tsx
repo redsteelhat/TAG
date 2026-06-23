@@ -1,11 +1,7 @@
-import Link from 'next/link';
-import { Download, Plus } from 'lucide-react';
-import { AppShell } from '../../components/app-shell';
-import { DailyReport } from '../../components/daily-report';
-import { FuelTrendChart } from '../../components/fuel-trend-chart';
-import { KmProfitTrendChart } from '../../components/km-profit-trend-chart';
-import { MonthlyReport } from '../../components/monthly-report';
-import { WeeklyReport } from '../../components/weekly-report';
+import Link from "next/link";
+import { Download, Plus } from "lucide-react";
+import { AppShell } from "../../components/app-shell";
+import { ReportsDecisionPanel } from "../../components/reports-decision-panel";
 
 export default function ReportsPage() {
   return (
@@ -25,13 +21,7 @@ export default function ReportsPage() {
       eyebrow="Finans analizi"
       title="Raporlar"
     >
-      <div className="reports-page-stack">
-        <FuelTrendChart />
-        <KmProfitTrendChart />
-        <DailyReport />
-        <WeeklyReport />
-        <MonthlyReport />
-      </div>
+      <ReportsDecisionPanel />
     </AppShell>
   );
 }

@@ -3,16 +3,16 @@ interface ExpenseDistributionChartProps {
 }
 
 const chartColors = [
-  '#0f766e',
-  '#2563eb',
-  '#7c3aed',
-  '#dc2626',
-  '#ca8a04',
-  '#64748b'
+  "#0f766e",
+  "#2563eb",
+  "#7c3aed",
+  "#dc2626",
+  "#ca8a04",
+  "#64748b",
 ];
 
 export function ExpenseDistributionChart({
-  rows
+  rows,
 }: ExpenseDistributionChartProps) {
   const items = rows
     .map(([label, amount]) => ({
@@ -23,7 +23,7 @@ export function ExpenseDistributionChart({
             chartColors.length
         ],
       label,
-      value: toNumber(amount)
+      value: toNumber(amount),
     }))
     .filter((item) => item.value > 0);
   const total = items.reduce((sum, item) => sum + item.value, 0);
@@ -34,7 +34,7 @@ export function ExpenseDistributionChart({
       <div className="expense-distribution-chart empty">
         <div className="expense-donut empty" aria-hidden="true" />
         <div>
-          <strong>Gider dagilimi yok</strong>
+          <strong>Gider dağılımı yok</strong>
           <span>Bu dönem için maliyet kalemi hesaplanmadı.</span>
         </div>
       </div>
@@ -44,7 +44,7 @@ export function ExpenseDistributionChart({
   return (
     <div className="expense-distribution-chart">
       <div
-        aria-label="Gider dagilim grafiği"
+        aria-label="Gider dağılım grafiği"
         className="expense-donut"
         role="img"
         style={{ background: gradient }}
@@ -78,7 +78,7 @@ export function ExpenseDistributionChart({
 
 function buildConicGradient(
   items: Array<{ color: string; value: number }>,
-  total: number
+  total: number,
 ) {
   let cursor = 0;
   const segments = items.map((item) => {
@@ -89,21 +89,21 @@ function buildConicGradient(
     return `${item.color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`;
   });
 
-  return `conic-gradient(${segments.join(', ')})`;
+  return `conic-gradient(${segments.join(", ")})`;
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat('tr-TR', {
-    currency: 'TRY',
+  return new Intl.NumberFormat("tr-TR", {
+    currency: "TRY",
     maximumFractionDigits: 0,
-    style: 'currency'
+    style: "currency",
   }).format(value);
 }
 
 function formatNumber(value: number, maximumFractionDigits = 1) {
-  return new Intl.NumberFormat('tr-TR', {
+  return new Intl.NumberFormat("tr-TR", {
     maximumFractionDigits,
-    minimumFractionDigits: 0
+    minimumFractionDigits: 0,
   }).format(value);
 }
 

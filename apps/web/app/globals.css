@@ -1281,6 +1281,123 @@ h2 {
   gap: 24px;
 }
 
+.reports-decision-page {
+  display: grid;
+  gap: 16px;
+}
+
+.reports-filter-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(150px, 0.65fr) minmax(190px, 0.9fr) minmax(190px, 1fr)
+    auto auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.reports-custom-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.report-tab-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.report-tabs {
+  display: grid;
+  gap: 8px;
+}
+
+.report-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 12px;
+  text-align: left;
+}
+
+.report-tabs button.active {
+  border-color: rgba(15, 118, 110, 0.35);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.report-tabs svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+.report-tab-panel {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.report-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.report-value-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 12px;
+}
+
+.report-value-card span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.report-value-card strong {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.report-warning-list {
+  display: grid;
+  gap: 8px;
+}
+
+.report-warning-list.clean {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #b7e4d6;
+  border-radius: 8px;
+  background: var(--success-soft);
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 12px;
+}
+
+.report-warning-list.clean svg {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+}
+
 .fuel-trend-panel {
   overflow: hidden;
 }
@@ -2865,6 +2982,9 @@ h2 {
   .metric-grid,
   .content-grid,
   .dashboard-grid,
+  .reports-filter-grid,
+  .report-tab-layout,
+  .report-detail-grid,
   .settings-grid,
   .settings-form-grid,
   .settings-form-grid.compact,
@@ -2915,6 +3035,10 @@ h2 {
   }
 
   .settings-category-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3003,7 +3127,9 @@ h2 {
   }
 
   .settings-tabs,
-  .settings-category-row {
+  .settings-category-row,
+  .reports-custom-range,
+  .report-tabs {
     grid-template-columns: 1fr;
   }
 
