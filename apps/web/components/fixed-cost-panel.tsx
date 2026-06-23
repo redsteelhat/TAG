@@ -986,23 +986,29 @@ export function FixedCostPanel() {
         </div>
 
         {message ? (
-          <div className="form-alert-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", margin: "8px 0" }}>
-            <p className="form-alert">{message}</p>
+          <div className="form-alert" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{message}</span>
             <button
               className="secondary-button compact"
-              onClick={() => {
-                setMessage(null);
-                void fetchFixedCosts(accessToken, page);
-              }}
+              onClick={() => fetchFixedCosts()}
               type="button"
+              style={{ marginLeft: '12px', padding: '4px 8px', fontSize: '12px' }}
             >
-              <RefreshCw aria-hidden="true" className="inline-icon" />
-              Yenile
+              <RefreshCw aria-hidden="true" className="inline-icon" style={{ marginRight: '4px', width: '12px', height: '12px' }} />
+              Tekrar Dene
             </button>
           </div>
         ) : null}
 
-        {fixedCosts.length > 0 ? (
+        {isLoading ? (
+          <div className="skeleton-list animate-pulse" style={{ padding: '20px 0' }}>
+            <div className="skeleton-row" style={{ height: '40px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+          </div>
+        ) : fixedCosts.length > 0 ? (
           <div className="data-table" role="table" aria-label="Sabit giderler">
             <div
               className="data-table-row data-table-head fixed-cost-table-row"
@@ -1083,8 +1089,8 @@ export function FixedCostPanel() {
             <EmptyState
               description={
                 hasActiveFilters
-                  ? "Bu filtrelerle eşleşen sabit gider bulunamadı. Dönem, durum veya araç filtresini temizleyerek tekrar deneyebilirsin."
-                  : "Sabit gider eklemeden gerçek net kâr eksik hesaplanır. Sigorta, MTV, muayene, kredi, telefon ve abonelik giderleri günlük ve aylık kâra dağıtılır."
+                  ? "Bu filtrelerle eşleşen sabit gider bulunamadı. Dönem, durum veya araç filtresini temizleyebilirsin."
+                  : "Henüz sabit gider kaydınız bulunmamaktadır. Sigorta, MTV, muayene, kredi ödemesi, telefon faturası veya araç kiralama gibi düzenli sabit giderlerinizi buraya ekleyerek net kâr analizlerini anlık takip edin."
               }
               icon={hasActiveFilters ? FileSearch : CalendarClock}
               title={

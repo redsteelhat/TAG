@@ -378,7 +378,17 @@ export function DepreciationSettingsPanel() {
             Bu aracın amortismanını net kâr hesabına dahil et
           </label>
 
-          {message ? <p className="form-message">{message}</p> : null}
+          {message ? (
+            <p
+              className={
+                message.includes('kaydedildi') || message.includes('başarıyla')
+                  ? 'form-success'
+                  : 'form-alert'
+              }
+            >
+              {message}
+            </p>
+          ) : null}
 
           <div className="form-actions">
             <button

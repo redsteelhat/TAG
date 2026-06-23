@@ -242,33 +242,40 @@ export function OnboardingFlow() {
       return;
     }
 
-    const plateNormalized = vehicleForm.plateNumber.replace(/\s+/g, "").toUpperCase();
-    if (!plateNormalized) {
-      setMessage("Plaka zorunludur.");
+    // Client-side validations
+    if (!vehicleForm.plateNumber.trim()) {
+      setMessage("Plaka alanı zorunludur.");
       return;
     }
-    if (toNumber(vehicleForm.averageConsumption) <= 0) {
+    if (!vehicleForm.brand.trim() || !vehicleForm.model.trim()) {
+      setMessage("Araç marka ve modeli zorunludur.");
+      return;
+    }
+    const consumption = toNumber(vehicleForm.averageConsumption);
+    if (isNaN(consumption) || consumption <= 0) {
       setMessage("Ortalama yakıt tüketimi 0'dan büyük olmalıdır.");
       return;
     }
-    if (vehicleForm.odometerKm && toNumber(vehicleForm.odometerKm) < 0) {
+    const odometer = toNumber(vehicleForm.odometerKm);
+    if (isNaN(odometer) || odometer < 0) {
       setMessage("Km sayacı negatif olamaz.");
       return;
     }
-    if (vehicleForm.modelYear) {
-      const year = Number(vehicleForm.modelYear);
-      const currentYear = new Date().getFullYear();
-      if (year < 1950 || year > currentYear + 1) {
-        setMessage(`Model yılı 1950 ile ${currentYear + 1} arasında olmalıdır.`);
-        return;
-      }
+    const modelYear = vehicleForm.modelYear ? Number(vehicleForm.modelYear) : undefined;
+    const currentYear = new Date().getFullYear();
+    if (modelYear && (modelYear < 1950 || modelYear > currentYear + 1)) {
+      setMessage(`Model yılı 1950 ile ${currentYear + 1} arasında olmalıdır.`);
+      return;
     }
+
     if (vehicleForm.depreciationEnabled) {
-      if (toNumber(vehicleForm.annualDepreciationAmount) <= 0) {
-        setMessage("Yıllık değer kaybı 0'dan büyük olmalıdır.");
+      const depAmt = toNumber(vehicleForm.annualDepreciationAmount);
+      const estKm = toNumber(vehicleForm.annualEstimatedKm);
+      if (isNaN(depAmt) || depAmt <= 0) {
+        setMessage("Amortisman açıkken yıllık değer kaybı 0'dan büyük olmalıdır.");
         return;
       }
-      if (vehicleForm.depreciationModel === "PER_KM" && toNumber(vehicleForm.annualEstimatedKm) <= 0) {
+      if (vehicleForm.depreciationModel === 'PER_KM' && (isNaN(estKm) || estKm <= 0)) {
         setMessage("Km bazlı amortisman için yıllık tahmini km 0'dan büyük olmalıdır.");
         return;
       }
@@ -312,10 +319,10 @@ export function OnboardingFlow() {
       setSelectedVehicleId(response.data.id);
       setVehicleForm(initialVehicleForm);
       setCompletedSteps((current) => ({ ...current, vehicle: true }));
-      setMessage(`${response.data.plateNumber} plakali araç hazır.`);
+      setMessage(`${response.data.plateNumber} plakalı araç başarıyla kaydedildi.`);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Araç kaydedilemedi.",
+        error instanceof Error ? error.message : "İşlem tamamlanamadı. Lütfen tekrar deneyin.",
       );
     } finally {
       setIsSavingVehicle(false);
@@ -335,8 +342,9 @@ export function OnboardingFlow() {
       return;
     }
 
-    if (toNumber(preferenceForm.dailyTargetNetProfit) < 0) {
-      setMessage("Günlük net kâr hedefi negatif olamaz.");
+    const targetProfit = toNumber(preferenceForm.dailyTargetNetProfit);
+    if (isNaN(targetProfit) || targetProfit < 0) {
+      setMessage("Günlük hedef net kâr negatif olamaz.");
       return;
     }
 
@@ -357,12 +365,12 @@ export function OnboardingFlow() {
       );
 
       setCompletedSteps((current) => ({ ...current, preferences: true }));
-      setMessage("Finans tercihleri kaydedildi.");
+      setMessage("Finans tercihleri başarıyla kaydedildi.");
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Finans tercihleri kaydedilemedi.",
+          : "İşlem tamamlanamadı. Lütfen tekrar deneyin.",
       );
     } finally {
       setIsSavingPreferences(false);
@@ -375,7 +383,7 @@ export function OnboardingFlow() {
     if (!packageForm.amount.trim()) {
       setCompletedSteps((current) => ({ ...current, package: true }));
       setMessage(
-        "Paket adımi atlandi. Daha sonra Paketler ekranindan eklenebilir.",
+        "Paket adımı atlandı. Daha sonra Paketler ekranından eklenebilir.",
       );
       return;
     }
@@ -390,20 +398,23 @@ export function OnboardingFlow() {
       return;
     }
 
-    const pkgAmount = toNumber(normalizeDecimal(packageForm.amount));
-    if (pkgAmount <= 0) {
+    const amount = toNumber(packageForm.amount);
+    if (isNaN(amount) || amount <= 0) {
       setMessage("Paket tutarı 0'dan büyük olmalıdır.");
       return;
     }
-    const duration = Number(packageForm.durationDays);
-    if (!packageForm.durationDays || Number.isNaN(duration) || duration <= 0) {
-      setMessage("Paket gün sayısı 0'dan büyük olmalıdır.");
+
+    const breakEven = toNumber(packageForm.breakEvenTarget);
+    if (packageForm.breakEvenTarget.trim() && (isNaN(breakEven) || breakEven < 0)) {
+      setMessage("Başabaş hedefi negatif olamaz.");
       return;
     }
+
     if (!packageForm.startsAt || !packageForm.endsAt) {
-      setMessage("Başlangıç ve bitiş tarihleri zorunlu.");
+      setMessage("Başlangıç ve bitiş tarihleri zorunludur.");
       return;
     }
+
     if (new Date(packageForm.endsAt) < new Date(packageForm.startsAt)) {
       setMessage("Bitiş tarihi başlangıç tarihinden önce olamaz.");
       return;
@@ -432,10 +443,10 @@ export function OnboardingFlow() {
       );
 
       setCompletedSteps((current) => ({ ...current, package: true }));
-      setMessage("Paket gideri kaydedildi.");
+      setMessage("Paket gideri başarıyla kaydedildi.");
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Paket kaydedilemedi.",
+        error instanceof Error ? error.message : "İşlem tamamlanamadı. Lütfen tekrar deneyin.",
       );
     } finally {
       setIsSavingPackage(false);
@@ -956,8 +967,13 @@ function addDays(dateValue: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-function toNumber(value: string | number | null | undefined) {
-  const parsedValue = Number(value);
-
-  return Number.isFinite(parsedValue) ? parsedValue : 0;
+function toNumber(value: string | number | null | undefined): number {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+  if (typeof value === "number") {
+    return value;
+  }
+  const parsed = parseFloat(String(value).replace(",", "."));
+  return isNaN(parsed) ? 0 : parsed;
 }

@@ -12,6 +12,7 @@ import {
   PackageCheck,
   Plus,
   ReceiptText,
+  RefreshCw,
   Route,
   TrendingUp,
   WalletCards,
@@ -154,8 +155,7 @@ export function DailyIncomeDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
-
-  const [retryTrigger, setRetryTrigger] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -197,7 +197,7 @@ export function DailyIncomeDashboard() {
           setError(
             loadError instanceof Error
               ? loadError.message
-              : "Ana panel metrikleri alınamadı.",
+              : "Ana panel metrikleri yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.",
           );
         }
       } finally {
@@ -212,29 +212,11 @@ export function DailyIncomeDashboard() {
     return () => {
       isMounted = false;
     };
-  }, [retryTrigger]);
+  }, [refreshKey]);
 
   const cards = useMemo(() => {
-    if (needsLogin) {
-      return buildStateCards(
-        "Giriş gerekli",
-        "Oturum açıldığında ana panel verisi yüklenir",
-      );
-    }
-
-    if (isLoading) {
-      return buildStateCards(
-        "Yükleniyor",
-        "Finans motoru rapor özeti hesaplanıyor",
-        "...",
-      );
-    }
-
-    if (error || !overview) {
-      return buildStateCards(
-        "API hatası",
-        error ?? "Ana panel metrikleri alınamadı",
-      );
+    if (needsLogin || isLoading || error || !overview) {
+      return [];
     }
 
     const dashboard = overview.dashboard;
@@ -349,6 +331,47 @@ export function DailyIncomeDashboard() {
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="animate-pulse" style={{ display: 'grid', gap: '16px' }}>
+        <section className="metric-grid" aria-label="Metrikler yükleniyor...">
+          {Array.from({ length: 9 }).map((_, idx) => (
+            <article className="skeleton-card" key={idx}>
+              <div className="skeleton-title" />
+              <div className="skeleton-value" style={{ height: '24px' }} />
+              <div className="skeleton-desc" />
+              <div className="skeleton-badge" style={{ height: '14px', width: '40px' }} />
+            </article>
+          ))}
+        </section>
+        <section className="panel skeleton-card" style={{ height: '260px' }} />
+      </div>
+    );
+  }
+
+  if (error || !overview) {
+    return (
+      <section className="panel empty-state-panel">
+        <EmptyState
+          description={error ?? "Finans motoru metrikleri alınırken bağlantı hatası oluştu. Lütfen bağlantınızı kontrol edip tekrar deneyin."}
+          eyebrow="Bağlantı Hatası"
+          icon={AlertTriangle}
+          title="Ana panel metrikleri yüklenemedi."
+        />
+        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}>
+          <button
+            className="secondary-button"
+            onClick={() => setRefreshKey((k) => k + 1)}
+            type="button"
+          >
+            <RefreshCw aria-hidden="true" className="inline-icon" />
+            Yenile
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <>
       <section className="metric-grid" aria-label="Günlük ana panel metrikleri">
@@ -369,32 +392,12 @@ export function DailyIncomeDashboard() {
         })}
       </section>
 
-      {error ? (
-        <section className="panel empty-state-panel">
-          <EmptyState
-            description="Ana panel metrikleri yüklenirken bir bağlantı hatası oluştu. Lütfen tekrar deneyin."
-            icon={AlertTriangle}
-            title="Metrikler Yüklenemedi"
-          />
-          <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
-            <button
-              className="secondary-button"
-              onClick={() => setRetryTrigger((prev) => prev + 1)}
-              type="button"
-            >
-              <RefreshCw aria-hidden="true" className="inline-icon" />
-              Yenile
-            </button>
-          </div>
-        </section>
-      ) : null}
-
       {!isLoading && overview && !overview.dashboard.hasData ? (
         <section className="panel empty-state-panel">
           <EmptyState
             actionHref="/income"
             actionLabel="İlk seferi ekle"
-            description="Bugün için sefer, gider, yakıt veya paket kaydı yok. Demo veri gösterilmez; ana panel gerçek günlük kayıtlarla dolar."
+            description="Bugün için sefer, gider, yakıt veya paket kaydı bulunmuyor. Gerçek zamanlı kâr-zarar takibi yapabilmek için günlük kayıt girmelisiniz. İlk sefer veya gider kaydınızı ekleyerek net kâr analizinizi başlatın."
             eyebrow="Bugün kayıt yok"
             icon={FileSearch}
             title="Ana panel için gerçek kayıt bekleniyor."
@@ -427,17 +430,7 @@ function DashboardDetails({ dashboard }: { dashboard: DashboardAggregation }) {
           <div className="break-even-list">
             {dashboard.warnings.map((warning) => (
               <div className="expense-row" key={warning.code}>
-                <span>
-                  {warning.code === "FUEL_PRICE_MISSING" || warning.code === "NO_FUEL_PRICE"
-                    ? "Yakıt varsayımı eksik"
-                    : warning.code === "FIXED_COST_NOT_DEFINED" || warning.code === "NO_RECURRING_EXPENSE"
-                      ? "Sabit gider tanımlanmadı"
-                      : warning.code === "MAINTENANCE_NOT_DEFINED" || warning.code === "NO_MAINTENANCE_RESERVE"
-                        ? "Bakım rezervi hesaplanmıyor"
-                        : warning.code === "DEPRECIATION_DISABLED" || warning.code === "NO_DEPRECIATION"
-                          ? "Amortisman kapalı"
-                          : warning.message}
-                </span>
+                <span>{warning.message}</span>
               </div>
             ))}
           </div>

@@ -372,9 +372,30 @@ export function IncomeShiftList() {
         </div>
       </form>
 
-      {message ? <p className="form-alert">{message}</p> : null}
+      {message ? (
+        <div className="form-alert" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{message}</span>
+          <button
+            className="secondary-button compact"
+            onClick={() => fetchShifts()}
+            type="button"
+            style={{ marginLeft: '12px', padding: '4px 8px', fontSize: '12px' }}
+          >
+            <RefreshCw aria-hidden="true" className="inline-icon" style={{ marginRight: '4px', width: '12px', height: '12px' }} />
+            Tekrar Dene
+          </button>
+        </div>
+      ) : null}
 
-      {shifts.length > 0 ? (
+      {isLoading ? (
+        <div className="skeleton-list animate-pulse" style={{ padding: '20px 0' }}>
+          <div className="skeleton-row" style={{ height: '40px', marginBottom: '8px' }} />
+          <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+          <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+          <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+          <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+        </div>
+      ) : shifts.length > 0 ? (
         <div className="data-table" role="table" aria-label="Vardiyalar">
           <div
             className="data-table-row shift-table-row data-table-head"
@@ -424,7 +445,7 @@ export function IncomeShiftList() {
             description={
               hasActiveFilters
                 ? 'Bu filtrelerle eşleşen vardiya bulunamadı. Durum, araç veya tarih filtresini temizleyebilirsin.'
-                : 'Vardiya başlatip bitirdiginde süre, km, gelir ve net kâr bu listede görünür.'
+                : 'Henüz vardiya kaydınız bulunmamaktadır. Çalışma vardiyalarınızı buraya ekleyerek net kâr, süre, yakıt ve km başı kâr analizlerini anlık takip edin.'
             }
             icon={hasActiveFilters ? FileSearch : CalendarClock}
             title={
@@ -435,7 +456,7 @@ export function IncomeShiftList() {
             tips={
               hasActiveFilters
                 ? ['Tarih aralığını genişlet', 'Durum filtresini kaldır']
-                : ['Vardiyaya başla', 'Seferleri ekle', 'Vardiyayi bitir']
+                : ['Vardiyaya başla', 'Seferleri ekle', 'Vardiyayı bitir']
             }
           />
         </div>

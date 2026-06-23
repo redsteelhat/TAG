@@ -684,7 +684,19 @@ export function MaintenancePanel() {
             </button>
           </div>
 
-          {formMessage ? <p className="form-message">{formMessage}</p> : null}
+          {formMessage ? (
+            <p
+              className={
+                formMessage.includes("eklendi") ||
+                formMessage.includes("başarıyla") ||
+                formMessage.includes("güncellendi")
+                  ? "form-success"
+                  : "form-alert"
+              }
+            >
+              {formMessage}
+            </p>
+          ) : null}
         </form>
       </section>
 
@@ -855,17 +867,41 @@ export function MaintenancePanel() {
           </div>
         </form>
 
-        {message ? <p className="form-message">{message}</p> : null}
+        {message ? (
+          <div
+            className={
+              message.includes('kaydedildi') || message.includes('başarıyla')
+                ? 'form-success'
+                : 'form-alert'
+            }
+            style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          >
+            <span>{message}</span>
+            <button
+              className="secondary-button compact"
+              onClick={() => fetchEntries()}
+              type="button"
+              style={{ marginLeft: '12px', padding: '4px 8px', fontSize: '12px' }}
+            >
+              <RefreshCw aria-hidden="true" className="inline-icon" style={{ marginRight: '4px', width: '12px', height: '12px' }} />
+              Tekrar Dene
+            </button>
+          </div>
+        ) : null}
 
         {isLoading ? (
-          <div className="data-table-empty">Bakım kayıtları yükleniyor.</div>
+          <div className="skeleton-list animate-pulse" style={{ padding: '20px 0' }}>
+            <div className="skeleton-row" style={{ height: '40px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+          </div>
         ) : entries.length === 0 ? (
           <div className="empty-state-panel compact">
             <EmptyState
               description={
                 hasActiveFilters
                   ? "Bu filtrelerle eşleşen bakım kaydı bulunamadı. Km, tutar veya kategori filtresini genişletebilirsin."
-                  : "Periyodik bakım, lastik, mekanik ve temizlik kayıtları eklendikçe km başı yıpranma maliyeti burada hesaplanır."
+                  : "Henüz bakım kaydınız bulunmamaktadır. Lastik değişimi, periyodik yağ bakımı, mekanik onarımlar ve temizlik giderlerini ekleyerek km başına yıpranma maliyetinin kârınıza etkisini anlık takip edin."
               }
               icon={hasActiveFilters ? FileSearch : Wrench}
               title={

@@ -261,6 +261,17 @@ export function ReportsDecisionPanel() {
       return;
     }
 
+    if (reportType === "custom") {
+      if (new Date(customEndDate) < new Date(customStartDate)) {
+        setMessage("Bitiş tarihi başlangıç tarihinden önce olamaz.");
+        return;
+      }
+      setMessage(
+        "Özel aralık için backend endpoint’i henüz hazır değil. Günlük, haftalık veya aylık rapor seç.",
+      );
+      return;
+    }
+
     void loadReport(accessToken, reportType, vehicleId);
   }
 
@@ -355,10 +366,35 @@ export function ReportsDecisionPanel() {
           </Link>
         </form>
 
-        {message ? <p className="form-message">{message}</p> : null}
+        {message ? (
+          <p
+            className={
+              message.includes("başarıyla") ||
+              message.includes("yenilendi") ||
+              message.includes("hazırlandı")
+                ? "form-success"
+                : "form-alert"
+            }
+          >
+            {message}
+          </p>
+        ) : null}
       </section>
 
-      {report ? (
+      {isLoading ? (
+        <div className="animate-pulse" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div className="metric-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+            <div className="skeleton-card" style={{ height: '120px' }} />
+            <div className="skeleton-card" style={{ height: '120px' }} />
+            <div className="skeleton-card" style={{ height: '120px' }} />
+            <div className="skeleton-card" style={{ height: '120px' }} />
+          </div>
+          <div className="panel" style={{ height: '350px' }}>
+            <div className="skeleton-row" style={{ height: '32px', width: '200px', marginBottom: '24px' }} />
+            <div className="skeleton-row" style={{ height: '200px', marginBottom: '16px' }} />
+          </div>
+        </div>
+      ) : report ? (
         <>
           <section className="metric-grid income-metrics">
             {buildPrimaryMetrics(report).map((metric) => {
@@ -372,7 +408,7 @@ export function ReportsDecisionPanel() {
                   </div>
                   <strong>{metric.value}</strong>
                   <span>{metric.detail}</span>
-                  <small>{reportTypeLabels[reportType]} rapor</small>
+                  <small>{reportTypeLabels[reportType]} Rapor</small>
                 </article>
               );
             })}
@@ -381,7 +417,7 @@ export function ReportsDecisionPanel() {
           {!hasData ? (
             <section className="empty-state-panel">
               <div>
-                <p className="eyebrow">Veri yok</p>
+                <p className="eyebrow">Veri Yok</p>
                 <h2>Seçili dönem için kayıt bulunamadı.</h2>
                 <p>
                   Rapor kartları aynı finans motorundan hesaplanır. Bu dönemde
@@ -423,10 +459,8 @@ export function ReportsDecisionPanel() {
       ) : (
         <section className="empty-state-panel">
           <div>
-            <p className="eyebrow">Rapor bekleniyor</p>
-            <h2>
-              {isLoading ? "Rapor hesaplanıyor" : "Filtre seçip raporu yenile."}
-            </h2>
+            <p className="eyebrow">Rapor Bekleniyor</p>
+            <h2>Filtre seçip raporu yenile.</h2>
             <p>
               Günlük, haftalık ve aylık raporlar aynı merkezi finans motorundan
               gelir; ana panelle aynı dönem seçildiğinde net kâr tutarlı kalır.

@@ -197,7 +197,26 @@ export function AdminOverviewPanel() {
 
   if (isLoading) {
     return (
-      <section className="panel admin-empty">Admin özeti yükleniyor...</section>
+      <div className="admin-page animate-pulse" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div className="metric-grid admin-metrics" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+          <div className="skeleton-card" style={{ height: '120px' }} />
+          <div className="skeleton-card" style={{ height: '120px' }} />
+          <div className="skeleton-card" style={{ height: '120px' }} />
+          <div className="skeleton-card" style={{ height: '120px' }} />
+        </div>
+        <div className="admin-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+          <div className="panel admin-panel" style={{ height: '200px' }}>
+            <div className="skeleton-row" style={{ height: '24px', width: '150px', marginBottom: '16px' }} />
+            <div className="skeleton-row" style={{ height: '16px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '16px', marginBottom: '8px' }} />
+          </div>
+          <div className="panel admin-panel" style={{ height: '200px' }}>
+            <div className="skeleton-row" style={{ height: '24px', width: '150px', marginBottom: '16px' }} />
+            <div className="skeleton-row" style={{ height: '16px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '16px', marginBottom: '8px' }} />
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -213,14 +232,32 @@ export function AdminOverviewPanel() {
           <Link className="secondary-button button-link" href="/">
             Ana panele dön
           </Link>
-        ) : null}
+        ) : (
+          <button className="primary-button" type="button" onClick={fetchOverview}>
+            <RefreshCw className="button-icon" aria-hidden="true" style={{ marginRight: '8px' }} />
+            Tekrar Dene
+          </button>
+        )}
       </section>
     );
   }
 
   return (
     <div className="admin-page">
-      {message ? <p className="form-error">{message}</p> : null}
+      {message ? (
+        <p
+          className={
+            message.includes("başarıyla") ||
+            message.includes("yenilendi") ||
+            message.includes("hazırlandı")
+              ? "form-success"
+              : "form-alert"
+          }
+          style={{ marginBottom: "16px" }}
+        >
+          {message}
+        </p>
+      ) : null}
 
       <section className="metric-grid admin-metrics">
         <MetricCard

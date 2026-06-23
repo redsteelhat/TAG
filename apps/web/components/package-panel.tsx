@@ -836,24 +836,28 @@ export function PackagePanel() {
         </div>
 
         {message ? (
-          <div className="form-alert-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", margin: "8px 0" }}>
-            <p className="form-message">{message}</p>
+          <div className="form-alert" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{message}</span>
             <button
               className="secondary-button compact"
-              onClick={() => {
-                setMessage(null);
-                void fetchPackages(accessToken);
-              }}
+              onClick={() => fetchPackages()}
               type="button"
+              style={{ marginLeft: '12px', padding: '4px 8px', fontSize: '12px' }}
             >
-              <RefreshCw aria-hidden="true" className="inline-icon" />
-              Yenile
+              <RefreshCw aria-hidden="true" className="inline-icon" style={{ marginRight: '4px', width: '12px', height: '12px' }} />
+              Tekrar Dene
             </button>
           </div>
         ) : null}
 
         {isLoading ? (
-          <div className="data-table-empty">Paketler yükleniyor...</div>
+          <div className="skeleton-list animate-pulse" style={{ padding: '20px 0' }}>
+            <div className="skeleton-row" style={{ height: '40px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+          </div>
         ) : packages.length > 0 ? (
           <div className="data-table" role="table" aria-label="Paket giderleri">
             <div
@@ -915,7 +919,7 @@ export function PackagePanel() {
               description={
                 hasActiveFilters
                   ? 'Bu filtrelerle eşleşen paket bulunamadı. Dönem veya durum filtresini temizleyerek tekrar deneyebilirsin.'
-                  : 'Operasyon paketi, üyelik veya kullanım bedellerini eklediğinde günlük pay ve başabaş etkisi burada görünür.'
+                  : 'Henüz paket kaydınız bulunmamaktadır. Operasyon paketi, haftalık üyelik veya platform kullanım bedellerini buraya ekleyerek günlük pay ve başabaş etkisini anlık takip edin.'
               }
               icon={hasActiveFilters ? FileSearch : Package}
               title={

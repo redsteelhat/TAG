@@ -900,23 +900,29 @@ export function FuelPanel() {
         </div>
 
         {message ? (
-          <div className="form-alert-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", margin: "8px 0" }}>
-            <p className="form-alert">{message}</p>
+          <div className="form-alert" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{message}</span>
             <button
               className="secondary-button compact"
-              onClick={() => {
-                setMessage(null);
-                void fetchFuelEntries(accessToken, page);
-              }}
+              onClick={() => fetchFuelEntries()}
               type="button"
+              style={{ marginLeft: '12px', padding: '4px 8px', fontSize: '12px' }}
             >
-              <RefreshCw aria-hidden="true" className="inline-icon" />
-              Yenile
+              <RefreshCw aria-hidden="true" className="inline-icon" style={{ marginRight: '4px', width: '12px', height: '12px' }} />
+              Tekrar Dene
             </button>
           </div>
         ) : null}
 
-        {fuelEntries.length > 0 ? (
+        {isLoading ? (
+          <div className="skeleton-list animate-pulse" style={{ padding: '20px 0' }}>
+            <div className="skeleton-row" style={{ height: '40px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+          </div>
+        ) : fuelEntries.length > 0 ? (
           <div className="data-table" role="table" aria-label="Yakıt kayıtları">
             <div
               className="data-table-row data-table-head fuel-table-row"
@@ -971,7 +977,7 @@ export function FuelPanel() {
               description={
                 hasActiveFilters
                   ? 'Bu filtrelerle eşleşen yakıt kaydı bulunamadı. Filtreleri temizleyerek tüm yakıt geçmişini görebilirsin.'
-                  : 'Litre, tutar, km sayacı ve istasyon bilgisi girdikçe yakıt maliyeti burada analiz edilir.'
+                  : 'Henüz yakıt kaydınız bulunmamaktadır. Litre fiyatı, alınan litre, km sayacı ve istasyon bilgilerini ekleyerek yakıt maliyetlerinin net kârınıza etkisini anlık takip edin.'
               }
               icon={hasActiveFilters ? FileSearch : Fuel}
               title={

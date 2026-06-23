@@ -455,19 +455,24 @@ export function ExpenseList() {
       return;
     }
 
-    const amountVal = toNumber(normalizeDecimal(quickExpenseForm.amount) ?? '');
-    if (amountVal <= 0) {
-      setFormMessage('Gider tutarı 0’dan büyük olmalı.');
+    if (!quickExpenseForm.categoryId) {
+      setFormMessage('Gider kategorisi seçmek zorunludur.');
+      return;
+    }
+
+    const amountVal = toNumber(quickExpenseForm.amount);
+    if (isNaN(amountVal) || amountVal <= 0) {
+      setFormMessage('Gider tutarı 0’dan büyük olmalıdır.');
+      return;
+    }
+
+    if (quickExpenseForm.odometerKm && toNumber(quickExpenseForm.odometerKm) < 0) {
+      setFormMessage('Km sayacı negatif olamaz.');
       return;
     }
 
     if (!quickExpenseForm.expenseDate) {
-      setFormMessage('Gider tarihi zorunlu.');
-      return;
-    }
-
-    if (quickExpenseForm.odometerKm && toNumber(normalizeDecimal(quickExpenseForm.odometerKm) ?? '') < 0) {
-      setFormMessage('Km sayacı negatif olamaz.');
+      setFormMessage('Gider tarihi zorunludur.');
       return;
     }
 
@@ -489,7 +494,7 @@ export function ExpenseList() {
       await fetchExpenses(accessToken, 1);
     } catch (error) {
       setFormMessage(
-        error instanceof Error ? error.message : 'Gider kaydedilemedi.'
+        error instanceof Error ? error.message : 'Gider kaydedilemedi. Lütfen tekrar deneyin.'
       );
     } finally {
       setIsSavingExpense(false);
@@ -960,23 +965,29 @@ export function ExpenseList() {
         </div>
 
         {message ? (
-          <div className="form-alert-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", margin: "8px 0" }}>
-            <p className="form-alert">{message}</p>
+          <div className="form-alert" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{message}</span>
             <button
               className="secondary-button compact"
-              onClick={() => {
-                setMessage(null);
-                void fetchExpenses(accessToken, page);
-              }}
+              onClick={() => fetchExpenses()}
               type="button"
+              style={{ marginLeft: '12px', padding: '4px 8px', fontSize: '12px' }}
             >
-              <RefreshCw aria-hidden="true" className="inline-icon" />
-              Yenile
+              <RefreshCw aria-hidden="true" className="inline-icon" style={{ marginRight: '4px', width: '12px', height: '12px' }} />
+              Tekrar Dene
             </button>
           </div>
         ) : null}
 
-        {expenses.length > 0 ? (
+        {isLoading ? (
+          <div className="skeleton-list animate-pulse" style={{ padding: '20px 0' }}>
+            <div className="skeleton-row" style={{ height: '40px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+          </div>
+        ) : expenses.length > 0 ? (
           <div className="data-table" role="table" aria-label="Giderler">
             <div
               className="data-table-row data-table-head expense-table-row"
@@ -1037,7 +1048,7 @@ export function ExpenseList() {
               description={
                 hasActiveFilters
                   ? 'Bu filtrelerle eşleşen gider bulunamadı. Filtreleri temizleyerek tüm gider kayıtlarını kontrol edebilirsin.'
-                  : 'Otopark, HGS, yikama, ceza ve diğer operasyon giderlerini eklediğinde maliyet dagilimi burada görünür.'
+                  : 'Henüz gider kaydınız bulunmamaktadır. Otopark, HGS, yıkama, ceza ve diğer operasyonel giderleri buraya ekleyerek net kâr dağılımınızı anlık takip edin.'
               }
               icon={hasActiveFilters ? FileSearch : Plus}
               title={

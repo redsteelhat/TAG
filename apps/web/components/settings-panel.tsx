@@ -458,6 +458,19 @@ export function SettingsPanel() {
       return;
     }
 
+    const targetProfit = normalizeDecimal(financeForm.dailyTargetNetProfit);
+    if (targetProfit) {
+      const parsed = Number(targetProfit);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        setMessage("Günlük net kâr hedefi negatif olamaz.");
+        setSaveStateByKey((currentState) => ({
+          ...currentState,
+          finance: "error",
+        }));
+        return;
+      }
+    }
+
     await runSave("finance", async () => {
       await patchJson<ApiResponse<DriverProfile>>(
         "/driver-profile",
@@ -682,13 +695,28 @@ export function SettingsPanel() {
         })}
       </section>
 
-      {message ? <p className="form-message">{message}</p> : null}
+      {message ? (
+        <p
+          className={
+            message.includes("başarıyla") ||
+            message.includes("kaydedildi") ||
+            message.includes("güncellendi") ||
+            message.includes("eklendi") ||
+            message.includes("pasifleştirildi")
+              ? "form-success"
+              : "form-alert"
+          }
+        >
+          {message}
+        </p>
+      ) : null}
 
       {isLoading ? (
-        <section className="panel settings-loading">
-          <Loader2 aria-hidden="true" className="spin-icon" />
-          Ayarlar yükleniyor.
-        </section>
+        <div className="skeleton-list animate-pulse" style={{ padding: "20px 0" }}>
+          <div className="skeleton-row" style={{ height: "40px", marginBottom: "8px" }} />
+          <div className="skeleton-row" style={{ height: "48px", marginBottom: "8px" }} />
+          <div className="skeleton-row" style={{ height: "48px", marginBottom: "8px" }} />
+        </div>
       ) : null}
 
       {!isLoading && activeTab === "profile" ? (

@@ -17,6 +17,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { deleteJson, getJson, patchJson, postJson } from "../lib/api-client";
 import { getAccessToken } from "../lib/auth-storage";
+import { EmptyState } from "./empty-state";
 
 type FuelType = "DIESEL" | "GASOLINE" | "LPG" | "HYBRID" | "ELECTRIC" | "OTHER";
 type DepreciationModel = "MONTHLY" | "PER_KM";
@@ -393,34 +394,32 @@ export function VehicleManagementPanel() {
           </div>
 
           {message ? (
-            <div className="form-alert-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", margin: "8px 0" }}>
-              <p className="form-message">{message}</p>
-              <button
-                className="secondary-button compact"
-                onClick={() => {
-                  setMessage(null);
-                  void fetchVehicles();
-                }}
-                type="button"
-              >
-                <RefreshCw aria-hidden="true" className="inline-icon" />
-                Yenile
-              </button>
-            </div>
+            <p
+              className={
+                message.includes('kaydedildi') || message.includes('silindi') || message.includes('başarıyla') || message.includes('aktif')
+                  ? 'form-success'
+                  : 'form-alert'
+              }
+              style={{ marginBottom: '16px' }}
+            >
+              {message}
+            </p>
           ) : null}
 
           {isLoading ? (
-            <div className="data-table-empty">Araçlar yükleniyor.</div>
+            <div className="skeleton-list animate-pulse" style={{ padding: '20px 0' }}>
+              <div className="skeleton-row" style={{ height: '40px', marginBottom: '8px' }} />
+              <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+              <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            </div>
           ) : vehicles.length === 0 ? (
             <div className="empty-state-panel compact">
-              <div>
-                <p className="eyebrow">Araç yok</p>
-                <h2>İlk aracını ekle.</h2>
-                <p>
-                  Yakıt tipi, ortalama tüketim ve km sayacı kâr motorunun temel
-                  varsayımlarını oluşturur.
-                </p>
-              </div>
+              <EmptyState
+                description="Henüz kayıtlı bir aracınız bulunmamaktadır. Yakıt tipi, ortalama tüketim ve km sayacı kâr motorunun temel varsayımlarını oluşturur. İlk aracınızı ekleyerek kâr analizinizi başlatın."
+                icon={Car}
+                title="Henüz araç kaydı yok."
+                tips={["Plaka ve yakıt tipini girin", "Ortalama tüketimi (L/100km) ekleyin", "Km sayacını girin"]}
+              />
             </div>
           ) : (
             <div className="data-table" role="table" aria-label="Araçlar">

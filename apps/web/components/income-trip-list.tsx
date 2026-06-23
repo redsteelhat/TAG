@@ -919,23 +919,29 @@ export function IncomeTripList() {
         </div>
 
         {message ? (
-          <div className="form-alert-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", margin: "8px 0" }}>
-            <p className="form-alert">{message}</p>
+          <div className="form-alert" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{message}</span>
             <button
               className="secondary-button compact"
-              onClick={() => {
-                setMessage(null);
-                void fetchTrips(accessToken, page);
-              }}
+              onClick={() => fetchTrips()}
               type="button"
+              style={{ marginLeft: '12px', padding: '4px 8px', fontSize: '12px' }}
             >
-              <RefreshCw aria-hidden="true" className="inline-icon" />
-              Yenile
+              <RefreshCw aria-hidden="true" className="inline-icon" style={{ marginRight: '4px', width: '12px', height: '12px' }} />
+              Tekrar Dene
             </button>
           </div>
         ) : null}
 
-        {trips.length > 0 ? (
+        {isLoading ? (
+          <div className="skeleton-list animate-pulse" style={{ padding: '20px 0' }}>
+            <div className="skeleton-row" style={{ height: '40px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+            <div className="skeleton-row" style={{ height: '48px', marginBottom: '8px' }} />
+          </div>
+        ) : trips.length > 0 ? (
           <div className="data-table" role="table" aria-label="Gelir seferleri">
             <div className="data-table-row data-table-head" role="row">
               <span>Tarih</span>
@@ -999,7 +1005,7 @@ export function IncomeTripList() {
               description={
                 hasActiveFilters
                   ? 'Bu filtrelerle eşleşen sefer bulunamadı. Filtreleri temizleyerek tüm gelir kayıtlarını tekrar görebilirsin.'
-                  : 'İlk seferini eklediğinde brüt gelir, km, yakıt etkisi ve net kâr bu listede görünür.'
+                  : 'Henüz sefer kaydınız bulunmamaktadır. Seferlerinizi buraya ekleyerek net kâr, yakıt tüketimi ve km başı kâr analizlerini anlık takip edin.'
               }
               icon={hasActiveFilters ? FileSearch : Plus}
               title={
@@ -1203,6 +1209,7 @@ function validateTripForm(form: TripFormState): TripFormValidationResult {
   }
 
   const nonNegativeFields: Array<[keyof TripFormState, string]> = [
+    ['grossIncome', 'Brüt gelir negatif olamaz.'],
     ['tipAmount', 'Bahşiş negatif olamaz.'],
     ['cancellationIncome', 'İptal geliri negatif olamaz.'],
     ['tripKm', 'Sefer km negatif olamaz.'],
@@ -1217,8 +1224,8 @@ function validateTripForm(form: TripFormState): TripFormValidationResult {
     }
   }
 
-  if (!form.grossIncome || Number(normalizeDecimal(form.grossIncome) ?? 0) <= 0) {
-    return { message: 'Brüt gelir 0’dan büyük olmalı.' };
+  if (!form.grossIncome) {
+    return { message: 'Brüt gelir zorunlu.' };
   }
 
   const startedAt = combineDateAndTime(form.tripDate, form.startedAt);

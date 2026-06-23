@@ -802,7 +802,20 @@ function DefinitionsTab({
             </button>
           </div>
 
-          {formMessage ? <p className="form-message">{formMessage}</p> : null}
+          {formMessage ? (
+            <p
+              className={
+                formMessage.includes("başarıyla") ||
+                formMessage.includes("eklendi") ||
+                formMessage.includes("güncellendi") ||
+                formMessage.includes("silindi")
+                  ? "form-success"
+                  : "form-alert"
+              }
+            >
+              {formMessage}
+            </p>
+          ) : null}
         </form>
       ) : null}
 
@@ -816,7 +829,18 @@ function DefinitionsTab({
         </div>
 
         {formMessage && !isFormOpen ? (
-          <p className="form-message">{formMessage}</p>
+          <p
+            className={
+              formMessage.includes("başarıyla") ||
+              formMessage.includes("eklendi") ||
+              formMessage.includes("güncellendi") ||
+              formMessage.includes("silindi")
+                ? "form-success"
+                : "form-alert"
+            }
+          >
+            {formMessage}
+          </p>
         ) : null}
 
         {definitions.length === 0 ? (
@@ -1053,10 +1077,45 @@ function HistoryTab({
         </div>
       </form>
 
-      {message ? <p className="form-message">{message}</p> : null}
+      {message ? (
+        <div
+          className={
+            message.includes("başarıyla") ||
+            message.includes("okundu") ||
+            message.includes("yapıldı")
+              ? "form-success"
+              : "form-alert"
+          }
+          style={{
+            alignItems: "center",
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: "16px",
+          }}
+        >
+          <span>{message}</span>
+          <button
+            className="secondary-button compact"
+            onClick={onRefresh}
+            type="button"
+            style={{ fontSize: "12px", marginLeft: "12px", padding: "4px 8px" }}
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className="inline-icon"
+              style={{ height: "12px", marginRight: "4px", width: "12px" }}
+            />
+            Tekrar Dene
+          </button>
+        </div>
+      ) : null}
 
       {isLoading ? (
-        <div className="data-table-empty">Bildirim geçmişi yükleniyor.</div>
+        <div className="skeleton-list animate-pulse" style={{ padding: "20px 0" }}>
+          <div className="skeleton-row" style={{ height: "40px", marginBottom: "8px" }} />
+          <div className="skeleton-row" style={{ height: "48px", marginBottom: "8px" }} />
+          <div className="skeleton-row" style={{ height: "48px", marginBottom: "8px" }} />
+        </div>
       ) : items.length === 0 ? (
         <div className="empty-state-panel compact">
           <EmptyState
@@ -1238,6 +1297,15 @@ function validateReminderForm(form: ReminderForm) {
 
   if (!form.scheduledDate && !form.kmThreshold.trim()) {
     return "Tarih veya km eşiğinden en az biri zorunlu.";
+  }
+
+  if (form.scheduledDate) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const scheduled = new Date(form.scheduledDate);
+    if (scheduled < today) {
+      return "Hatırlatıcı tarihi geçmiş bir tarih olamaz.";
+    }
   }
 
   if (form.kmThreshold && Number(form.kmThreshold) < 0) {
